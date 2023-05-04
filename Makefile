@@ -1,5 +1,5 @@
 CXX = c++
-CXXFLAGS = -Wall -Wextra -std=c++98 -Iinclude
+CXXFLAGS = -Wall -Wextra -std=c++11 -Iinclude
 
 ifdef pedantic
 	CXXFLAGS += -pedantic
@@ -27,8 +27,8 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc
 	$(CXX) -o $@ $< $(CXXFLAGS) -c -MMD
 
 clean:
-	rm -f $(OBJ_FILES)
-	rm -f $(DEP_FILES)
+	rm -f $(OBJ_DIR)
+	rm -f $(DEP_DIR)
 
 fclean: clean
 	rm -f $(NAME)
