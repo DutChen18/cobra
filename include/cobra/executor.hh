@@ -25,13 +25,16 @@ namespace cobra {
 		std::queue<std::function<void()>> funcs;
 		std::vector<std::thread> threads;
 		std::mutex mutex;
-		std::condition_variable condition_variable;
+		std::condition_variable push_cv;
+		std::condition_variable pop_cv;
 		bool stopped;
+		std::size_t count;
 	public:
 		thread_pool_executor(std::size_t size);
 		~thread_pool_executor();
 
 		void exec(std::function<void()> func) override;
+		void wait();
 	};
 }
 

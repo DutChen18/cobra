@@ -10,6 +10,7 @@ namespace cobra {
 
 	thread_pool_executor::thread_pool_executor(std::size_t size) {
 		stopped = false;
+		count = 0;
 
 		for (std::size_t i = 0; i < size; i++) {
 			threads.push_back(std::thread([this]() {
@@ -23,11 +24,13 @@ namespace cobra {
 						guard.unlock();
 						func();
 						guard.lock();
+						count -= 1;
+						pop_cv.notify_all();
 
 						continue;
 					}
 					
-					condition_variable.wait(guard);
+					push_cv.wait(guard);
 				}
 			}));
 		}
@@ -38,7 +41,7 @@ namespace cobra {
 			std::unique_lock<std::mutex> guard(mutex);
 
 			stopped = true;
-			condition_variable.notify_all();
+			push_cv.notify_all();
 		}
 
 		for (std::thread& thread : threads) {
@@ -50,5 +53,15 @@ namespace cobra {
 		std::unique_lock<std::mutex> guard(mutex);
 
 		funcs.push(func);
+		count += 1;
+		push_cv.notify_one();
+	}
+
+	void thread_pool_executor::wait() {
+		std::unique_lock<std::mutex> guard(mutex);
+		
+		while (count > 0) {
+			pop_cv.wait(guard);
+		}
 	}
 }

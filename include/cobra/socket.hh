@@ -1,7 +1,9 @@
 #ifndef COBRA_SOCKET_HH
 #define COBRA_SOCKET_HH
 
+#include <cstddef>
 #include <functional>
+#include <iterator>
 #include "cobra/future.hh"
 
 extern "C" {
@@ -18,44 +20,24 @@ namespace cobra {
 			addrinfo *ptr;
 
 		public:
-			addr_info_iterator() {
-				ptr = nullptr;
-			}
+			using iterator_category = std::forward_iterator_tag;
+			using value_type = addrinfo;
+			using difference_type = std::ptrdiff_t;
+			using pointer = addrinfo*;
+			using refrence = addrinfo&;
 
-			addr_info_iterator(addrinfo* ptr) {
-				this->ptr = ptr;
-			}
+			addr_info_iterator();
+			addr_info_iterator(addrinfo* ptr);
+			addr_info_iterator(const addr_info_iterator& other);
 
-			addr_info_iterator(const addr_info_iterator& other) {
-				ptr = other.ptr;
-			}
+			addr_info_iterator& operator++();
+			addr_info_iterator operator++(int);
 
-			addr_info_iterator& operator++() {
-				ptr = ptr->ai_next;
-				return *this;
-			}
+			bool operator==(const addr_info_iterator &other) const;
+			bool operator!=(const addr_info_iterator &other) const;
 
-			addr_info_iterator operator++(int) {
-				addr_info_iterator old = *this;
-				ptr = ptr->ai_next;
-				return old;
-			}
-
-			bool operator==(const addr_info_iterator &other) const {
-				return ptr == other.ptr;
-			}
-
-			bool operator!=(const addr_info_iterator &other) const {
-				return !(*this == other);
-			}
-
-			const addrinfo& operator*() const {
-				return *ptr;
-			}
-
-			const addrinfo* operator->() const {
-				return ptr;
-			}
+			const addrinfo& operator*() const;
+			const addrinfo* operator->() const;
 		};
 
 		using value_type = addr_info;
@@ -76,8 +58,11 @@ namespace cobra {
 	class socket {
 		int socket_fd = -1;
 
+		sockaddr_storage addr;
+		socklen_t addrlen;
+
 	protected:
-		socket(int fd);
+		socket(int fd, sockaddr_storage addr, socklen_t addrlen);
 		socket(const std::string& host, const std::string& service);
 		socket(socket&& other) noexcept;
 		virtual ~socket();
@@ -90,15 +75,12 @@ namespace cobra {
 	};
 
 	class iosocket : public socket {
-		sockaddr addr;
-		socklen_t addrlen;
-
 	public:
-		iosocket(int fd, sockaddr addr, socklen_t addrlen);
+		iosocket(int fd, sockaddr_storage addr, socklen_t addrlen);
 		iosocket(iosocket&& other) noexcept;
 
 		iosocket& operator=(iosocket&& other) noexcept;
-		future<std::size_t> read(void* dst, std::size_t count);
+		future<std::size_t> read_some(void* dst, std::size_t count);
 		future<std::size_t> write(const void* data, std::size_t count);
 	};
 
@@ -106,7 +88,7 @@ namespace cobra {
 		using callback_type = std::function<future<>(iosocket&&)>;
 		const callback_type callback;
 
-		int listen_fd;
+		int listen_fd = -1;
 
 	public:
 		server(const std::string& host, const std::string& service, callback_type callback, int backlog = 5);

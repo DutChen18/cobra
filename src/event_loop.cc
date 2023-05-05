@@ -1,8 +1,8 @@
 #include "cobra/event_loop.hh"
+#include "cobra/exception.hh"
 
 #include <functional>
 #include <ios>
-#include <system_error>
 #include <stdexcept>
 #include <iostream>
 #include <cerrno>
@@ -30,9 +30,8 @@ namespace cobra {
 	epoll_event_loop::epoll_event_loop() {
 		epoll_fd = epoll_create(1);
 
-		if (epoll_fd == -1) {
-			throw std::system_error(std::make_error_code(static_cast<std::errc>(errno)));
-		}
+		if (epoll_fd == -1)
+			throw errno_exception();
 	}
 
 	epoll_event_loop::~epoll_event_loop() {
@@ -50,11 +49,11 @@ namespace cobra {
 			for (auto&& event : events) {
 				optional<callback_type> callback = get_callback(event);
 
+				remove_callback(event);
+
 				if (callback) {
 					(*callback)();
 				}
-
-				remove_callback(event);
 			}
 		}
 	}
@@ -67,9 +66,8 @@ namespace cobra {
 			int rc = epoll_wait(epoll_fd, events.data(), count, -1);
 
 			if (rc == -1) {
-				if (errno != EINTR) {
-					throw std::system_error(std::make_error_code(static_cast<std::errc>(errno)));
-				}
+				if (errno != EINTR)
+					throw errno_exception();
 			} else {
 				ready_count = rc;
 				break;
@@ -128,10 +126,16 @@ namespace cobra {
 	}
 
 	bool epoll_event_loop::remove_callback(event_type event) {
+		int rc = epoll_ctl(epoll_fd, EPOLL_CTL_DEL, event.first, nullptr);
+
 		callback_map& map = get_map(event.second);
 
 		std::lock_guard<std::mutex> guard(mtx);
-		return map.erase(event.first) == 1;
+
+		bool existed = map.erase(event.first) == 1;
+		if (rc == -1)
+			throw errno_exception();
+		return existed;
 	}
 
 	void epoll_event_loop::on_ready(int fd, listen_type type, callback_type callback) {
@@ -147,9 +151,7 @@ namespace cobra {
 		}
 
 		int rc = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event);
-		if (rc == -1) {
-			callbacks.erase(fd);
-			throw std::system_error(std::make_error_code(static_cast<std::errc>(errno)));
-		}
+		if (rc == -1)
+			throw errno_exception();
 	}
 }
