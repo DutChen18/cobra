@@ -1,96 +1,155 @@
 #include "cobra/event_loop.hh"
-#include <algorithm>
-#include <exception>
-#include <initializer_list>
-#include <memory>
-#include <utility>
-#include <iostream>
+
+#include <functional>
+#include <ios>
+#include <system_error>
 #include <stdexcept>
+#include <iostream>
+#include <cerrno>
+#include <cstring>
+
+extern "C" {
+#include <sys/epoll.h>
+#include <unistd.h>
+}
 
 namespace cobra {
 
-	namespace detail {
+	event_loop::event_loop(event_loop&&) noexcept {}
+	event_loop::~event_loop() {}
+	//event_loop& event_loop::operator=(event_loop&&) noexcept { return *this; }
 
-		task_scheduler::task_scheduler(std::initializer_list<std::shared_ptr<task>>) {}
-		task_scheduler::task_scheduler(task_scheduler&&) noexcept { }
-		task_scheduler::~task_scheduler() {}
+	void event_loop::on_read_ready(int fd, callback_type callback) {
+		on_ready(fd, listen_type::read, callback);
 	}
 
-	void event_loop::deschedule(const task* t) {
-		if (t == nullptr)
-			return;
-		tasks.erase(t);
-		fd_poller->remove(t->target());
-		dependencies.erase(t);
-		deschedule(t->target().get_task());
+	void event_loop::on_write_ready(int fd, callback_type callback) {
+		on_ready(fd, listen_type::write, callback);
 	}
 
-	void event_loop::schedule(const task* t) {
-		tasks.insert(t);
-		fd_poller->add(t->target(), t);
+	epoll_event_loop::epoll_event_loop() {
+		epoll_fd = epoll_create(1);
 
-		if (t->target().get_task() != nullptr)
-			dependencies[t->target().get_task()] = t;
-	}
-
-	bool event_loop::poll(std::shared_ptr<task> t) {
-		const poll_target before = t->target();
-
-		try {
-			t->poll();
-		} catch (const std::exception &ex) {
-			t->set_exception(ex);
-		} catch (...) {
-			t->set_exception(std::runtime_error("An unknown exception was thrown in poll"));
+		if (epoll_fd == -1) {
+			throw std::system_error(std::make_error_code(static_cast<std::errc>(errno)));
 		}
+	}
 
-		switch (t->get_state()) {
-		case task_state::error:
-			std::cerr << "An exception occurred while executing a task" << std::endl;
-			std::cerr << t->get_exception() << std::endl;
-		case task_state::done:
-			deschedule(t);
-			//fd_poller->remove(t->target());
-			return true;
-		case task_state::wait:
-			const poll_target after = t->target();
+	epoll_event_loop::~epoll_event_loop() {
+		int rc = close(epoll_fd);
+		if (rc == -1) {
+			std::cerr << "Failed to properly close epoll_fd " << epoll_fd << ": "
+				<< std::strerror(errno) << std::endl;
+		}
+	}
 
-			if (before.get_fd() != after.get_fd()) {
-				fd_poller->remove(before);
-				fd_poller->add(after);
-			} else if (before.get_type() != after.get_type()) {
-				fd_poller->mod(after.get_fd(), after.get_type());
-			} else if (before.get_task() != after.get_task()) {
-				deschedule(before.get_task());
-				schedule(after.get_task());
-				dependencies[after.get_task()] = t;
+	void epoll_event_loop::run() {
+		while (!done()) {
+			std::vector<std::pair<int, listen_type>> events = poll(1);
+
+			for (auto&& event : events) {
+				optional<callback_type> callback = get_callback(event);
+
+				if (callback) {
+					(*callback)();
+				}
+
+				remove_callback(event);
 			}
-
-			return false;
 		}
 	}
 
-	bool event_loop::poll() {
-		std::vector<std::shared_ptr<task>> queue;
+	std::vector<epoll_event_loop::event_type> epoll_event_loop::poll(std::size_t count) {
+		std::vector<epoll_event> events(count);
+		int ready_count = 0;
 
-		const std::vector<std::pair<poll_target, std::shared_ptr<task>>>& fd_tasks = fd_poller->poll();
-		//TODO poll all
+		while (true) {
+			int rc = epoll_wait(epoll_fd, events.data(), count, -1);
 
-		for (const auto& fd_task : fd_tasks) {
-			if (poll(fd_task.second)) {
-				auto next = dependencies.find(fd_task.second.get());
-				if (next != dependencies.end())
-					queue.push_back(next->second);
+			if (rc == -1) {
+				if (errno != EINTR) {
+					throw std::system_error(std::make_error_code(static_cast<std::errc>(errno)));
+				}
+			} else {
+				ready_count = rc;
+				break;
 			}
 		}
 
-		for (std::size_t idx = 0; idx < queue.size(); ++idx) {
-			if (poll(queue[idx])) {
-				auto next = dependencies.find(queue[idx].get());
-				if (next != dependencies.end())
-					queue.push_back(next->second);
-			}
+		std::vector<event_type> result;
+		result.reserve(ready_count);
+
+		for (int idx = 0; idx < ready_count; ++idx) {
+			const epoll_event& event = events[idx];
+			result.push_back(std::make_pair(event.data.fd, get_type(event.events)));
 		}
-		return tasks.empty();
+		return result;
+	}
+
+	bool epoll_event_loop::done() const {
+		return read_callbacks.empty() && write_callbacks.empty();
+	}
+
+	int epoll_event_loop::get_events(listen_type type) const {
+		switch (type) {
+		case listen_type::write:
+			return EPOLLOUT;
+		case listen_type::read:
+			return EPOLLIN;
+		}
+		std::terminate();
+	}
+
+	epoll_event_loop::listen_type epoll_event_loop::get_type(int event) const {
+		if (event == EPOLLIN) {
+			return listen_type::read;
+		} else if (event == EPOLLOUT) {
+			return listen_type::write;
+		}
+		throw std::domain_error("Invalid event");
+	}
+
+	epoll_event_loop::callback_map& epoll_event_loop::get_map(listen_type type) {
+		if (type == listen_type::read)
+			return read_callbacks;
+		return write_callbacks;
+	}
+
+	optional<epoll_event_loop::callback_type> epoll_event_loop::get_callback(std::pair<int, listen_type> event) {
+		using return_type = optional<callback_type>;
+		callback_map& map = get_map(event.second);
+
+		std::lock_guard<std::mutex> guard(mtx);
+		auto it = map.find(event.first);
+
+		if (it == map.end())
+			return return_type();
+		return optional<callback_type>(it->second);
+	}
+
+	bool epoll_event_loop::remove_callback(event_type event) {
+		callback_map& map = get_map(event.second);
+
+		std::lock_guard<std::mutex> guard(mtx);
+		return map.erase(event.first) == 1;
+	}
+
+	void epoll_event_loop::on_ready(int fd, listen_type type, callback_type callback) {
+		epoll_event event;
+		event.events = get_events(type);
+		event.data.fd = fd;
+
+		std::lock_guard<std::mutex> guard(mtx);
+
+		callback_map& callbacks = get_map(type);
+		if (!callbacks.insert(std::make_pair(fd, callback)).second) {
+			throw std::invalid_argument("A callback for this operation was already registered for this fd");
+		}
+
+		int rc = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event);
+		if (rc == -1) {
+			callbacks.erase(fd);
+			throw std::system_error(std::make_error_code(static_cast<std::errc>(errno)));
+		}
 	}
 }

@@ -1,25 +1,41 @@
-std::shared_ptr<task> get_task() {
-	cobra::future<int> fut;
+#include "cobra/event_loop.hh"
+#include "cobra/executor.hh"
+#include "cobra/future.hh"
+#include "cobra/socket.hh"
 
-	return fut.then([](int a) {
-		std::cout << a;
-	}).then([]() {
-		
+#include <iostream>
+#include <thread>
+#include <chrono>
+
+/*
+cobra::future<> sleep(float time) {
+	return cobra::future<>([time](const cobra::context<>& ctx) {
+		std::this_thread::sleep_for(std::chrono::duration<float>(time));
+		ctx.resolve();
 	});
 }
 
 int main() {
-	std::shared_ptr<task> t = get_task();
+	cobra::thread_pool_executor exec(10);
+	
+	cobra::all_flat(
+		sleep(1),
+		sleep(1)
+	).start(cobra::context<>(&exec, nullptr, []() {}));
+}*/
 
-	t->wait_task() == fut;
-	t2->wait_task() == fut;
-	t->poll_task() == fut;
+cobra::future<> on_connect(cobra::iosocket&&) {
+	std::cout << "connection" << std::endl;
+	return cobra::future<>();
+}
 
-	t->prev_task()->get_state() == done -> t->poll();
-	t->prev_task()->prev_task()->get_state() == done -> t->prev_task()->poll();
+int main() {
+	cobra::server srv("localhost", "25565", on_connect);
+	cobra::epoll_event_loop loop;
 
-	cobra::event_loop loop;
-
-	loop.schedule(t);
+	cobra::sequential_executor exec;
+	cobra::all_flat(
+		srv.start()
+	).start(cobra::context<>(&exec, &loop, []() {}));
 	loop.run();
 }

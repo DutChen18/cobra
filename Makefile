@@ -1,5 +1,7 @@
-CXX = c++
-CXXFLAGS = -Wall -Wextra -std=c++11 -Iinclude
+CXX = clang++
+CXXFLAGS = -Wall -Wextra -std=c++11 -Iinclude -fsanitize=address,undefined -g3
+
+LDFLAGS = -fsanitize=address,undefined
 
 ifdef pedantic
 	CXXFLAGS += -pedantic
@@ -20,15 +22,15 @@ NAME = webserv
 all: $(NAME)
 
 $(NAME): $(OBJ_FILES)
-	$(CXX) -o $@ $^ $(LDFLAGS)
+	$(CXX) -o $@ $^ $(LDFLAGS) 
 
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc Makefile
 	mkdir -p $(@D)
 	$(CXX) -o $@ $< $(CXXFLAGS) -c -MMD
 
 clean:
-	rm -f $(OBJ_DIR)
-	rm -f $(DEP_DIR)
+	rm -rf $(OBJ_DIR)
+	rm -rf $(DEP_DIR)
 
 fclean: clean
 	rm -f $(NAME)
