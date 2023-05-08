@@ -36,7 +36,6 @@ int main() {
 }
 */
 
-/*
 cobra::future<int> fib(int i) {
 	if (i < 2) {
 		return 1;
@@ -49,16 +48,15 @@ cobra::future<int> fib(int i) {
 		});
 	}
 }
-*/
 
 int main() {
 	cobra::runner run;
 	cobra::sequential_executor exec(run);
-	cobra::context<int> ctx(&exec, nullptr);
 
 	for (int i = 0; i < 20; i++) {
-		int a = 1;
-		cobra::future<int>(a).start(std::move(ctx));
+		cobra::context<int> ctx(&exec, nullptr);
+
+		fib(10).run(std::move(ctx));
 		run.run(&exec, nullptr);
 	}
 }

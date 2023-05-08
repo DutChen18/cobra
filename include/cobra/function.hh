@@ -11,7 +11,7 @@ namespace cobra {
 	private:
 		class base {
 		public:
-			virtual ~base();
+			virtual ~base() {}
 			virtual Return apply(Args...) = 0;
 			//virtual Return apply(Args...) const = 0;
 		};
@@ -63,7 +63,7 @@ namespace cobra {
 		}
 
 		bool empty() const {
-			return inner.get() != nullptr;
+			return inner.get() == nullptr;
 		}
 	};
 

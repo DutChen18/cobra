@@ -9,6 +9,9 @@
 #include <functional>
 #include <atomic>
 
+
+#include <iostream>
+
 namespace cobra {
 	template<class... T>
 	class context {
@@ -16,6 +19,14 @@ namespace cobra {
 		executor* exec;
 		event_loop *loop;
 		function<void, T...> func;
+
+		static void execute(executor* exec, function<void>&& func) {
+			if (exec == nullptr) {
+				func();
+			} else {
+				exec->exec(std::move(func));
+			}
+		}
 	public:
 		context(executor* exec, event_loop* loop, function<void, T...>&& func = {}) {
 			this->exec = exec;
@@ -39,26 +50,24 @@ namespace cobra {
 		}
 
 		void run(function<void>&& func) const {
-			if (exec != nullptr && !func.empty()) {
-				exec->exec(std::move(func));
+			if (!func.empty()) {
+				execute(exec, std::move(func));
 			}
 		}
 
 		void on_ready(int fd, listen_type type, function<void>&& func) const {
-			if (exec != nullptr && !func.empty()) {
+			if (!func.empty()) {
 				executor* exec = this->exec;
 
 				loop->on_ready(fd, type, capture([exec](function<void>& func) {
-					exec->exec(std::move(func));
+					execute(exec, std::move(func));
 				}, std::move(func)));
 			}
 		}
 
 		void resolve(T... args) {
-			if (exec != nullptr && !func.empty()) {
-				run(capture([args...](function<void, T...>& func) {
-					func(args...);
-				}, std::move(func)));
+			if (!func.empty()) {
+				execute(exec, std::bind(std::move(func), args...));
 			}
 		}
 
@@ -119,44 +128,45 @@ namespace cobra {
 		}
 
 		future<tuple_type> tie()&& {
-			return then<tuple_type>([](T&&... args) {
-				return future<tuple_type>(std::make_tuple(std::forward<T>(args)...));
+			return std::move(*this).template then<tuple_type>([](T... args) {
+				return future<tuple_type>(std::make_tuple(args...));
 			});
 		}
 	};
 
 	template<class... Future, std::size_t... I>
-	future<typename Future::tuple_type...> all_impl(index_sequence<I...>, Future... futs) {
+	future<typename Future::tuple_type...> all_impl(index_sequence<I...>, Future&&... futs) {
 		return future<typename Future::tuple_type...>(
-			[futs...](context<typename Future::tuple_type...> ctx) {
+			capture([](Future&... futs, context<typename Future::tuple_type...>&& ctx) {
 				std::shared_ptr<std::tuple<typename Future::tuple_type...>> result = std::make_shared<std::tuple<typename Future::tuple_type...>>();
 				std::shared_ptr<std::atomic_size_t> progress = std::make_shared<std::atomic_size_t>(0);
+				std::shared_ptr<context<typename Future::tuple_type...>> shared_ctx = std::make_shared<context<typename Future::tuple_type...>>(std::move(ctx));
 
-				std::make_tuple((futs.tie().run(
+				std::make_tuple((std::move(futs).tie().run(
 					ctx.template detach<typename Future::tuple_type>(
-						[ctx, result, progress](typename Future::tuple_type arg) {
+						[shared_ctx, result, progress](typename Future::tuple_type arg) {
 							std::get<I>(*result) = arg;
 
 							if (++*progress == sizeof...(Future)) {
-								ctx.resolve(std::get<I>(*result)...);
+								shared_ctx->resolve(std::get<I>(*result)...);
 							}
 						}
 					)
 				), 0)...);
-			}
+			}, std::move(futs)...)
 		);
 	}
 
 	template<class... Future>
-	future<typename Future::tuple_type...> all(Future... futs) {
-		return all_impl(typename make_index_sequence<sizeof...(Future)>::type(), futs...);
+	future<typename Future::tuple_type...> all(Future&&... futs) {
+		return all_impl(typename make_index_sequence<sizeof...(Future)>::type(), std::move(futs)...);
 	}
 
 	template<class... Future, std::size_t... I>
-	typename rename_tuple<decltype(std::tuple_cat(std::declval<typename Future::tuple_type>()...))>::template type<future> all_flat_impl(index_sequence<I...>, Future... futs) {
+	typename rename_tuple<decltype(std::tuple_cat(std::declval<typename Future::tuple_type>()...))>::template type<future> all_flat_impl(index_sequence<I...>, Future&&... futs) {
 		using tuple_type = decltype(std::tuple_cat(std::declval<typename Future::tuple_type>()...));
 
-		return all(futs...).template then<typename std::tuple_element<I, tuple_type>::type...>(
+		return all(std::move(futs)...).template then<typename std::tuple_element<I, tuple_type>::type...>(
 			[](typename Future::tuple_type... args) {
 				tuple_type result = std::tuple_cat(args...);
 
@@ -168,10 +178,10 @@ namespace cobra {
 	}
 
 	template<class... Future>
-	typename rename_tuple<decltype(std::tuple_cat(std::declval<typename Future::tuple_type>()...))>::template type<future> all_flat(Future... futs) {
+	typename rename_tuple<decltype(std::tuple_cat(std::declval<typename Future::tuple_type>()...))>::template type<future> all_flat(Future&&... futs) {
 		using tuple_type = decltype(std::tuple_cat(std::declval<typename Future::tuple_type>()...));
 
-		return all_flat_impl(typename make_index_sequence<std::tuple_size<tuple_type>::value>::type(), futs...);
+		return all_flat_impl(typename make_index_sequence<std::tuple_size<tuple_type>::value>::type(), std::move(futs)...);
 	}
 
 	inline future<> async_while(function<future<bool>>&& func) {
