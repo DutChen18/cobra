@@ -26,7 +26,7 @@ namespace cobra {
 
 		for (std::size_t i = 0; i < size; i++) {
 			threads.push_back(std::thread([this]() {
-				std::unique_lock<std::mutex> guard(mutex);
+				std::unique_lock<std::mutex> guard(this->run->get_mutex());
 
 				while (!stopped) {
 					if (!funcs.empty()) {
@@ -36,8 +36,6 @@ namespace cobra {
 						guard.unlock();
 						func();
 						guard.lock();
-
-						std::lock_guard<std::mutex> guard(this->run->get_mutex());
 
 						count -= 1;
 						this->run->get_condition_variable().notify_all();
@@ -53,7 +51,7 @@ namespace cobra {
 
 	thread_pool_executor::~thread_pool_executor() {
 		{
-			std::unique_lock<std::mutex> guard(mutex);
+			std::unique_lock<std::mutex> guard(this->run->get_mutex());
 
 			stopped = true;
 			condition_variable.notify_all();
@@ -65,7 +63,7 @@ namespace cobra {
 	}
 	
 	void thread_pool_executor::exec(function<void>&& func) {
-		std::unique_lock<std::mutex> guard(mutex);
+		std::unique_lock<std::mutex> guard(this->run->get_mutex());
 
 		funcs.push(std::move(func));
 		count += 1;

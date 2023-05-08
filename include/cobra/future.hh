@@ -7,6 +7,7 @@
 #include "cobra/function.hh"
 
 #include <atomic>
+#include <functional>
 
 // TODO: exception propagation
 
@@ -23,6 +24,13 @@ namespace cobra {
 				func();
 			} else {
 				exec->exec(std::move(func));
+			}
+		}
+
+		template<std::size_t... I>
+		void resolve(index_sequence<I...>, std::tuple<T...> args) const {
+			if (!func.empty()) {
+				func(std::get<I>(args)...);
 			}
 		}
 	public:
@@ -63,11 +71,12 @@ namespace cobra {
 			}
 		}
 
-		void resolve(T... args) {
-			if (!func.empty()) {
-				func(args...);
-				// execute(exec, std::bind(std::move(func), args...));
-			}
+		void resolve(std::tuple<T...> args) const {
+			resolve(typename make_index_sequence<sizeof...(T)>::type(), args);
+		}
+
+		void resolve(T... args) const {
+			resolve(std::make_tuple(args...));
 		}
 
 		template<class... U>
@@ -82,7 +91,8 @@ namespace cobra {
 
 	template<class... T>
 	class future {
-		function<void, context<T...>&&> func;
+	private:
+		function<void, context<T...>&> func;
 	public:
 		using tuple_type = std::tuple<T...>;
 
@@ -91,13 +101,13 @@ namespace cobra {
 		future(future&& other) : func(std::move(other.func)) {
 		}
 
-		future(T... args) {
-			this->func = [args...](context<T...>&& ctx) {
+		explicit future(T... args) {
+			this->func = [args...](context<T...>& ctx) {
 				ctx.resolve(args...);
 			};
 		}
 
-		future(function<void, context<T...>&&>&& func) : func(std::move(func)) {
+		future(function<void, context<T...>&>&& func) : func(std::move(func)) {
 		}
 
 		future& operator=(future other) {
@@ -106,29 +116,49 @@ namespace cobra {
 		}
 
 		void start(context<T...>&& ctx)&& {
-			func(std::move(ctx));
+			func(ctx);
 		}
 
 		void run(context<T...>&& ctx)&& {
-			ctx.run(capture([](future<T...>& self, context<T...>& ctx) {
-				std::move(self).start(std::move(ctx));
-			}, std::move(*this), std::move(ctx)));
+			ctx.run(std::bind(std::move(func), std::move(ctx)));
 		}
 
 		template<class... U>
 		future<U...> then(typename type_identity<function<future<U...>, T...>>::type&& func)&& {
 			using func_type = typename type_identity<function<future<U...>, T...>>::type;
 
-			return future<U...>(capture([](future<T...>& self, func_type& func, context<U...>&& ctx) {
+			return future<U...>(capture([](future<T...>& self, func_type& func, context<U...>& ctx) {
 				std::move(self).start(ctx.template detach<T...>(capture([](func_type& func, context<U...>& ctx, T... args) {
 					func(args...).start(std::move(ctx));
 				}, std::move(func), std::move(ctx))));
 			}, std::move(*this), std::move(func)));
 		}
+		
+		template<class... U>
+		future<U...> map_flat(typename type_identity<function<std::tuple<U...>, T...>>::type&& func)&& {
+			using func_type = typename type_identity<function<std::tuple<U...>, T...>>::type;
+
+			return future<U...>(capture([](future<T...>& self, func_type& func, context<U...>& ctx) {
+				std::move(self).start(ctx.template detach<T...>(capture([](func_type& func, context<U...>& ctx, T... args) {
+					ctx.resolve(func(args...));
+				}, std::move(func), std::move(ctx))));
+			}, std::move(*this), std::move(func)));
+		}
+
+		template<class U>
+		future<U> map(typename type_identity<function<U, T...>>::type&& func)&& {
+			using func_type = typename type_identity<function<U, T...>>::type;
+
+			return future<U>(capture([](future<T...>& self, func_type& func, context<U>& ctx) {
+				std::move(self).start(ctx.template detach<T...>(capture([](func_type& func, context<U>& ctx, T... args) {
+					ctx.resolve(func(args...));
+				}, std::move(func), std::move(ctx))));
+			}, std::move(*this), std::move(func)));
+		}
 
 		future<tuple_type> tie()&& {
-			return std::move(*this).template then<tuple_type>([](T... args) {
-				return future<tuple_type>(std::make_tuple(args...));
+			return std::move(*this).template map<tuple_type>([](T... args) {
+				return std::make_tuple(args...);
 			});
 		}
 	};
@@ -145,7 +175,7 @@ namespace cobra {
 		};
 
 		return future<typename Future::tuple_type...>(
-			capture([](Future&... futs, context<typename Future::tuple_type...>&& ctx) {
+			capture([](Future&... futs, context<typename Future::tuple_type...>& ctx) {
 				std::shared_ptr<all_state> state = std::make_shared<all_state>(std::move(ctx));
 
 				std::make_tuple((std::move(futs).tie().run(
@@ -172,13 +202,9 @@ namespace cobra {
 	typename rename_tuple<decltype(std::tuple_cat(std::declval<typename Future::tuple_type>()...))>::template type<future> all_flat_impl(index_sequence<I...>, Future&&... futs) {
 		using tuple_type = decltype(std::tuple_cat(std::declval<typename Future::tuple_type>()...));
 
-		return all(std::move(futs)...).template then<typename std::tuple_element<I, tuple_type>::type...>(
+		return all(std::move(futs)...).template map_flat<typename std::tuple_element<I, tuple_type>::type...>(
 			[](typename Future::tuple_type... args) {
-				tuple_type result = std::tuple_cat(args...);
-
-				return future<typename std::tuple_element<I, tuple_type>::type...>(std::get<I>(result)...);
-
-				(void) result;
+				return std::tuple_cat(args...);
 			}
 		);
 	}

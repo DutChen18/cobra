@@ -8,6 +8,7 @@
 #include <thread>
 #include <chrono>
 
+/*
 cobra::future<> on_connect(cobra::iosocket&& sock) {
 	std::vector<unsigned char> buffer(1024);
 	
@@ -30,16 +31,16 @@ int main() {
 	srv.start().run(std::move(ctx));
 	run.run(&exec, &loop);
 }
+*/
 
-/*
 cobra::future<int> fib(int i) {
 	if (i < 2) {
-		return 1;
+		return cobra::future<int>(1);
 	} else {
 		return cobra::all_flat(
 			fib(i - 1),
 			fib(i - 2)
-		).then<int>([](int j, int k) {
+		).map<int>([](int j, int k) {
 			return j + k;
 		});
 	}
@@ -47,13 +48,12 @@ cobra::future<int> fib(int i) {
 
 int main() {
 	cobra::runner run;
-	cobra::sequential_executor exec(run);
+	cobra::thread_pool_executor exec(run, 4);
 
-	for (int i = 0; i < 20; i++) {
+	for (int i = 0; i < 100; i++) {
 		cobra::context<int> ctx(&exec, nullptr);
 
 		fib(10).run(std::move(ctx));
 		run.run(&exec, nullptr);
 	}
 }
-*/

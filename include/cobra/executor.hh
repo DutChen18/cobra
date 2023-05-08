@@ -35,7 +35,6 @@ namespace cobra {
 	private:
 		std::queue<function<void>> funcs;
 		std::vector<std::thread> threads;
-		std::mutex mutex;
 		std::condition_variable condition_variable;
 		bool stopped;
 		std::size_t count;

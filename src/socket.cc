@@ -144,7 +144,7 @@ namespace cobra {
 	future<std::size_t> iosocket::read_some(void *dst, std::size_t count) {
 		int fd = get_socket_fd();
 
-		return future<std::size_t>([fd, dst, count](context<std::size_t>&& ctx) {
+		return future<std::size_t>([fd, dst, count](context<std::size_t>& ctx) {
 			ctx.on_ready(fd, listen_type::read, capture([fd, dst, count](context<std::size_t>& ctx) {
 				ssize_t nread = recv(fd, dst, count, 0);
 
@@ -158,10 +158,12 @@ namespace cobra {
 
 	future<std::size_t> iosocket::write(const void* data, std::size_t count) {
 		int fd = get_socket_fd();
+
+		// TODO: shared_ptr niet meer nodig
 		std::shared_ptr<std::size_t> progress = std::make_shared<std::size_t>(0);
 
 		return async_while([fd, progress, data, count]() {
-			return future<bool>([fd, progress, data, count](context<bool>&& ctx) {
+			return future<bool>([fd, progress, data, count](context<bool>& ctx) {
 				ctx.on_ready(fd, listen_type::write, capture([fd, progress, data, count](context<bool>& ctx) {
 					ssize_t nwritten = send(fd, (const char *) data + *progress, count - *progress, 0);
 
@@ -175,7 +177,7 @@ namespace cobra {
 						ctx.resolve(true);
 				}, std::move(ctx)));
 			});
-		}).then<std::size_t>([progress]() {
+		}).map<std::size_t>([progress]() {
 			return *progress;
 		});
 	}
@@ -202,7 +204,7 @@ namespace cobra {
 
 	future<> server::start() {
 		return async_while([this]() {
-			return future<bool>([this](context<bool>&& ctx) {
+			return future<bool>([this](context<bool>& ctx) {
 				ctx.on_ready(get_socket_fd(), listen_type::read, capture([this](context<bool>& ctx) {
 					sockaddr_storage addr;
 					socklen_t addrlen;
