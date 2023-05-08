@@ -1,14 +1,26 @@
 #include "cobra/executor.hh"
+#include "cobra/runner.hh"
 
 namespace cobra {
+	executor::executor(runner& run) {
+		this->run = &run;
+	}
+
 	executor::~executor() {
 	}
 
-	void sequential_executor::exec(std::function<void()> func) {
+	sequential_executor::sequential_executor(runner& run) : executor(run) {
+	}
+
+	void sequential_executor::exec(function<void>&& func) {
 		func();
 	}
 
-	thread_pool_executor::thread_pool_executor(std::size_t size) {
+	bool sequential_executor::done() const {
+		return true;
+	}
+
+	thread_pool_executor::thread_pool_executor(runner& run, std::size_t size) : executor(run) {
 		stopped = false;
 		count = 0;
 
@@ -18,19 +30,22 @@ namespace cobra {
 
 				while (!stopped) {
 					if (!funcs.empty()) {
-						std::function<void()> func = funcs.front();
+						function<void> func(std::move(funcs.front()));
 
 						funcs.pop();
 						guard.unlock();
 						func();
 						guard.lock();
+
+						std::lock_guard<std::mutex> guard(this->run->get_mutex());
+
 						count -= 1;
-						pop_cv.notify_all();
+						this->run->get_condition_variable().notify_all();
 
 						continue;
 					}
 					
-					push_cv.wait(guard);
+					condition_variable.wait(guard);
 				}
 			}));
 		}
@@ -41,7 +56,7 @@ namespace cobra {
 			std::unique_lock<std::mutex> guard(mutex);
 
 			stopped = true;
-			push_cv.notify_all();
+			condition_variable.notify_all();
 		}
 
 		for (std::thread& thread : threads) {
@@ -49,19 +64,15 @@ namespace cobra {
 		}
 	}
 	
-	void thread_pool_executor::exec(std::function<void()> func) {
+	void thread_pool_executor::exec(function<void>&& func) {
 		std::unique_lock<std::mutex> guard(mutex);
 
-		funcs.push(func);
+		funcs.push(std::move(func));
 		count += 1;
-		push_cv.notify_one();
+		condition_variable.notify_one();
 	}
 
-	void thread_pool_executor::wait() {
-		std::unique_lock<std::mutex> guard(mutex);
-		
-		while (count > 0) {
-			pop_cv.wait(guard);
-		}
+	bool thread_pool_executor::done() const {
+		return count == 0;
 	}
 }

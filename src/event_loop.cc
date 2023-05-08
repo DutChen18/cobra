@@ -3,6 +3,7 @@
 
 #include <functional>
 #include <ios>
+#include <mutex>
 #include <stdexcept>
 #include <iostream>
 #include <cerrno>
@@ -15,19 +16,20 @@ extern "C" {
 
 namespace cobra {
 
-	event_loop::event_loop(event_loop&&) noexcept {}
+	event_loop::event_loop(const runner& rnr) : rnr(rnr) {}
+	event_loop::event_loop(event_loop&& other) noexcept : rnr(std::move(other.rnr)) {}
 	event_loop::~event_loop() {}
 	//event_loop& event_loop::operator=(event_loop&&) noexcept { return *this; }
 
-	void event_loop::on_read_ready(int fd, callback_type callback) {
-		on_ready(fd, listen_type::read, callback);
+	void event_loop::lock() const {
+		get_runner().get_mutex().lock();
 	}
 
-	void event_loop::on_write_ready(int fd, callback_type callback) {
-		on_ready(fd, listen_type::write, callback);
+	void event_loop::unlock() const {
+		get_runner().get_mutex().unlock();
 	}
 
-	epoll_event_loop::epoll_event_loop() {
+	epoll_event_loop::epoll_event_loop(const runner& rnr) : event_loop(rnr) {
 		epoll_fd = epoll_create(1);
 
 		if (epoll_fd == -1)
@@ -42,18 +44,15 @@ namespace cobra {
 		}
 	}
 
-	void epoll_event_loop::run() {
-		while (!done()) {
-			std::vector<std::pair<int, listen_type>> events = poll(1);
+	void epoll_event_loop::poll() {
+		std::vector<std::pair<int, listen_type>> events = poll(1);
 
-			for (auto&& event : events) {
-				optional<callback_type> callback = get_callback(event);
+		for (auto&& event : events) {
+			optional<callback_type> callback = remove_callback(event);
 
-				remove_callback(event);
-
-				if (callback) {
-					(*callback)();
-				}
+			if (callback) {
+				std::cerr << "calling callback type " << (event.second == listen_type::read ? "read" : "write") << " on fd " << event.first << std::endl;
+				(*callback)();
 			}
 		}
 	}
@@ -98,7 +97,7 @@ namespace cobra {
 		std::terminate();
 	}
 
-	epoll_event_loop::listen_type epoll_event_loop::get_type(int event) const {
+	listen_type epoll_event_loop::get_type(int event) const {
 		if (event == EPOLLIN) {
 			return listen_type::read;
 		} else if (event == EPOLLOUT) {
@@ -113,45 +112,43 @@ namespace cobra {
 		return write_callbacks;
 	}
 
-	optional<epoll_event_loop::callback_type> epoll_event_loop::get_callback(std::pair<int, listen_type> event) {
-		using return_type = optional<callback_type>;
-		callback_map& map = get_map(event.second);
+	optional<epoll_event_loop::callback_type> epoll_event_loop::remove_callback(event_type event) {
+		std::lock_guard<const epoll_event_loop> guard(*this);
 
-		std::lock_guard<std::mutex> guard(mtx);
-		auto it = map.find(event.first);
-
-		if (it == map.end())
-			return return_type();
-		return optional<callback_type>(it->second);
-	}
-
-	bool epoll_event_loop::remove_callback(event_type event) {
 		int rc = epoll_ctl(epoll_fd, EPOLL_CTL_DEL, event.first, nullptr);
-
-		callback_map& map = get_map(event.second);
-
-		std::lock_guard<std::mutex> guard(mtx);
-
-		bool existed = map.erase(event.first) == 1;
 		if (rc == -1)
 			throw errno_exception();
-		return existed;
+
+		callback_map& map = get_map(event.second);
+
+		auto it = map.find(event.first);
+		if (it == map.end())
+			return optional<callback_type>();
+
+		optional<callback_type> result(std::move(it->second));
+		map.erase(it);
+		return result;
 	}
 
-	void epoll_event_loop::on_ready(int fd, listen_type type, callback_type callback) {
+	void epoll_event_loop::on_ready(int fd, listen_type type, callback_type&& callback) {
 		epoll_event event;
 		event.events = get_events(type);
 		event.data.fd = fd;
 
-		std::lock_guard<std::mutex> guard(mtx);
-
 		callback_map& callbacks = get_map(type);
-		if (!callbacks.insert(std::make_pair(fd, callback)).second) {
+
+		std::lock_guard<const epoll_event_loop> guard(*this);
+
+		if (!callbacks.emplace(std::make_pair(fd, std::move(callback))).second) {
 			throw std::invalid_argument("A callback for this operation was already registered for this fd");
 		}
 
 		int rc = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event);
-		if (rc == -1)
+		if (rc == -1) {
+			callbacks.erase(fd);
 			throw errno_exception();
+		}
+
+		get_runner().get_condition_variable().notify_all(); //TODO move this to on_read_ready etc. so it's on by default
 	}
 }

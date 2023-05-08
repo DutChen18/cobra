@@ -12,6 +12,19 @@ extern "C" {
 
 namespace cobra {
 
+	class istream_base {
+	public:
+		virtual future<char> get() = 0;
+		virtual char get_unsafe() = 0;
+		virtual future<char> peek() = 0;
+		virtual future<std::size_t> read_some(void* dst, std::size_t count) = 0;
+	};
+
+	class ostream_base {
+	public:
+		virtual future<std::size_t> write(const void* data, std::size_t count) = 0;
+	};
+
 	class addr_info {
 		addrinfo *internal = nullptr;
 
@@ -61,16 +74,19 @@ namespace cobra {
 		sockaddr_storage addr;
 		socklen_t addrlen;
 
+	public:
+		socket(socket&& other) noexcept;
+		socket& operator=(socket&& other) noexcept;
+
 	protected:
 		socket(int fd, sockaddr_storage addr, socklen_t addrlen);
 		socket(const std::string& host, const std::string& service);
-		socket(socket&& other) noexcept;
 		virtual ~socket();
 
-		socket& operator=(socket&& other) noexcept;
 		int get_socket_fd() const;
 
 	private:
+
 		void set_non_blocking(int fd);
 	};
 

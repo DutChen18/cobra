@@ -75,6 +75,10 @@ namespace cobra {
 			if (socket_fd == -1)
 				continue;
 
+			int yes = 1;
+			if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes) == -1)
+				throw errno_exception();
+
 			int rc = bind(socket_fd, x.ai_addr, x.ai_addrlen);
 			if (rc == 0) {
 				std::memcpy(&addr, x.ai_addr, x.ai_addrlen);
@@ -84,7 +88,7 @@ namespace cobra {
 
 			rc = close(socket_fd);
 			if (rc == 0) {
-				std::cerr << "Failed to properly close socket fd" << socket_fd << ": "
+				std::cerr << "Failed to properly close socket fd " << socket_fd << ": "
 					<< std::strerror(errno) << std::endl;
 			}
 		}
@@ -102,6 +106,8 @@ namespace cobra {
 	socket::~socket() {
 		if (socket_fd == -1)
 			return;
+
+		std::cout << "closing socket: " << socket_fd << std::endl;
 
 		//TODO write utility function for closing fds that does this
 		int rc = close(socket_fd);
@@ -131,47 +137,33 @@ namespace cobra {
 			throw errno_exception();
 	}
 
-	iosocket::iosocket(int fd, sockaddr_storage addr, socklen_t addrlen) : socket(fd) {}
+	iosocket::iosocket(int fd, sockaddr_storage addr, socklen_t addrlen) : socket(fd, addr, addrlen) {}
+
+	iosocket::iosocket(iosocket&& other) noexcept : socket(std::move(other)) {}
 	
-	iosocket::iosocket(iosocket&& other) noexcept : socket(std::move(other)) {
-		addr = other.addr;
-		addrlen = other.addrlen;
-
-		memset(&other.addr, 0, other.addrlen);
-		other.addrlen = 0;
-	}
-
-	iosocket& iosocket::operator=(iosocket&& other) noexcept {
-		if (this != &other) {
-			socket::operator=(std::move(other));
-
-			addr = other.addr;
-			addrlen = other.addrlen;
-
-			memset(&other.addr, 0, other.addrlen);
-			other.addrlen = 0;
-		}
-		return *this;
-	}
-
 	future<std::size_t> iosocket::read_some(void *dst, std::size_t count) {
-		return future<std::size_t>([this, dst, count](context<std::size_t> ctx) {
-			ctx.get_loop().on_read_ready(get_socket_fd(), [this, dst, count, ctx]() {
-				ssize_t nread = recv(get_socket_fd(), dst, count, 0);
+		int fd = get_socket_fd();
 
-				if (nread == -1)
+		return future<std::size_t>([fd, dst, count](context<std::size_t>&& ctx) {
+			ctx.on_ready(fd, listen_type::read, capture([fd, dst, count](context<std::size_t>& ctx) {
+				ssize_t nread = recv(fd, dst, count, 0);
+
+				if (nread < 0)
 					throw errno_exception();
-				ctx.resolve(static_cast<std::size_t>(nread));
-			});
+
+				std::move(ctx).resolve(static_cast<std::size_t>(nread));
+			}, std::move(ctx)));
 		});
 	}
 
 	future<std::size_t> iosocket::write(const void* data, std::size_t count) {
+		int fd = get_socket_fd();
 		std::shared_ptr<std::size_t> progress = std::make_shared<std::size_t>(0);
-		return async_while([this, progress, data, count]() {
-			return future<bool>([this, progress, data, count](context<bool> ctx) {
-				ctx.get_loop().on_write_ready(get_socket_fd(), [this, progress, data, count, ctx]() {
-					ssize_t nwritten = send(get_socket_fd(), (const char *) data + *progress, count - *progress, 0);
+
+		return async_while([fd, progress, data, count]() {
+			return future<bool>([fd, progress, data, count](context<bool>&& ctx) {
+				ctx.on_ready(fd, listen_type::write, capture([fd, progress, data, count](context<bool>& ctx) {
+					ssize_t nwritten = send(fd, (const char *) data + *progress, count - *progress, 0);
 
 					if (nwritten == -1)
 						throw errno_exception();
@@ -181,7 +173,7 @@ namespace cobra {
 						ctx.resolve(false);
 					else
 						ctx.resolve(true);
-				});
+				}, std::move(ctx)));
 			});
 		}).then<std::size_t>([progress]() {
 			return *progress;
@@ -210,22 +202,22 @@ namespace cobra {
 
 	future<> server::start() {
 		return async_while([this]() {
-			return future<bool>([this](context<bool> ctx) {
-				ctx.get_loop().on_read_ready(get_socket_fd(), [this, ctx]() {
+			return future<bool>([this](context<bool>&& ctx) {
+				ctx.on_ready(get_socket_fd(), listen_type::read, capture([this](context<bool>& ctx) {
 					sockaddr_storage addr;
 					socklen_t addrlen;
 					int fd = accept(get_socket_fd(), reinterpret_cast<sockaddr*>(&addr), &addrlen);
 					if (fd == -1)
 						throw errno_exception();
 
+					std::cout << "new connection on fd: " << fd << std::endl;
 					iosocket socket(fd, addr, addrlen);
 
 					auto fut = callback(std::move(socket));
-					auto handler = ctx.detach();
-					fut.run(handler);
+					std::move(fut).run(ctx.detach());
 
 					ctx.resolve(true);
-				});
+				}, std::move(ctx)));
 			});
 		});
 	}

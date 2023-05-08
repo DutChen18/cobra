@@ -4,6 +4,7 @@
 #include "cobra/executor.hh"
 #include "cobra/event_loop.hh"
 #include "cobra/util.hh"
+#include "cobra/function.hh"
 
 #include <functional>
 #include <atomic>
@@ -14,35 +15,56 @@ namespace cobra {
 	private:
 		executor* exec;
 		event_loop *loop;
-		std::function<void(T... args)> func;
+		function<void, T...> func;
 	public:
-		context(executor* exec, event_loop* loop, std::function<void(T... args)> func = {}) {
+		context(executor* exec, event_loop* loop, function<void, T...>&& func = {}) {
 			this->exec = exec;
 			this->loop = loop;
-			this->func = func;
+			this->func = std::move(func);
 		}
 
-		void resolve(T... args) const {
-			if (func) {
-				std::function<void(T... args)> func = this->func;
+		context(const context&) = delete;
 
-				exec->exec([func, args...]() {
-					func(args...);
-				});
+		context(context&& other) {
+			exec = other.exec;
+			loop = other.loop;
+			func = std::move(other.func);
+		}
+
+		context& operator=(context other) {
+			std::swap(exec, other.exec);
+			std::swap(loop, other.loop);
+			std::swap(func, other.func);
+			return *this;
+		}
+
+		void run(function<void>&& func) const {
+			if (exec != nullptr && !func.empty()) {
+				exec->exec(std::move(func));
 			}
 		}
 
-		executor& get_exec() const {
-			return *exec;
+		void on_ready(int fd, listen_type type, function<void>&& func) const {
+			if (exec != nullptr && !func.empty()) {
+				executor* exec = this->exec;
+
+				loop->on_ready(fd, type, capture([exec](function<void>& func) {
+					exec->exec(std::move(func));
+				}, std::move(func)));
+			}
 		}
 
-		event_loop& get_loop() const {
-			return *loop;
+		void resolve(T... args) {
+			if (exec != nullptr && !func.empty()) {
+				run(capture([args...](function<void, T...>& func) {
+					func(args...);
+				}, std::move(func)));
+			}
 		}
 
 		template<class... U>
-		context<U...> with(typename type_identity<std::function<void(U... args)>>::type func) const {
-			return context<U...>(exec, loop, func);
+		context<U...> detach(typename type_identity<function<void, U...>>::type&& func) const {
+			return context<U...>(exec, loop, std::move(func));
 		}
 
 		context<> detach() const {
@@ -52,48 +74,53 @@ namespace cobra {
 
 	template<class... T>
 	class future {
-		std::function<void(context<T...> ctx)> func;
+		function<void, context<T...>&&> func;
 	public:
 		using tuple_type = std::tuple<T...>;
 
+		future(const future&) = delete;
+
+		future(future&& other) : func(std::move(other.func)) {
+		}
+
 		future(T... args) {
-			this->func = [args...](context<T...> ctx) {
+			this->func = [args...](context<T...>&& ctx) {
 				ctx.resolve(args...);
 			};
 		}
 
-		future(std::function<void(context<T...> ctx)> func) {
-			this->func = func;
+		future(function<void, context<T...>&&>&& func) : func(std::move(func)) {
 		}
 
-		void start(context<T...> ctx) const {
-			func(ctx);
+		future& operator=(future other) {
+			std::swap(func, other.func);
+			return *this;
 		}
 
-		void run(context<T...> ctx) const {
-			future<T...> self = *this;
+		void start(context<T...>&& ctx)&& {
+			func(std::move(ctx));
+		}
 
-			ctx.get_exec().exec([self, ctx]() {
-				self.start(ctx);
-			});
+		void run(context<T...>&& ctx)&& {
+			ctx.run(capture([](future<T...>& self, context<T...>& ctx) {
+				std::move(self).start(std::move(ctx));
+			}, std::move(*this), std::move(ctx)));
 		}
 
 		template<class... U>
-		future<U...> then(typename type_identity<std::function<future<U...>(T... args)>>::type func) const {
-			future<T...> self = *this;
+		future<U...> then(typename type_identity<function<future<U...>, T...>>::type&& func)&& {
+			using func_type = typename type_identity<function<future<U...>, T...>>::type;
 
-			return future<U...>([self, func](context<U...> ctx) {
-				self.start(ctx.template with<T...>([ctx, func](T... args) {
-					future<U...> fut = func(args...);
-
-					fut.start(ctx);
-				}));
-			});
+			return future<U...>(capture([](future<T...>& self, func_type& func, context<U...>&& ctx) {
+				std::move(self).start(ctx.template detach<T...>(capture([](func_type& func, context<U...>& ctx, T... args) {
+					func(args...).start(std::move(ctx));
+				}, std::move(func), std::move(ctx))));
+			}, std::move(*this), std::move(func)));
 		}
 
-		future<tuple_type> tie() const {
-			return then<tuple_type>([](T... args) {
-				return future<tuple_type>(std::make_tuple(args...));
+		future<tuple_type> tie()&& {
+			return then<tuple_type>([](T&&... args) {
+				return future<tuple_type>(std::make_tuple(std::forward<T>(args)...));
 			});
 		}
 	};
@@ -106,7 +133,7 @@ namespace cobra {
 				std::shared_ptr<std::atomic_size_t> progress = std::make_shared<std::atomic_size_t>(0);
 
 				std::make_tuple((futs.tie().run(
-					ctx.template with<typename Future::tuple_type>(
+					ctx.template detach<typename Future::tuple_type>(
 						[ctx, result, progress](typename Future::tuple_type arg) {
 							std::get<I>(*result) = arg;
 
@@ -147,18 +174,14 @@ namespace cobra {
 		return all_flat_impl(typename make_index_sequence<std::tuple_size<tuple_type>::value>::type(), futs...);
 	}
 
-	inline future<> async_while(std::function<future<bool>()> func) {
-		std::function<future<>(bool)> lambda;
-
-		lambda = [lambda, func](bool cond) {
+	inline future<> async_while(function<future<bool>>&& func) {
+		return func().then(capture([](function<future<bool>>& func, bool cond) {
 			if (cond) {
-				return func().then(lambda);
+				return async_while(std::move(func));
 			} else {
 				return future<>();
 			}
-		};
-
-		return func().then(lambda);
+		}, std::move(func)));
 	}
 }
 
