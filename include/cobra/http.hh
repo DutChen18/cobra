@@ -2,6 +2,7 @@
 #define COBRA_HTTP_HH
 
 #include <stdexcept>
+
 #include "cobra/socket.hh"
 
 namespace cobra {

@@ -2,8 +2,8 @@
 #define COBRA_SOCKET_HH
 
 #include <cstddef>
-#include <functional>
 #include <iterator>
+
 #include "cobra/future.hh"
 
 extern "C" {
@@ -101,13 +101,13 @@ namespace cobra {
 	};
 
 	class server : public socket {
-		using callback_type = std::function<future<>(iosocket&&)>;
+		using callback_type = function<future<>, iosocket&&>;
 		const callback_type callback;
 
 		int listen_fd = -1;
 
 	public:
-		server(const std::string& host, const std::string& service, callback_type callback, int backlog = 5);
+		server(const std::string& host, const std::string& service, callback_type&& callback, int backlog = 5);
 		~server();
 
 		future<> start();

@@ -6,11 +6,9 @@
 #include "cobra/util.hh"
 #include "cobra/function.hh"
 
-#include <functional>
 #include <atomic>
 
-
-#include <iostream>
+// TODO: exception propagation
 
 namespace cobra {
 	template<class... T>
@@ -67,7 +65,8 @@ namespace cobra {
 
 		void resolve(T... args) {
 			if (!func.empty()) {
-				execute(exec, std::bind(std::move(func), args...));
+				func(args...);
+				// execute(exec, std::bind(std::move(func), args...));
 			}
 		}
 
@@ -136,19 +135,26 @@ namespace cobra {
 
 	template<class... Future, std::size_t... I>
 	future<typename Future::tuple_type...> all_impl(index_sequence<I...>, Future&&... futs) {
+		struct all_state {
+			std::tuple<typename Future::tuple_type...> result;
+			context<typename Future::tuple_type...> ctx;
+			std::atomic_size_t progress;
+
+			all_state(context<typename Future::tuple_type...>&& ctx) : ctx(std::move(ctx)), progress(0) {
+			}
+		};
+
 		return future<typename Future::tuple_type...>(
 			capture([](Future&... futs, context<typename Future::tuple_type...>&& ctx) {
-				std::shared_ptr<std::tuple<typename Future::tuple_type...>> result = std::make_shared<std::tuple<typename Future::tuple_type...>>();
-				std::shared_ptr<std::atomic_size_t> progress = std::make_shared<std::atomic_size_t>(0);
-				std::shared_ptr<context<typename Future::tuple_type...>> shared_ctx = std::make_shared<context<typename Future::tuple_type...>>(std::move(ctx));
+				std::shared_ptr<all_state> state = std::make_shared<all_state>(std::move(ctx));
 
 				std::make_tuple((std::move(futs).tie().run(
 					ctx.template detach<typename Future::tuple_type>(
-						[shared_ctx, result, progress](typename Future::tuple_type arg) {
-							std::get<I>(*result) = arg;
+						[state](typename Future::tuple_type arg) {
+							std::get<I>(state->result) = arg;
 
-							if (++*progress == sizeof...(Future)) {
-								shared_ctx->resolve(std::get<I>(*result)...);
+							if (++state->progress == sizeof...(Future)) {
+								state->ctx.resolve(std::get<I>(state->result)...);
 							}
 						}
 					)

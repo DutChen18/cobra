@@ -180,8 +180,8 @@ namespace cobra {
 		});
 	}
 
-	server::server(const std::string& host, const std::string& service, callback_type callback, int backlog)
-		: socket(host, service), callback(callback) {
+	server::server(const std::string& host, const std::string& service, callback_type&& callback, int backlog)
+		: socket(host, service), callback(std::move(callback)) {
 		listen_fd = listen(get_socket_fd(), backlog);
 
 		if (listen_fd == -1)

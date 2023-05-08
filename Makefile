@@ -1,7 +1,7 @@
 CXX = clang++
 CXXFLAGS = -Wall -Wextra -std=c++11 -Iinclude -fsanitize=address,undefined -g3
-
 LDFLAGS = -fsanitize=address,undefined
+# CXXFLAGS = -Wall -Wextra -std=c++11 -Iinclude -Ofast -march=native
 
 ifdef pedantic
 	CXXFLAGS += -pedantic

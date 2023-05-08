@@ -1,9 +1,7 @@
 #ifndef COBRA_EVENT_LOOP_HH
 #define COBRA_EVENT_LOOP_HH
 
-#include <mutex>
 #include <vector>
-#include <functional>
 #include <unordered_map>
 
 #include "cobra/runner.hh"

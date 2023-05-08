@@ -13,7 +13,7 @@ namespace cobra {
 		public:
 			virtual ~base() {}
 			virtual Return apply(Args...) = 0;
-			//virtual Return apply(Args...) const = 0;
+			// virtual Return apply(Args...) const = 0;
 		};
 
 		template<class T>
@@ -28,7 +28,7 @@ namespace cobra {
 				return func(std::forward<Args>(args)...);
 			}
 		
-			/*	
+			/*
 			Return apply(Args... args) const override {
 				return func(std::forward<Args>(args)...);
 			}
@@ -52,11 +52,9 @@ namespace cobra {
 			return *this;
 		}
 
-		/*
 		Return operator()(Args... args) {
 			return inner->apply(std::forward<Args>(args)...);
 		}
-		*/
 
 		Return operator()(Args... args) const {
 			return inner->apply(std::forward<Args>(args)...);

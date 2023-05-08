@@ -3,7 +3,6 @@
 
 #include "cobra/function.hh"
 
-#include <functional>
 #include <vector>
 #include <queue>
 #include <mutex>
