@@ -25,7 +25,7 @@ namespace cobra {
 		return http_method::unknown;
 	}
 
-	future<http_method> parse_method(std::shared_ptr<istream_base> stream) {
+	future<http_method> parse_method(std::shared_ptr<istream> stream) {
 		std::shared_ptr<http_method> method = std::make_shared<http_method>(http_method::unknown);
 		return cobra::async_while([stream, method]() {
 			std::shared_ptr<std::string> data(new std::string());
@@ -49,7 +49,7 @@ namespace cobra {
 		});
 	}
 
-	future<std::string> parse_request_uri(std::shared_ptr<istream_base> stream) {
+	future<std::string> parse_request_uri(std::shared_ptr<istream> stream) {
 		std::shared_ptr<std::string> request_uri(new std::string());
 		return cobra::async_while([stream, request_uri]() {
 			return stream->get().then<bool>([stream, request_uri](char ch1) {
@@ -68,11 +68,11 @@ namespace cobra {
 		});
 	}
 
-	future<bool> expect_string(std::shared_ptr<istream_base> stream) {
+	future<bool> expect_string(std::shared_ptr<istream> stream) {
 
 	}
 
-	future<http_version> parse_http_version(std::shared_ptr<istream_base> stream) {
+	future<http_version> parse_http_version(std::shared_ptr<istream> stream) {
 		std::shared_ptr<http_version> version(new http_version());
 		return cobra::async_while([stream, version]() {
 		}).then<http_version>([version]() {
@@ -81,7 +81,7 @@ namespace cobra {
 	}
 
 	/*
-	future<http_request> parse_request(istream_base& stream) {
+	future<http_request> parse_request(istream& stream) {
 		//TODO move stream as it will go out of scope
 		return cobra::async_while([stream](){
 		});

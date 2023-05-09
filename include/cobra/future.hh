@@ -71,12 +71,12 @@ namespace cobra {
 			}
 		}
 
-		void resolve(std::tuple<T...> args) const {
+		void resolve_flat(std::tuple<T...> args) const {
 			resolve(typename make_index_sequence<sizeof...(T)>::type(), args);
 		}
 
 		void resolve(T... args) const {
-			resolve(std::make_tuple(args...));
+			resolve_flat(std::make_tuple(args...));
 		}
 
 		template<class... U>
@@ -140,7 +140,7 @@ namespace cobra {
 
 			return future<U...>(capture([](future<T...>& self, func_type& func, context<U...>& ctx) {
 				std::move(self).start(ctx.template detach<T...>(capture([](func_type& func, context<U...>& ctx, T... args) {
-					ctx.resolve(func(args...));
+					ctx.resolve_flat(func(args...));
 				}, std::move(func), std::move(ctx))));
 			}, std::move(*this), std::move(func)));
 		}
@@ -154,6 +154,12 @@ namespace cobra {
 					ctx.resolve(func(args...));
 				}, std::move(func), std::move(ctx))));
 			}, std::move(*this), std::move(func)));
+		}
+
+		future<> ignore()&& {
+			return std::move(*this).template map_flat<>([](T...) {
+				return std::make_tuple();
+			});
 		}
 
 		future<tuple_type> tie()&& {
@@ -216,12 +222,13 @@ namespace cobra {
 		return all_flat_impl(typename make_index_sequence<std::tuple_size<tuple_type>::value>::type(), std::move(futs)...);
 	}
 
-	inline future<> async_while(function<future<bool>>&& func) {
-		return func().then(capture([](function<future<bool>>& func, bool cond) {
-			if (cond) {
+	template<class T>
+	inline future<T> async_while(function<future<optional<T>>>&& func) {
+		return func().template then<T>(capture([](function<future<optional<T>>>& func, optional<T> result) {
+			if (!result) {
 				return async_while(std::move(func));
 			} else {
-				return future<>();
+				return future<T>(*result);
 			}
 		}, std::move(func)));
 	}

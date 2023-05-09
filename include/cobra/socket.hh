@@ -5,94 +5,105 @@
 #include <iterator>
 
 #include "cobra/future.hh"
+#include "cobra/asio.hh"
 
 extern "C" {
 #include <netdb.h>
 }
 
 namespace cobra {
-	class addr_info {
-		addrinfo *internal = nullptr;
-
+	class free_delete {
 	public:
-		class addr_info_iterator {
-			addrinfo *ptr;
+		void operator()(void* ptr) const;
+	};
 
-		public:
-			using iterator_category = std::forward_iterator_tag;
-			using value_type = addrinfo;
-			using difference_type = std::ptrdiff_t;
-			using pointer = addrinfo*;
-			using refrence = addrinfo&;
+	class address {
+	private:
+		std::unique_ptr<sockaddr, free_delete> addr;
+		std::size_t len;
+	public:
+		address(const sockaddr* addr, std::size_t len);
+		address(const address& other);
+		address(address&& other);
 
-			addr_info_iterator();
-			addr_info_iterator(addrinfo* ptr);
-			addr_info_iterator(const addr_info_iterator& other);
+		address& operator=(address other);
 
-			addr_info_iterator& operator++();
-			addr_info_iterator operator++(int);
+		sockaddr* get_addr() const;
+		std::size_t get_len() const;
+	};
 
-			bool operator==(const addr_info_iterator& other) const;
-			bool operator!=(const addr_info_iterator& other) const;
+	class address_info {
+	private:
+		int family;
+		int type;
+		int proto;
+		address addr;
+	public:
+		address_info(const addrinfo* info);
 
-			const addrinfo& operator*() const;
-			const addrinfo* operator->() const;
-		};
-
-		using value_type = addr_info;
-		using iterator = addr_info_iterator;
-
-		addr_info(const std::string& host, const std::string& service);
-		~addr_info();
-
-		iterator begin();
-		iterator end();
+		int get_family() const;
+		int get_type() const;
+		int get_proto() const;
+		const address& get_addr() const;
 	};
 
 	class socket {
-		int socket_fd = -1;
-
-		sockaddr_storage addr;
-		socklen_t addrlen;
-
-	public:
-		socket(socket&& other) noexcept;
-		socket& operator=(socket&& other) noexcept;
-
 	protected:
-		socket(int fd, sockaddr_storage addr, socklen_t addrlen);
-		socket(const std::string& host, const std::string& service);
+		int fd;
+	public:
+		socket(int fd);
+		socket(socket&& other);
+		socket(const socket&) = delete;
 		virtual ~socket();
 
-		int get_socket_fd() const;
+		socket& operator=(socket other);
 
-	private:
-
-		void set_non_blocking(int fd);
+		int leak_fd();
 	};
 
-	class iosocket : public socket {
+	class connected_socket : public socket, public basic_iostream<char> {
 	public:
-		iosocket(int fd, sockaddr_storage addr, socklen_t addrlen);
-		iosocket(iosocket&& other) noexcept;
+		using char_type = typename basic_iostream<char>::char_type;
+		using traits_type = typename basic_iostream<char>::traits_type;
+		using int_type = typename traits_type::int_type;
+		using pos_type = typename traits_type::pos_type;
+		using off_type = typename traits_type::off_type;
 
-		iosocket& operator=(iosocket&& other) noexcept;
-		future<std::size_t> read_some(void* dst, std::size_t count);
-		future<std::size_t> write(const void* data, std::size_t count);
+		connected_socket(int fd);
+		connected_socket(connected_socket&& other);
+
+		connected_socket& operator=(connected_socket other);
+		
+		future<std::size_t> read(char_type* dst, std::size_t count) override;
+		future<std::size_t> write(const char_type* data, std::size_t count) override;
+		future<> flush() override;
 	};
 
-	class server : public socket {
-		using callback_type = function<future<>, iosocket&&>;
-		const callback_type callback;
-
-		int listen_fd = -1;
-
+	class server_socket : public socket {
 	public:
-		server(const std::string& host, const std::string& service, callback_type&& callback, int backlog = 5);
-		~server();
+		server_socket(int fd);
+		server_socket(server_socket&& other);
 
-		future<> start();
+		server_socket& operator=(server_socket other);
+
+		future<connected_socket> accept();
 	};
+	
+	class initial_socket : public socket {
+	public:
+		initial_socket(int family, int type, int proto);
+		initial_socket(initial_socket&& other);
+
+		initial_socket& operator=(initial_socket other);
+
+		void bind(const address& addr);
+		future<connected_socket> connect(const address& addr)&&;
+		server_socket listen(int backlog = 5)&&;
+	};
+
+	std::vector<address_info> get_address_info(const char* host, const char* port, int family = AF_UNSPEC, int type = SOCK_STREAM);
+	future<connected_socket> open_connection(const char* host, const char* port);
+	future<> start_server(const char* host, const char* port, function<future<>, connected_socket>&& callback);
 }
 
 #endif

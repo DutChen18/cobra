@@ -3,7 +3,8 @@
 
 #include <stdexcept>
 
-#include "cobra/socket.hh"
+#include <memory>
+#include "cobra/asio.hh"
 
 namespace cobra {
 
@@ -58,8 +59,8 @@ namespace cobra {
 	};
 
 	http_method parse_method(const std::string& string);
-	future<http_method> parse_method(istream_base& stream);
-	future<http_request> parse_request(istream_base& stream);
+	future<http_method> parse_method(std::shared_ptr<istream> stream);
+	future<http_request> parse_request(std::shared_ptr<istream> stream);
 }
 
 #endif

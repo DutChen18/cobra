@@ -2,6 +2,7 @@
 #define COBRA_OPTIONAL_HH
 
 #include <utility>
+#include <tuple>
 
 namespace cobra {
 	template<class T>
@@ -84,6 +85,19 @@ namespace cobra {
 			return *reinterpret_cast<T*>(storage);
 		}
 	};
+
+	typedef std::tuple<> unit;
+	typedef optional<unit> optional_unit;
+
+	template<class T>
+	optional<T> some(T value = T()) {
+		return optional<T>(std::move(value));
+	}
+
+	template<class T>
+	optional<T> none() {
+		return optional<T>();
+	}
 }
 
 #endif

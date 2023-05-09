@@ -8,17 +8,20 @@
 #include <thread>
 #include <chrono>
 
-/*
 cobra::future<> on_connect(cobra::iosocket&& sock) {
 	std::vector<unsigned char> buffer(1024);
 	
-	return cobra::async_while(cobra::capture([](cobra::iosocket& sock, std::vector<unsigned char>& buffer) {
-		return sock.read_some(buffer.data(), buffer.size()).then<bool>([&sock, &buffer](std::size_t count) {
-			return sock.write(buffer.data(), count).then<bool>([count](std::size_t) {
-				return count != 0;
+	return cobra::async_while<cobra::unit>(cobra::capture([](cobra::iosocket& sock, std::vector<unsigned char>& buffer) {
+		return sock.read_some(buffer.data(), buffer.size()).then<cobra::optional_unit>([&sock, &buffer](std::size_t count) {
+			return sock.write(buffer.data(), count).map<cobra::optional_unit>([count](std::size_t) {
+				if (count == 0) {
+					return cobra::some<cobra::unit>();
+				} else {
+					return cobra::none<cobra::unit>();
+				}
 			});
 		});
-	}, std::move(sock), std::move(buffer)));
+	}, std::move(sock), std::move(buffer))).ignore();
 }
 
 int main() {
@@ -31,8 +34,8 @@ int main() {
 	srv.start().run(std::move(ctx));
 	run.run(&exec, &loop);
 }
-*/
 
+/*
 cobra::future<int> fib(int i) {
 	if (i < 2) {
 		return cobra::future<int>(1);
@@ -49,11 +52,15 @@ cobra::future<int> fib(int i) {
 int main() {
 	cobra::runner run;
 	cobra::thread_pool_executor exec(run, 4);
+	// cobra::sequential_executor exec(run);
 
-	for (int i = 0; i < 100; i++) {
-		cobra::context<int> ctx(&exec, nullptr);
+	for (int i = 0; i < 10; i++) {
+		cobra::context<int> ctx(&exec, nullptr, [](int result) {
+			std::cout << result << std::endl;
+		});
 
 		fib(10).run(std::move(ctx));
 		run.run(&exec, nullptr);
 	}
 }
+*/

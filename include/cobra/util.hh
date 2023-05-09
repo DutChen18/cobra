@@ -23,24 +23,6 @@ namespace cobra {
 	};
 
 	template<class T>
-	struct flat_tuple {
-		using type = std::tuple<T>;
-
-		static type flat(T value) {
-			return std::make_tuple(value);
-		}
-	};
-
-	template<class... T>
-	struct flat_tuple<std::tuple<T...>> {
-		using type = decltype(std::tuple_cat(std::declval<typename flat_tuple<T>::type>()...));
-
-		static type flat(T... values) {
-			return std::tuple_cat(flat_tuple<std::tuple<T>>::flat(values)...);
-		}
-	};
-
-	template<class T>
 	struct rename_tuple {};
 
 	template<class... T>

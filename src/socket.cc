@@ -14,217 +14,281 @@ extern "C" {
 }
 
 namespace cobra {
-	addr_info::addr_info(const std::string& host, const std::string& service) {
-		addrinfo hints;
-
-		std::memset(&hints, 0, sizeof hints);
-		hints.ai_family = AF_UNSPEC;
-		hints.ai_socktype = SOCK_STREAM;
-
-		int rc = getaddrinfo(host.c_str(), service.c_str(), &hints, &internal);
-
-		if (rc != 0)
-			throw std::runtime_error(gai_strerror(rc));
+	void free_delete::operator()(void* ptr) const {
+		std::free(ptr);
 	}
 
-	addr_info::~addr_info() {
-		freeaddrinfo(internal);
+	address::address(const sockaddr* addr, std::size_t len) {
+		this->addr.reset((sockaddr*) std::malloc(len));
+		this->len = len;
+		std::memcpy(this->addr.get(), addr, len);
 	}
 
-	addr_info::addr_info_iterator::addr_info_iterator() : ptr(nullptr) {}
-	addr_info::addr_info_iterator::addr_info_iterator(addrinfo* ptr) : ptr(ptr) {}
-	addr_info::addr_info_iterator::addr_info_iterator(const addr_info_iterator& other) : ptr(other.ptr) {}
+	address::address(const address& other) {
+		addr.reset((sockaddr*) std::malloc(other.len));
+		len = other.len;
+		std::memcpy(addr.get(), other.addr.get(), len);
+	}
 
-	addr_info::addr_info_iterator& addr_info::addr_info_iterator::operator++() {
-		ptr = ptr->ai_next;
+	address::address(address&& other) {
+		addr.reset(other.addr.release());
+		len = other.len;
+	}
+
+	address& address::operator=(address other) {
+		std::swap(addr, other.addr);
+		std::swap(len, other.len);
 		return *this;
 	}
 
-	addr_info::addr_info_iterator addr_info::addr_info_iterator::operator++(int) {
-		addr_info_iterator old = *this;
-		ptr = ptr->ai_next;
-		return old;
+	sockaddr* address::get_addr() const {
+		return addr.get();
 	}
 
-	bool addr_info::addr_info_iterator::operator==(const addr_info_iterator& other) const {
-		return ptr == other.ptr;
+	std::size_t address::get_len() const {
+		return len;
 	}
 
-	bool addr_info::addr_info_iterator::operator!=(const addr_info_iterator& other) const {
-		return !(*this == other);
+	address_info::address_info(const addrinfo* info) : addr(info->ai_addr, info->ai_addrlen) {
+		family = info->ai_family;
+		type = info->ai_socktype;
+		proto = info->ai_protocol;
 	}
 
-	const addrinfo& addr_info::addr_info_iterator::operator*() const {
-		return *ptr;
+	int address_info::get_family() const {
+		return family;
 	}
 
-	const addrinfo* addr_info::addr_info_iterator::operator->() const {
-		return ptr;
+	int address_info::get_type() const {
+		return type;
 	}
 
-	addr_info::iterator addr_info::begin() {
-		return addr_info_iterator(internal);
+	int address_info::get_proto() const {
+		return proto;
 	}
 
-	addr_info::iterator addr_info::end() {
-		return addr_info_iterator();
+	const address& address_info::get_addr() const {
+		return addr;
 	}
 
-	socket::socket(int fd, sockaddr_storage addr, socklen_t addrlen) : socket_fd(fd), addr(addr), addrlen(addrlen) {
-		set_non_blocking(fd);
+	socket::socket(int fd) {
+		this->fd = fd;
 	}
 
-	socket::socket(const std::string& host, const std::string& service) {
-		addr_info info(host, service);
-
-		for (auto&& x : info) {
-			socket_fd = ::socket(x.ai_family, x.ai_socktype, x.ai_protocol);
-			if (socket_fd == -1)
-				continue;
-
-			int yes = 1;
-			if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes) == -1)
-				throw errno_exception();
-
-			int rc = bind(socket_fd, x.ai_addr, x.ai_addrlen);
-			if (rc == 0) {
-				std::memcpy(&addr, x.ai_addr, x.ai_addrlen);
-				addrlen = x.ai_addrlen;
-				break;
-			}
-
-			rc = close(socket_fd);
-			if (rc == 0) {
-				std::cerr << "Failed to properly close socket fd " << socket_fd << ": "
-					<< std::strerror(errno) << std::endl;
-			}
-		}
-
-		if (socket_fd == -1)
-			throw errno_exception();
-
-		set_non_blocking(socket_fd);
-	}
-
-	socket::socket(socket&& other) noexcept {
-		std::swap(other.socket_fd, socket_fd);
+	socket::socket(socket&& other) {
+		fd = other.leak_fd();
 	}
 
 	socket::~socket() {
-		if (socket_fd == -1)
-			return;
-
-		std::cout << "closing socket: " << socket_fd << std::endl;
-
-		//TODO write utility function for closing fds that does this
-		int rc = close(socket_fd);
-
-		if (rc == -1) {
-			std::cerr << "Failed to properly close socket fd" << socket_fd << ": "
-				<< std::strerror(errno) << std::endl;
+		if (fd >= 0 && close(fd) != -1) {
+			std::cerr << "Failed to properly close socket fd " << fd;
+			std::cerr << ": " << std::strerror(errno) << std::endl;
 		}
 	}
-
-	socket& socket::operator=(socket&& other) noexcept {
-		if (this != &other) {
-			socket_fd = other.socket_fd;
-			other.socket_fd = -1;
-		}
+	
+	socket& socket::operator=(socket other) {
+		std::swap(fd, other.fd);
 		return *this;
 	}
 
-	int socket::get_socket_fd() const {
-		return socket_fd;
+	int socket::leak_fd() {
+		int result = fd;
+		fd = -1;
+		return result;
 	}
 
-	void socket::set_non_blocking(int fd) {
-		int rc = fcntl(fd, F_SETFL, O_NONBLOCK);
-		
-		if (rc == -1)
-			throw errno_exception();
+	connected_socket::connected_socket(int fd) : socket(fd) {
 	}
 
-	iosocket::iosocket(int fd, sockaddr_storage addr, socklen_t addrlen) : socket(fd, addr, addrlen) {}
+	connected_socket::connected_socket(connected_socket&& other) : socket(std::move(other)) {
+	}
 
-	iosocket::iosocket(iosocket&& other) noexcept : socket(std::move(other)) {}
+	connected_socket& connected_socket::operator=(connected_socket other) {
+		socket::operator=(std::move(other));
+		return *this;
+	}
 	
-	future<std::size_t> iosocket::read_some(void *dst, std::size_t count) {
+	future<std::size_t> connected_socket::read(char_type* dst, std::size_t count) {
 		return future<std::size_t>([this, dst, count](context<std::size_t>& ctx) {
-			ctx.on_ready(get_socket_fd(), listen_type::read, capture([this, dst, count](context<std::size_t>& ctx) {
-				ssize_t nread = recv(get_socket_fd(), dst, count, 0);
+			ctx.on_ready(fd, listen_type::read, capture([this, dst, count](context<std::size_t>& ctx) {
+				ssize_t nread = ::recv(fd, dst, count, 0);
 
-				if (nread < 0)
-					throw errno_exception();
-
-				ctx.resolve(static_cast<std::size_t>(nread));
+				if (nread < 0) {
+					throw errno_exception(); // TODO: reject
+				} else {
+					ctx.resolve(nread);
+				}
 			}, std::move(ctx)));
 		});
 	}
 
-	future<std::size_t> iosocket::write(const void* data, std::size_t count) {
-		std::size_t progress = 0;
+	future<std::size_t> connected_socket::write(const char_type* data, std::size_t count) {
+		return future<std::size_t>([this, data, count](context<std::size_t>& ctx) {
+			ctx.on_ready(fd, listen_type::write, capture([this, data, count](context<std::size_t>& ctx) {
+				ssize_t nread = ::write(fd, data, count);
 
-		return async_while<std::size_t>([this, data, count, progress]() mutable {
-			return future<ssize_t>([this, data, count, progress](context<ssize_t>& ctx) {
-				ctx.on_ready(get_socket_fd(), listen_type::write, capture([this, data, count, &progress](context<ssize_t>& ctx) {
-					ssize_t nwritten = send(get_socket_fd(), (const char *) data + progress, count - progress, 0);
-
-					if (nwritten == -1)
-						throw errno_exception();
-
-					ctx.resolve(nwritten);
-				}, std::move(ctx)));
-			}).map<cobra::optional<std::size_t>>([count, &progress](ssize_t nwritten) {
-				progress += nwritten;
-
-				if (nwritten == 0 || progress == count)
-					return cobra::some(progress);
-				else
-					return cobra::none<std::size_t>();
-			});
+				if (nread < 0) {
+					throw errno_exception(); // TODO: reject
+				} else {
+					ctx.resolve(nread);
+				}
+			}, std::move(ctx)));
 		});
 	}
 
-	server::server(const std::string& host, const std::string& service, callback_type&& callback, int backlog)
-		: socket(host, service), callback(std::move(callback)) {
-		listen_fd = listen(get_socket_fd(), backlog);
-
-		if (listen_fd == -1)
-			throw errno_exception();
+	future<> connected_socket::flush() {
+		return future<>();
 	}
 
-	server::~server() {
-		if (listen_fd == -1)
-			return;
+	server_socket::server_socket(int fd) : socket(fd) {
+	}
 
-		int rc = close(listen_fd);
+	server_socket::server_socket(server_socket&& other) : socket(std::move(other)) {
+	}
 
-		if (rc == -1) {
-			std::cerr << "Failed to properly close socket fd" << listen_fd << ": "
-				<< std::strerror(errno) << std::endl;
+	server_socket& server_socket::operator=(server_socket other) {
+		socket::operator=(std::move(other));
+		return *this;
+	}
+
+	future<connected_socket> server_socket::accept() {
+		return future<connected_socket>([this](context<connected_socket>& ctx) {
+			ctx.on_ready(fd, listen_type::read, capture([this](context<connected_socket>& ctx) {
+				sockaddr_storage addr;
+				socklen_t len;
+				int connected_fd = ::accept(fd, reinterpret_cast<sockaddr*>(&addr), &len);
+
+				if (connected_fd < 0) {
+					throw errno_exception(); // TODO: reject
+				} else if (fcntl(connected_fd, F_SETFL, O_NONBLOCK) == -1) {
+					throw errno_exception(); // TODO: reject
+				} else {
+					ctx.resolve(connected_socket(connected_fd));
+				}
+			}, std::move(ctx)));
+		});
+	}
+	
+	initial_socket::initial_socket(int family, int type, int proto) : socket(::socket(family, type, proto)) {
+		if (fd < 0) {
+			throw errno_exception();
+		} else if (fcntl(fd, F_SETFL, O_NONBLOCK) == -1) {
+			throw errno_exception();
 		}
 	}
 
-	future<> server::start() {
-		return async_while<cobra::unit>([this]() {
-			return future<cobra::optional_unit>([this](context<cobra::optional_unit>& ctx) {
-				ctx.on_ready(get_socket_fd(), listen_type::read, capture([this](context<cobra::optional_unit>& ctx) {
-					sockaddr_storage addr;
-					socklen_t addrlen;
-					int fd = accept(get_socket_fd(), reinterpret_cast<sockaddr*>(&addr), &addrlen);
+	initial_socket::initial_socket(initial_socket&& other) : socket(std::move(other)) {
+	}
 
-					if (fd == -1)
-						throw errno_exception();
+	initial_socket& initial_socket::operator=(initial_socket other) {
+		socket::operator=(std::move(other));
+		return *this;
+	}
 
-					std::cout << "new connection on fd: " << fd << std::endl;
-					iosocket socket(fd, addr, addrlen);
+	void initial_socket::bind(const address& addr) {
+		if (::bind(fd, addr.get_addr(), addr.get_len()) == -1) {
+			throw errno_exception();
+		}
+	}
 
-					auto fut = callback(std::move(socket));
-					std::move(fut).run(ctx.detach());
+	future<connected_socket> initial_socket::connect(const address& addr)&& {
+		return future<connected_socket>(capture([addr](initial_socket& self, context<connected_socket>& ctx) {
+			int result = ::connect(self.fd, addr.get_addr(), addr.get_len());
 
-					ctx.resolve(cobra::none<cobra::unit>());
-				}, std::move(ctx)));
+			if (result == -1 && errno != EINPROGRESS) {
+				throw errno_exception(); // TODO: reject;
+			}
+
+			ctx.on_ready(self.fd, listen_type::write, capture([](initial_socket& self, context<connected_socket>& ctx) {
+				int error;
+				socklen_t len = sizeof error;
+
+				if (::getsockopt(self.fd, SOL_SOCKET, SO_ERROR, &error, &len) == -1) {
+					throw errno_exception(); // TODO: reject
+				} else if (error != 0) {
+					throw std::runtime_error("socket error"); // TODO: reject
+				} else {
+					ctx.resolve(connected_socket(self.leak_fd()));
+				}
+			}, std::move(self), std::move(ctx)));
+		}, std::move(*this)));
+	}
+
+	server_socket initial_socket::listen(int backlog)&& {
+		::listen(fd, backlog);
+		return server_socket(leak_fd());
+	}
+	
+	std::vector<address_info> get_address_info(const char* host, const char* port, int family, int type) {
+		addrinfo hints;
+		addrinfo* info;
+
+		std::memset(&hints, 0, sizeof hints);
+		hints.ai_family = family;
+		hints.ai_socktype = type;
+		hints.ai_flags = 0;
+
+		if (host == nullptr) {
+			hints.ai_flags |= AI_PASSIVE;
+		}
+
+		int rc = getaddrinfo(host, port, &hints, &info);
+
+		if (rc != 0) {
+			throw std::runtime_error(gai_strerror(rc));
+		}
+
+		std::vector<address_info> result;
+
+		for (addrinfo* i = info; i != nullptr; i = i->ai_next) {
+			result.push_back(i);
+		}
+
+		freeaddrinfo(info);
+
+		return result;
+	}
+	
+	future<connected_socket> open_connection(const char* host, const char* port) {
+		std::vector<address_info> info_list = get_address_info(host, port);
+		std::size_t index = 0;
+
+		return async_while<connected_socket>(capture([index](std::vector<address_info>& info_list) mutable {
+			if (index >= info_list.size()) {
+				// TODO: throw
+			}
+
+			const address_info& info = info_list[index++];
+			initial_socket socket(info.get_family(), info.get_type(), info.get_proto());
+
+			return std::move(socket).connect(info.get_addr()).then([](connected_socket& socket) {
+				return some(std::move(socket));
 			});
+		}, std::move(info_list)));
+	}
+
+	future<> start_server(const char* host, const char* port, function<future<>, connected_socket>&& callback) {
+		std::vector<address_info> info_list = get_address_info(host, port);
+		std::size_t index = 0;
+
+		return async_while<server_socket>(capture([index](std::vector<address_info>& info_list) mutable {
+			if (index >= info_list.size()) {
+				// TODO: throw
+			}
+
+			const address_info& info = info_list[index++];
+			initial_socket socket(info.get_family(), info.get_type(), info.get_proto());
+
+			socket.bind(info.get_addr());
+			return future<server_socket>(some(std::move(socket).listen()));
+		}, std::move(info_list))).then([](server_socket& socket) {
+			return async_while<unit>(capture([](server_socket& socket) {
+				return socket.accept().then([](connected_socket& socket) {
+					// TODO: call back
+
+					return some<unit>();
+				});
+			}, std::move(socket)));
 		}).ignore();
 	}
 }
