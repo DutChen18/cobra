@@ -11,20 +11,6 @@ extern "C" {
 }
 
 namespace cobra {
-
-	class istream_base {
-	public:
-		virtual future<char> get() = 0;
-		virtual char get_unsafe() = 0;
-		virtual future<char> peek() = 0;
-		virtual future<std::size_t> read_some(void* dst, std::size_t count) = 0;
-	};
-
-	class ostream_base {
-	public:
-		virtual future<std::size_t> write(const void* data, std::size_t count) = 0;
-	};
-
 	class addr_info {
 		addrinfo *internal = nullptr;
 
@@ -46,8 +32,8 @@ namespace cobra {
 			addr_info_iterator& operator++();
 			addr_info_iterator operator++(int);
 
-			bool operator==(const addr_info_iterator &other) const;
-			bool operator!=(const addr_info_iterator &other) const;
+			bool operator==(const addr_info_iterator& other) const;
+			bool operator!=(const addr_info_iterator& other) const;
 
 			const addrinfo& operator*() const;
 			const addrinfo* operator->() const;
@@ -59,13 +45,8 @@ namespace cobra {
 		addr_info(const std::string& host, const std::string& service);
 		~addr_info();
 
-		iterator begin() {
-			return addr_info_iterator(internal);
-		}
-
-		iterator end() {
-			return addr_info_iterator();
-		}
+		iterator begin();
+		iterator end();
 	};
 
 	class socket {

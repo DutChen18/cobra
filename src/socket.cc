@@ -14,7 +14,6 @@ extern "C" {
 }
 
 namespace cobra {
-
 	addr_info::addr_info(const std::string& host, const std::string& service) {
 		addrinfo hints;
 
@@ -47,11 +46,11 @@ namespace cobra {
 		return old;
 	}
 
-	bool addr_info::addr_info_iterator::operator==(const addr_info_iterator &other) const {
+	bool addr_info::addr_info_iterator::operator==(const addr_info_iterator& other) const {
 		return ptr == other.ptr;
 	}
 
-	bool addr_info::addr_info_iterator::operator!=(const addr_info_iterator &other) const {
+	bool addr_info::addr_info_iterator::operator!=(const addr_info_iterator& other) const {
 		return !(*this == other);
 	}
 
@@ -61,6 +60,14 @@ namespace cobra {
 
 	const addrinfo* addr_info::addr_info_iterator::operator->() const {
 		return ptr;
+	}
+
+	addr_info::iterator addr_info::begin() {
+		return addr_info_iterator(internal);
+	}
+
+	addr_info::iterator addr_info::end() {
+		return addr_info_iterator();
 	}
 
 	socket::socket(int fd, sockaddr_storage addr, socklen_t addrlen) : socket_fd(fd), addr(addr), addrlen(addrlen) {
@@ -142,43 +149,39 @@ namespace cobra {
 	iosocket::iosocket(iosocket&& other) noexcept : socket(std::move(other)) {}
 	
 	future<std::size_t> iosocket::read_some(void *dst, std::size_t count) {
-		int fd = get_socket_fd();
-
-		return future<std::size_t>([fd, dst, count](context<std::size_t>& ctx) {
-			ctx.on_ready(fd, listen_type::read, capture([fd, dst, count](context<std::size_t>& ctx) {
-				ssize_t nread = recv(fd, dst, count, 0);
+		return future<std::size_t>([this, dst, count](context<std::size_t>& ctx) {
+			ctx.on_ready(get_socket_fd(), listen_type::read, capture([this, dst, count](context<std::size_t>& ctx) {
+				ssize_t nread = recv(get_socket_fd(), dst, count, 0);
 
 				if (nread < 0)
 					throw errno_exception();
 
-				std::move(ctx).resolve(static_cast<std::size_t>(nread));
+				ctx.resolve(static_cast<std::size_t>(nread));
 			}, std::move(ctx)));
 		});
 	}
 
 	future<std::size_t> iosocket::write(const void* data, std::size_t count) {
-		int fd = get_socket_fd();
+		std::size_t progress = 0;
 
-		// TODO: shared_ptr niet meer nodig
-		std::shared_ptr<std::size_t> progress = std::make_shared<std::size_t>(0);
-
-		return async_while([fd, progress, data, count]() {
-			return future<bool>([fd, progress, data, count](context<bool>& ctx) {
-				ctx.on_ready(fd, listen_type::write, capture([fd, progress, data, count](context<bool>& ctx) {
-					ssize_t nwritten = send(fd, (const char *) data + *progress, count - *progress, 0);
+		return async_while<std::size_t>([this, data, count, progress]() mutable {
+			return future<ssize_t>([this, data, count, progress](context<ssize_t>& ctx) {
+				ctx.on_ready(get_socket_fd(), listen_type::write, capture([this, data, count, &progress](context<ssize_t>& ctx) {
+					ssize_t nwritten = send(get_socket_fd(), (const char *) data + progress, count - progress, 0);
 
 					if (nwritten == -1)
 						throw errno_exception();
-					*progress += nwritten;
 
-					if (*progress == count)
-						ctx.resolve(false);
-					else
-						ctx.resolve(true);
+					ctx.resolve(nwritten);
 				}, std::move(ctx)));
+			}).map<cobra::optional<std::size_t>>([count, &progress](ssize_t nwritten) {
+				progress += nwritten;
+
+				if (nwritten == 0 || progress == count)
+					return cobra::some(progress);
+				else
+					return cobra::none<std::size_t>();
 			});
-		}).map<std::size_t>([progress]() {
-			return *progress;
 		});
 	}
 
@@ -203,12 +206,13 @@ namespace cobra {
 	}
 
 	future<> server::start() {
-		return async_while([this]() {
-			return future<bool>([this](context<bool>& ctx) {
-				ctx.on_ready(get_socket_fd(), listen_type::read, capture([this](context<bool>& ctx) {
+		return async_while<cobra::unit>([this]() {
+			return future<cobra::optional_unit>([this](context<cobra::optional_unit>& ctx) {
+				ctx.on_ready(get_socket_fd(), listen_type::read, capture([this](context<cobra::optional_unit>& ctx) {
 					sockaddr_storage addr;
 					socklen_t addrlen;
 					int fd = accept(get_socket_fd(), reinterpret_cast<sockaddr*>(&addr), &addrlen);
+
 					if (fd == -1)
 						throw errno_exception();
 
@@ -218,9 +222,9 @@ namespace cobra {
 					auto fut = callback(std::move(socket));
 					std::move(fut).run(ctx.detach());
 
-					ctx.resolve(true);
+					ctx.resolve(cobra::none<cobra::unit>());
 				}, std::move(ctx)));
 			});
-		});
+		}).ignore();
 	}
 }
