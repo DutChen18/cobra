@@ -1,32 +1,35 @@
 #include "cobra/executor.hh"
-#include "cobra/runner.hh"
+#include "cobra/context.hh"
+
+#include <exception>
+#include <iostream>
 
 namespace cobra {
-	executor::executor(runner& run) {
-		this->run = &run;
+	executor::executor(context* ctx) {
+		this->ctx = ctx;
 	}
 
 	executor::~executor() {
 	}
 
-	sequential_executor::sequential_executor(runner& run) : executor(run) {
+	sequential_executor::sequential_executor(context* ctx) : executor(ctx) {
 	}
 
 	void sequential_executor::exec(function<void>&& func) {
-		func();
+		func(); // TODO: handle uncaught exceptions
 	}
 
 	bool sequential_executor::done() const {
 		return true;
 	}
 
-	thread_pool_executor::thread_pool_executor(runner& run, std::size_t size) : executor(run) {
+	thread_pool_executor::thread_pool_executor(context* ctx, std::size_t size) : executor(ctx) {
 		stopped = false;
 		count = 0;
 
 		for (std::size_t i = 0; i < size; i++) {
 			threads.push_back(std::thread([this]() {
-				std::unique_lock<std::mutex> guard(this->run->get_mutex());
+				std::unique_lock<std::mutex> guard(this->ctx->get_mutex());
 
 				while (!stopped) {
 					if (!funcs.empty()) {
@@ -34,11 +37,11 @@ namespace cobra {
 
 						funcs.pop();
 						guard.unlock();
-						func();
+						func(); // TODO: handle uncaught exceptions
 						guard.lock();
 
 						count -= 1;
-						this->run->get_condition_variable().notify_all();
+						this->ctx->get_condition_variable().notify_all();
 
 						continue;
 					}
@@ -51,7 +54,7 @@ namespace cobra {
 
 	thread_pool_executor::~thread_pool_executor() {
 		{
-			std::unique_lock<std::mutex> guard(this->run->get_mutex());
+			std::unique_lock<std::mutex> guard(this->ctx->get_mutex());
 
 			stopped = true;
 			condition_variable.notify_all();
@@ -63,7 +66,7 @@ namespace cobra {
 	}
 	
 	void thread_pool_executor::exec(function<void>&& func) {
-		std::unique_lock<std::mutex> guard(this->run->get_mutex());
+		std::unique_lock<std::mutex> guard(this->ctx->get_mutex());
 
 		funcs.push(std::move(func));
 		count += 1;

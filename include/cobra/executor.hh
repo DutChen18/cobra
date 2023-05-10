@@ -10,13 +10,13 @@
 #include <thread>
 
 namespace cobra {
-	class runner;
+	class context;
 
 	class executor {
 	protected:
-		runner* run;
+		context* ctx;
 	public:
-		executor(runner& run);
+		executor(context* ctx);
 
 		virtual ~executor();
 		virtual void exec(function<void>&& func) = 0;
@@ -25,7 +25,7 @@ namespace cobra {
 
 	class sequential_executor : public executor {
 	public:
-		sequential_executor(runner& run);
+		sequential_executor(context* ctx);
 
 		void exec(function<void>&& func) override;
 		bool done() const override;
@@ -39,7 +39,7 @@ namespace cobra {
 		bool stopped;
 		std::size_t count;
 	public:
-		thread_pool_executor(runner& run, std::size_t size);
+		thread_pool_executor(context* ctx, std::size_t size);
 		~thread_pool_executor();
 
 		void exec(function<void>&& func) override;

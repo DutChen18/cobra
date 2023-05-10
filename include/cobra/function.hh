@@ -7,41 +7,40 @@
 
 namespace cobra {
 	template<class Return, class... Args>
-	class function {
+	class base_function {
+	public:
+		virtual ~base_function() {}
+		virtual Return apply(Args&&... args) = 0;
+	};
+
+	template<class T, class Return, class... Args>
+	class derived_function : public base_function<Return, Args...> {
 	private:
-		class base {
-		public:
-			virtual ~base() {}
-			virtual Return apply(Args...) = 0;
-			// virtual Return apply(Args...) const = 0;
-		};
+		T func;
+	public:
+		derived_function(T&& func) : func(std::forward<T>(func)) {
+		}
 
-		template<class T>
-		class derived : public base {
-		private:
-			T func;
-		public:
-			derived(T&& func) : func(std::move(func)) {
-			}
+		Return apply(Args&&... args) override {
+			return func(std::forward<Args>(args)...);
+		}
+	};
 
-			Return apply(Args... args) override {
-				return func(std::forward<Args>(args)...);
-			}
-		
-			/*
-			Return apply(Args... args) const override {
-				return func(std::forward<Args>(args)...);
-			}
-			*/
-		};
+	template<class Return, class... Args>
+	class shared_function;
 
-		std::unique_ptr<base> inner;
+	template<class Return, class... Args>
+	class function {
+	public:
+		using shared = shared_function<Return, Args...>;
+	private:
+		std::unique_ptr<base_function<Return, Args...>> inner;
 	public:
 		function() = default;
 		function(const function&) = delete;
 
 		template<class T>
-		function(T&& func) : inner(new derived<T>(std::move(func))) {
+		function(T&& func) : inner(make_unique<derived_function<T, Return, Args...>>(std::forward<T>(func))) {
 		}
 
 		function(function&& other) : inner(std::move(other.inner)) {
@@ -52,16 +51,48 @@ namespace cobra {
 			return *this;
 		}
 
-		Return operator()(Args... args) {
-			return inner->apply(std::forward<Args>(args)...);
-		}
-
 		Return operator()(Args... args) const {
+			// TODO: handle null inner
 			return inner->apply(std::forward<Args>(args)...);
 		}
 
 		bool empty() const {
-			return inner.get() == nullptr;
+			return !inner;
+		}
+
+		std::unique_ptr<base_function<Return, Args...>> leak_inner() {
+			return std::move(inner);
+		}
+	};
+
+	template<class Return, class... Args>
+	class shared_function {
+	private:
+		std::shared_ptr<base_function<Return, Args...>> inner;
+	public:
+		shared_function() = default;
+
+		shared_function(const shared_function& other) : inner(other.inner) {
+		}
+
+		shared_function(shared_function&& other) : inner(std::move(other.inner)) {
+		}
+
+		shared_function(function<Return, Args...>&& other) : inner(other.leak_inner()) {
+		}
+
+		shared_function& operator=(shared_function other) {
+			std::swap(inner, other.inner);
+			return *this;
+		}
+
+		Return operator()(Args... args) const {
+			// TODO: handle null inner
+			return inner->apply(std::forward<Args>(args)...);
+		}
+
+		bool empty() const {
+			return !inner;
 		}
 	};
 
@@ -81,7 +112,7 @@ namespace cobra {
 			return func(std::get<I>(this->args)..., std::forward<U>(args)...);
 		}
 	public:
-		captured(F&& func, T&&... args) : func(std::move(func)), args(std::make_tuple(std::forward<T>(args)...)) {
+		captured(F&& func, T&&... args) : func(std::move(func)), args { std::forward<T>(args)... } {
 		}
 
 		captured(const captured&) = delete;

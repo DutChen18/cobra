@@ -1,10 +1,10 @@
 CXX = clang++
-# CXXFLAGS = -Wall -Wextra -std=c++11 -Iinclude -fsanitize=address,undefined -g3
-# LDFLAGS = -fsanitize=address,undefined
+CXXFLAGS = -Wall -Wextra -std=c++11 -Iinclude -fsanitize=address,undefined -g3
+LDFLAGS = -fsanitize=address,undefined
 # CXXFLAGS = -Wall -Wextra -std=c++11 -Iinclude -fsanitize=thread,undefined -g3
 # LDFLAGS = -fsanitize=thread,undefined
 # CXXFLAGS = -Wall -Wextra -std=c++11 -Iinclude -Ofast -march=native
-CXXFLAGS = -Wall -Wextra -std=c++11 -Iinclude -g3
+# CXXFLAGS = -Wall -Wextra -std=c++11 -Iinclude -g3
 
 ifdef pedantic
 	CXXFLAGS += -pedantic
@@ -18,7 +18,7 @@ SRC_DIR = src
 OBJ_DIR = build
 DEP_DIR = build
 # SRC_FILES = $(shell find $(SRC_DIR) -type f -name "*.cc")
-SRC_FILES = src/event_loop.cc src/exception.cc src/executor.cc src/main.cc src/runner.cc src/socket.cc
+SRC_FILES = src/event_loop.cc src/exception.cc src/executor.cc src/main.cc src/context.cc src/socket.cc
 OBJ_FILES = $(patsubst $(SRC_DIR)/%.cc,$(OBJ_DIR)/%.o,$(SRC_FILES))
 DEP_FILES = $(patsubst $(SRC_DIR)/%.cc,$(DEP_DIR)/%.d,$(SRC_FILES))
 NAME = webserv

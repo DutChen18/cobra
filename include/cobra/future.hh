@@ -1,113 +1,59 @@
 #ifndef COBRA_FUTURE_HH
 #define COBRA_FUTURE_HH
 
-#include "cobra/executor.hh"
-#include "cobra/event_loop.hh"
+#include "cobra/context.hh"
 #include "cobra/util.hh"
 #include "cobra/function.hh"
+#include "cobra/optional.hh"
 
 #include <atomic>
 #include <functional>
-
-// TODO: exception propagation
+#include <stdexcept>
+#include <iostream>
 
 namespace cobra {
-	template<class... T>
-	class context {
-	private:
-		executor* exec;
-		event_loop *loop;
-		function<void, T...> func;
+	using future_error = std::runtime_error;
 
-		static void execute(executor* exec, function<void>&& func) {
-			if (exec == nullptr) {
-				func();
-			} else {
-				exec->exec(std::move(func));
-			}
-		}
+	template<class T>
+	using future_result = result<T, future_error>;
 
-		template<std::size_t... I>
-		void resolve(index_sequence<I...>, std::tuple<T...> args) const {
-			if (!func.empty()) {
-				func(std::get<I>(args)...);
-			}
-		}
-	public:
-		context(executor* exec, event_loop* loop, function<void, T...>&& func = {}) {
-			this->exec = exec;
-			this->loop = loop;
-			this->func = std::move(func);
-		}
+	template<class T>
+	using future_func = function<void, future_result<T>>;
 
-		context(const context&) = delete;
+	template<class T>
+	class future;
+	
+	template<class T>
+	future<T> resolve(T&& arg) {
+		return future<T>(capture([](T& arg, context&, future_func<T>& resolve) {
+			resolve(ok<T, future_error>(std::forward<T>(arg)));
+		}, std::forward<T>(arg)));
+	}
 
-		context(context&& other) {
-			exec = other.exec;
-			loop = other.loop;
-			func = std::move(other.func);
-		}
+	template<class T>
+	future<T> reject(const std::exception& ex) {
+		return future<T>(capture([](future_error& ex, context&, future_func<T>& resolve) {
+			resolve(err<T, future_error>(std::move(ex)));
+		}, future_error(ex.what())));
+	}
 
-		context& operator=(context other) {
-			std::swap(exec, other.exec);
-			std::swap(loop, other.loop);
-			std::swap(func, other.func);
-			return *this;
-		}
-
-		void run(function<void>&& func) const {
-			if (!func.empty()) {
-				execute(exec, std::move(func));
-			}
-		}
-
-		void on_ready(int fd, listen_type type, function<void>&& func) const {
-			if (!func.empty()) {
-				executor* exec = this->exec;
-
-				loop->on_ready(fd, type, capture([exec](function<void>& func) {
-					execute(exec, std::move(func));
-				}, std::move(func)));
-			}
-		}
-
-		void resolve_flat(std::tuple<T...> args) const {
-			resolve(typename make_index_sequence<sizeof...(T)>::type(), args);
-		}
-
-		void resolve(T... args) const {
-			resolve_flat(std::make_tuple(args...));
-		}
-
-		template<class... U>
-		context<U...> detach(typename type_identity<function<void, U...>>::type&& func) const {
-			return context<U...>(exec, loop, std::move(func));
-		}
-
-		context<> detach() const {
-			return context<>(exec, loop);
-		}
-	};
-
-	template<class... T>
+	template<class T>
 	class future {
 	private:
-		function<void, context<T...>&> func;
+		function<void, context&, future_func<T>&> func;
+
+		static void default_resolve(future_result<T> result) {
+			if (result.err()) {
+				std::cerr << result.err()->what() << std::endl;
+			}
+		}
 	public:
-		using tuple_type = std::tuple<T...>;
+		using return_type = T;
 
 		future(const future&) = delete;
+		future(future&&) = default;
 
-		future(future&& other) : func(std::move(other.func)) {
-		}
-
-		explicit future(T... args) {
-			this->func = [args...](context<T...>& ctx) {
-				ctx.resolve(args...);
-			};
-		}
-
-		future(function<void, context<T...>&>&& func) : func(std::move(func)) {
+		future(function<void, context&, future_func<T>&>&& func) : func(std::move(func)) {
 		}
 
 		future& operator=(future other) {
@@ -115,121 +61,91 @@ namespace cobra {
 			return *this;
 		}
 
-		void start(context<T...>&& ctx)&& {
-			func(ctx);
+		void start_now(context& ctx, future_func<T>&& resolve = default_resolve)&& {
+			func(ctx, resolve);
 		}
 
-		void run(context<T...>&& ctx)&& {
-			ctx.run(std::bind(std::move(func), std::move(ctx)));
+		void start_later(context& ctx, future_func<T>&& resolve = default_resolve)&& {
+			ctx.execute(capture(std::move(func), ctx, std::move(resolve)));
 		}
 
-		template<class... U>
-		future<U...> then(typename type_identity<function<future<U...>, T...>>::type&& func)&& {
-			using func_type = typename type_identity<function<future<U...>, T...>>::type;
+		template<class U>
+		future<U> map(function<future<U>, future_result<T>>&& func)&& {
+			using func_type = function<future<U>, future_result<T>>;
 
-			return future<U...>(capture([](future<T...>& self, func_type& func, context<U...>& ctx) {
-				std::move(self).start(ctx.template detach<T...>(capture([](func_type& func, context<U...>& ctx, T... args) {
-					func(args...).start(std::move(ctx));
-				}, std::move(func), std::move(ctx))));
-			}, std::move(*this), std::move(func)));
-		}
-		
-		template<class... U>
-		future<U...> map_flat(typename type_identity<function<std::tuple<U...>, T...>>::type&& func)&& {
-			using func_type = typename type_identity<function<std::tuple<U...>, T...>>::type;
-
-			return future<U...>(capture([](future<T...>& self, func_type& func, context<U...>& ctx) {
-				std::move(self).start(ctx.template detach<T...>(capture([](func_type& func, context<U...>& ctx, T... args) {
-					ctx.resolve_flat(func(args...));
-				}, std::move(func), std::move(ctx))));
+			return future<U>(capture([](future& self, func_type& func, context& ctx, future_func<U>& resolve ) {
+				std::move(self).start_now(ctx, capture([&ctx](func_type& func, future_func<U>& resolve, future_result<T> result) {
+					try {
+						func(std::move(result)).start_now(ctx, std::move(resolve));
+					} catch (const std::exception& ex) {
+						resolve(err<U, future_error>(ex.what()));
+					}
+				}, std::move(func), std::move(resolve)));
 			}, std::move(*this), std::move(func)));
 		}
 
 		template<class U>
-		future<U> map(typename type_identity<function<U, T...>>::type&& func)&& {
-			using func_type = typename type_identity<function<U, T...>>::type;
-
-			return future<U>(capture([](future<T...>& self, func_type& func, context<U>& ctx) {
-				std::move(self).start(ctx.template detach<T...>(capture([](func_type& func, context<U>& ctx, T... args) {
-					ctx.resolve(func(args...));
-				}, std::move(func), std::move(ctx))));
-			}, std::move(*this), std::move(func)));
+		future<U> and_then(function<future<U>, T>&& func)&& {
+			return std::move(*this).template map<U>(capture([](function<future<U>, T>& func, future_result<T> result) {
+				return result ? func(std::move(*result)) : reject<U>(*result.err());
+			}, std::move(func)));
 		}
 
-		future<> ignore()&& {
-			return std::move(*this).template map_flat<>([](T...) {
-				return std::make_tuple();
-			});
-		}
-
-		future<tuple_type> tie()&& {
-			return std::move(*this).template map<tuple_type>([](T... args) {
-				return std::make_tuple(args...);
-			});
+		future or_else(function<future, future_error>&& func)&& {
+			return std::move(*this).map(capture([](function<future<T>, future_error>& func, future_result<T> result) {
+				return result ? resolve(std::move(*result)) : func(*result.err());
+			}, std::move(func)));
 		}
 	};
+	
+	template<class T>
+	future<unit> spawn(future<T>&& fut) {
+		return future<T>(capture([](future<T>& fut, context& ctx, future_func<unit>& resolve) {
+			std::move(fut).start_later(ctx);
+			resolve(ok<unit, future_error>());
+		}, std::move(fut)));
+	}
 
-	template<class... Future, std::size_t... I>
-	future<typename Future::tuple_type...> all_impl(index_sequence<I...>, Future&&... futs) {
+	template<class... Future, std::size_t... Index>
+	future<std::tuple<typename Future::return_type...>> all(index_sequence<Index...>, Future&&... futs) {
+		using tuple_type = std::tuple<typename Future::return_type...>;
+
 		struct all_state {
-			std::tuple<typename Future::tuple_type...> result;
-			context<typename Future::tuple_type...> ctx;
+			tuple_type result;
+			future_func<tuple_type> resolve;
 			std::atomic_size_t progress;
+			std::atomic_bool error;
 
-			all_state(context<typename Future::tuple_type...>&& ctx) : ctx(std::move(ctx)), progress(0) {
+			all_state(future_func<tuple_type>&& resolve) : resolve(std::move(resolve)), progress(0), error(false) {
 			}
 		};
 
-		return future<typename Future::tuple_type...>(
-			capture([](Future&... futs, context<typename Future::tuple_type...>& ctx) {
-				std::shared_ptr<all_state> state = std::make_shared<all_state>(std::move(ctx));
+		return future<tuple_type>(capture([](Future&... futs, context& ctx, future_func<tuple_type>& resolve) {
+			std::shared_ptr<all_state> state = std::make_shared<all_state>(std::move(resolve));
 
-				std::make_tuple((std::move(futs).tie().run(
-					ctx.template detach<typename Future::tuple_type>(
-						[state](typename Future::tuple_type arg) {
-							std::get<I>(state->result) = arg;
+			std::make_tuple((std::move(futs).start_later(ctx, [state](future_result<typename Future::return_type> r) {
+				if (r) {
+					std::get<Index>(state->result) = *r;
 
-							if (++state->progress == sizeof...(Future)) {
-								state->ctx.resolve(std::get<I>(state->result)...);
-							}
-						}
-					)
-				), 0)...);
-			}, std::move(futs)...)
-		);
+					if (++state->progress == sizeof...(Future)) {
+						state->resolve(ok<tuple_type, future_error>(std::move(state->result)));
+					}
+				} else if (!state->error.exchange(true)) {
+					state->resolve(err<tuple_type, future_error>(*r.err()));
+				}
+			}), 0)...);
+		}, std::move(futs)...));
 	}
 
 	template<class... Future>
-	future<typename Future::tuple_type...> all(Future&&... futs) {
-		return all_impl(typename make_index_sequence<sizeof...(Future)>::type(), std::move(futs)...);
-	}
-
-	template<class... Future, std::size_t... I>
-	typename rename_tuple<decltype(std::tuple_cat(std::declval<typename Future::tuple_type>()...))>::template type<future> all_flat_impl(index_sequence<I...>, Future&&... futs) {
-		using tuple_type = decltype(std::tuple_cat(std::declval<typename Future::tuple_type>()...));
-
-		return all(std::move(futs)...).template map_flat<typename std::tuple_element<I, tuple_type>::type...>(
-			[](typename Future::tuple_type... args) {
-				return std::tuple_cat(args...);
-			}
-		);
-	}
-
-	template<class... Future>
-	typename rename_tuple<decltype(std::tuple_cat(std::declval<typename Future::tuple_type>()...))>::template type<future> all_flat(Future&&... futs) {
-		using tuple_type = decltype(std::tuple_cat(std::declval<typename Future::tuple_type>()...));
-
-		return all_flat_impl(typename make_index_sequence<std::tuple_size<tuple_type>::value>::type(), std::move(futs)...);
+	future<std::tuple<typename Future::return_type...>> all(Future&&... futs) {
+		return all(typename make_index_sequence<sizeof...(Future)>::type(), std::move(futs)...);
 	}
 
 	template<class T>
-	inline future<T> async_while(function<future<optional<T>>>&& func) {
-		return func().template then<T>(capture([](function<future<optional<T>>>& func, optional<T> result) {
-			if (!result) {
-				return async_while(std::move(func));
-			} else {
-				return future<T>(*result);
-			}
+	future<T> async_while(function<future<optional<T>>>&& func) {
+		return func().template and_then<T>(capture([](function<future<optional<T>>>& func, optional<T> result) {
+			return result ? resolve(std::move(*result)) : async_while(std::move(func));
 		}, std::move(func)));
 	}
 }

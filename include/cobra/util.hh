@@ -2,12 +2,10 @@
 #define COBRA_UTIL_HH
 
 #include <tuple>
+#include <memory>
 
 namespace cobra {
-	template<class T>
-	struct type_identity {
-		using type = T;
-	};
+	typedef std::tuple<> unit;
 
 	template<std::size_t... I>
 	struct index_sequence {
@@ -30,6 +28,11 @@ namespace cobra {
 		template<template<class...> class Type>
 		using type = Type<T...>;
 	};
+
+	template<class T, class... Args>
+	std::unique_ptr<T> make_unique(Args&&... args) {
+		return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
+	}
 }
 
 #endif

@@ -4,26 +4,27 @@
 #include <vector>
 #include <unordered_map>
 
-#include "cobra/runner.hh"
 #include "cobra/optional.hh"
 #include "cobra/function.hh"
 
 namespace cobra {
+	class context;
+
 	enum class listen_type {
 		write,
 		read,
 	};
 
 	class event_loop {
-	private:
-		const runner& rnr;
+	protected:
+		context* ctx;
 
 	public:
 		using callback_type = function<void>;
 
 		event_loop() = delete;
+		event_loop(context* ctx);
 		event_loop(const event_loop& other) = delete;
-		event_loop(const runner& runner);
 		event_loop(event_loop&& other) noexcept;
 		virtual ~event_loop();
 
@@ -36,8 +37,6 @@ namespace cobra {
 
 		void lock() const;
 		void unlock() const;
-	protected:
-		inline const runner& get_runner() const { return rnr; }
 	};
 
 	class epoll_event_loop : public event_loop {
@@ -49,7 +48,7 @@ namespace cobra {
 		int epoll_fd;
 
 	public:
-		epoll_event_loop(const runner& rnr);
+		epoll_event_loop(context* ctx);
 		//epoll_event_loop(epoll_event_loop&& other) noexcept;
 		~epoll_event_loop();
 		

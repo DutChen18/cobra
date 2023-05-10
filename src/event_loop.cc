@@ -1,5 +1,6 @@
 #include "cobra/event_loop.hh"
 #include "cobra/exception.hh"
+#include "cobra/context.hh"
 
 #include <functional>
 #include <ios>
@@ -16,20 +17,20 @@ extern "C" {
 
 namespace cobra {
 
-	event_loop::event_loop(const runner& rnr) : rnr(rnr) {}
-	event_loop::event_loop(event_loop&& other) noexcept : rnr(std::move(other.rnr)) {}
+	event_loop::event_loop(context* ctx) : ctx(ctx) {}
+	event_loop::event_loop(event_loop&& other) noexcept : ctx(other.ctx) {}
 	event_loop::~event_loop() {}
 	//event_loop& event_loop::operator=(event_loop&&) noexcept { return *this; }
 
 	void event_loop::lock() const {
-		get_runner().get_mutex().lock();
+		ctx->get_mutex().lock();
 	}
 
 	void event_loop::unlock() const {
-		get_runner().get_mutex().unlock();
+		ctx->get_mutex().unlock();
 	}
 
-	epoll_event_loop::epoll_event_loop(const runner& rnr) : event_loop(rnr) {
+	epoll_event_loop::epoll_event_loop(context* ctx) : event_loop(ctx) {
 		epoll_fd = epoll_create(1);
 
 		if (epoll_fd == -1)
@@ -51,8 +52,7 @@ namespace cobra {
 			optional<callback_type> callback = remove_callback(event);
 
 			if (callback) {
-				std::cerr << "calling callback type " << (event.second == listen_type::read ? "read" : "write") << " on fd " << event.first << std::endl;
-				(*callback)();
+				ctx->execute(std::move(*callback));
 			}
 		}
 	}
@@ -149,6 +149,6 @@ namespace cobra {
 			throw errno_exception();
 		}
 
-		get_runner().get_condition_variable().notify_all(); //TODO move this to on_read_ready etc. so it's on by default
+		ctx->get_condition_variable().notify_all(); //TODO move this to on_read_ready etc. so it's on by default
 	}
 }

@@ -1,3 +1,4 @@
+#include "cobra/context.hh"
 #include "cobra/event_loop.hh"
 #include "cobra/executor.hh"
 #include "cobra/future.hh"
@@ -8,59 +9,30 @@
 #include <thread>
 #include <chrono>
 
-cobra::future<> on_connect(cobra::iosocket&& sock) {
-	std::vector<unsigned char> buffer(1024);
-	
-	return cobra::async_while<cobra::unit>(cobra::capture([](cobra::iosocket& sock, std::vector<unsigned char>& buffer) {
-		return sock.read_some(buffer.data(), buffer.size()).then<cobra::optional_unit>([&sock, &buffer](std::size_t count) {
-			return sock.write(buffer.data(), count).map<cobra::optional_unit>([count](std::size_t) {
-				if (count == 0) {
-					return cobra::some<cobra::unit>();
-				} else {
-					return cobra::none<cobra::unit>();
-				}
+cobra::future<cobra::unit> server() {
+	return cobra::start_server(NULL, "25565", [](cobra::connected_socket socket) {
+		std::vector<char> buffer(1024);
+		
+		return cobra::async_while<cobra::unit>(cobra::capture([](cobra::connected_socket& sock, std::vector<char>& buffer) {
+			return sock.read(buffer.data(), buffer.size()).and_then<cobra::optional<cobra::unit>>([&sock, &buffer](std::size_t count) {
+				return sock.write(buffer.data(), count).and_then<cobra::optional<cobra::unit>>([count](std::size_t) {
+					return resolve(count == 0 ? cobra::some<cobra::unit>() : cobra::none<cobra::unit>());
+				});
 			});
-		});
-	}, std::move(sock), std::move(buffer))).ignore();
+		}, std::move(socket), std::move(buffer)));
+	});
 }
 
 int main() {
-	cobra::server srv("localhost", "25565", on_connect);
-	cobra::runner run;
-	cobra::thread_pool_executor exec(run, 8);
-	cobra::epoll_event_loop loop(run);
-	cobra::context<> ctx(&exec, &loop);
+	std::unique_ptr<cobra::context> ctx = cobra::default_context();
 
-	srv.start().run(std::move(ctx));
-	run.run(&exec, &loop);
+	server().start_later(*ctx, [](cobra::future_result<cobra::unit> result) {
+		if (!result) {
+			std::cerr << result.err()->what() << std::endl;
+		}
+	});
+
+	ctx->run_until_complete();
+
+	return 0;
 }
-
-/*
-cobra::future<int> fib(int i) {
-	if (i < 2) {
-		return cobra::future<int>(1);
-	} else {
-		return cobra::all_flat(
-			fib(i - 1),
-			fib(i - 2)
-		).map<int>([](int j, int k) {
-			return j + k;
-		});
-	}
-}
-
-int main() {
-	cobra::runner run;
-	cobra::thread_pool_executor exec(run, 4);
-	// cobra::sequential_executor exec(run);
-
-	for (int i = 0; i < 10; i++) {
-		cobra::context<int> ctx(&exec, nullptr, [](int result) {
-			std::cout << result << std::endl;
-		});
-
-		fib(10).run(std::move(ctx));
-		run.run(&exec, nullptr);
-	}
-}
-*/

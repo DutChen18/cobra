@@ -1,6 +1,7 @@
 #include "cobra/socket.hh"
 #include "cobra/future.hh"
 #include "cobra/exception.hh"
+#include "cobra/event_loop.hh"
 
 #include <iostream>
 #include <cstring>
@@ -80,7 +81,7 @@ namespace cobra {
 	}
 
 	socket::~socket() {
-		if (fd >= 0 && close(fd) != -1) {
+		if (fd >= 0 && close(fd) == -1) {
 			std::cerr << "Failed to properly close socket fd " << fd;
 			std::cerr << ": " << std::strerror(errno) << std::endl;
 		}
@@ -109,35 +110,35 @@ namespace cobra {
 	}
 	
 	future<std::size_t> connected_socket::read(char_type* dst, std::size_t count) {
-		return future<std::size_t>([this, dst, count](context<std::size_t>& ctx) {
-			ctx.on_ready(fd, listen_type::read, capture([this, dst, count](context<std::size_t>& ctx) {
+		return future<std::size_t>([this, dst, count](context& ctx, future_func<std::size_t>& resolve) {
+			ctx.on_ready(fd, listen_type::read, capture([this, dst, count](future_func<std::size_t>& resolve) {
 				ssize_t nread = ::recv(fd, dst, count, 0);
 
 				if (nread < 0) {
-					throw errno_exception(); // TODO: reject
+					resolve(err<std::size_t, future_error>(errno_exception()));
 				} else {
-					ctx.resolve(nread);
+					resolve(ok<std::size_t, future_error>(nread));
 				}
-			}, std::move(ctx)));
+			}, std::move(resolve)));
 		});
 	}
 
 	future<std::size_t> connected_socket::write(const char_type* data, std::size_t count) {
-		return future<std::size_t>([this, data, count](context<std::size_t>& ctx) {
-			ctx.on_ready(fd, listen_type::write, capture([this, data, count](context<std::size_t>& ctx) {
+		return future<std::size_t>([this, data, count](context& ctx, future_func<std::size_t>& resolve) {
+			ctx.on_ready(fd, listen_type::write, capture([this, data, count](future_func<std::size_t>& resolve) {
 				ssize_t nread = ::write(fd, data, count);
 
 				if (nread < 0) {
-					throw errno_exception(); // TODO: reject
+					resolve(err<std::size_t, future_error>(errno_exception()));
 				} else {
-					ctx.resolve(nread);
+					resolve(ok<std::size_t, future_error>(nread));
 				}
-			}, std::move(ctx)));
+			}, std::move(resolve)));
 		});
 	}
 
-	future<> connected_socket::flush() {
-		return future<>();
+	future<unit> connected_socket::flush() {
+		return resolve(unit());
 	}
 
 	server_socket::server_socket(int fd) : socket(fd) {
@@ -152,20 +153,20 @@ namespace cobra {
 	}
 
 	future<connected_socket> server_socket::accept() {
-		return future<connected_socket>([this](context<connected_socket>& ctx) {
-			ctx.on_ready(fd, listen_type::read, capture([this](context<connected_socket>& ctx) {
+		return future<connected_socket>([this](context& ctx, future_func<connected_socket>& resolve) {
+			ctx.on_ready(fd, listen_type::read, capture([this](future_func<connected_socket>& resolve) {
 				sockaddr_storage addr;
 				socklen_t len;
 				int connected_fd = ::accept(fd, reinterpret_cast<sockaddr*>(&addr), &len);
 
 				if (connected_fd < 0) {
-					throw errno_exception(); // TODO: reject
+					resolve(err<connected_socket, future_error>(errno_exception()));
 				} else if (fcntl(connected_fd, F_SETFL, O_NONBLOCK) == -1) {
-					throw errno_exception(); // TODO: reject
+					resolve(err<connected_socket, future_error>(errno_exception()));
 				} else {
-					ctx.resolve(connected_socket(connected_fd));
+					resolve(ok<connected_socket, future_error>(connected_fd));
 				}
-			}, std::move(ctx)));
+			}, std::move(resolve)));
 		});
 	}
 	
@@ -192,30 +193,33 @@ namespace cobra {
 	}
 
 	future<connected_socket> initial_socket::connect(const address& addr)&& {
-		return future<connected_socket>(capture([addr](initial_socket& self, context<connected_socket>& ctx) {
+		return future<connected_socket>(capture([addr](initial_socket& self, context& ctx, future_func<connected_socket>& resolve) {
 			int result = ::connect(self.fd, addr.get_addr(), addr.get_len());
 
 			if (result == -1 && errno != EINPROGRESS) {
-				throw errno_exception(); // TODO: reject;
+				resolve(err<connected_socket, future_error>(errno_exception()));
 			}
 
-			ctx.on_ready(self.fd, listen_type::write, capture([](initial_socket& self, context<connected_socket>& ctx) {
+			ctx.on_ready(self.fd, listen_type::write, capture([](initial_socket& self, future_func<connected_socket>& resolve) {
 				int error;
 				socklen_t len = sizeof error;
 
 				if (::getsockopt(self.fd, SOL_SOCKET, SO_ERROR, &error, &len) == -1) {
-					throw errno_exception(); // TODO: reject
+					resolve(err<connected_socket, future_error>(errno_exception()));
 				} else if (error != 0) {
-					throw std::runtime_error("socket error"); // TODO: reject
+					resolve(err<connected_socket, future_error>("connect error"));
 				} else {
-					ctx.resolve(connected_socket(self.leak_fd()));
+					resolve(ok<connected_socket, future_error>(self.leak_fd()));
 				}
-			}, std::move(self), std::move(ctx)));
+			}, std::move(self), std::move(resolve)));
 		}, std::move(*this)));
 	}
 
 	server_socket initial_socket::listen(int backlog)&& {
-		::listen(fd, backlog);
+		if (::listen(fd, backlog) == -1) {
+			throw errno_exception();
+		}
+
 		return server_socket(leak_fd());
 	}
 	
@@ -255,40 +259,42 @@ namespace cobra {
 
 		return async_while<connected_socket>(capture([index](std::vector<address_info>& info_list) mutable {
 			if (index >= info_list.size()) {
-				// TODO: throw
+				throw future_error("open_connection error");
 			}
 
 			const address_info& info = info_list[index++];
 			initial_socket socket(info.get_family(), info.get_type(), info.get_proto());
 
-			return std::move(socket).connect(info.get_addr()).then([](connected_socket& socket) {
-				return some(std::move(socket));
+			return std::move(socket).connect(info.get_addr()).template and_then<optional<connected_socket>>([](connected_socket socket) {
+				return resolve(some<connected_socket>(std::move(socket)));
 			});
 		}, std::move(info_list)));
 	}
 
-	future<> start_server(const char* host, const char* port, function<future<>, connected_socket>&& callback) {
+	future<unit> start_server(const char* host, const char* port, function<future<unit>, connected_socket>&& callback) {
+		using callback_func = function<future<unit>, connected_socket>;
+
 		std::vector<address_info> info_list = get_address_info(host, port);
 		std::size_t index = 0;
 
 		return async_while<server_socket>(capture([index](std::vector<address_info>& info_list) mutable {
 			if (index >= info_list.size()) {
-				// TODO: throw
+				throw future_error("start_server error");
 			}
 
 			const address_info& info = info_list[index++];
 			initial_socket socket(info.get_family(), info.get_type(), info.get_proto());
 
 			socket.bind(info.get_addr());
-			return future<server_socket>(some(std::move(socket).listen()));
-		}, std::move(info_list))).then([](server_socket& socket) {
-			return async_while<unit>(capture([](server_socket& socket) {
-				return socket.accept().then([](connected_socket& socket) {
-					// TODO: call back
-
-					return some<unit>();
+			return resolve(some<server_socket>(std::move(socket).listen()));
+		}, std::move(info_list))).template and_then<unit>(capture([](callback_func& callback, server_socket socket) {
+			return async_while<unit>(capture([](callback_func& callback, server_socket& socket) {
+				return socket.accept().template and_then<optional<unit>>([&callback](connected_socket socket) {
+					return spawn(callback(std::move(socket))).and_then<optional<unit>>([](unit) {
+						return resolve(none<unit>());
+					});
 				});
-			}, std::move(socket)));
-		}).ignore();
+			}, std::move(callback), std::move(socket)));
+		}, std::move(callback)));
 	}
 }
