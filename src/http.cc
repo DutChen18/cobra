@@ -25,6 +25,14 @@ namespace cobra {
 		return http_method::unknown;
 	}
 
+        /*
+        future<http_method> parse_method(buffered_isstream& stream) {
+            return async_while([&stream]() {
+                (void)stream;
+                return resolve<optional<http_method>>(none<http_method>());
+            });
+        }
+
 	future<http_method> parse_method(std::shared_ptr<istream> stream) {
 		std::shared_ptr<http_method> method = std::make_shared<http_method>(http_method::unknown);
 		return cobra::async_while([stream, method]() {
@@ -78,12 +86,6 @@ namespace cobra {
 		}).then<http_version>([version]() {
 			return *version;
 		});
-	}
-
-	/*
-	future<http_request> parse_request(istream& stream) {
-		//TODO move stream as it will go out of scope
-		return cobra::async_while([stream](){
-		});
 	}*/
+
 }

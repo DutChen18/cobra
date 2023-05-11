@@ -15,8 +15,8 @@ cobra::future<cobra::unit> server() {
 		
 		return cobra::async_while<cobra::unit>(cobra::capture([](cobra::connected_socket& sock, std::vector<char>& buffer) {
 			return sock.read(buffer.data(), buffer.size()).and_then<cobra::optional<cobra::unit>>([&sock, &buffer](std::size_t count) {
-				return sock.write(buffer.data(), count).and_then<cobra::optional<cobra::unit>>([count](std::size_t) {
-					return resolve(count == 0 ? cobra::some<cobra::unit>() : cobra::none<cobra::unit>());
+				return sock.write_all(buffer.data(), count).and_then<cobra::optional<std::size_t>>([](std::size_t) {
+					return resolve(cobra::some<cobra::unit>());
 				});
 			});
 		}, std::move(socket), std::move(buffer)));
