@@ -3,6 +3,8 @@
 #include "cobra/executor.hh"
 #include "cobra/future.hh"
 #include "cobra/socket.hh"
+#include "cobra/http.hh"
+#include "cobra/file.hh"
 
 #include <iostream>
 #include <memory>
@@ -15,20 +17,31 @@ cobra::future<cobra::unit> server() {
 		
 		return cobra::async_while<cobra::unit>(cobra::capture([](cobra::connected_socket& sock, std::vector<char>& buffer) {
 			return sock.read(buffer.data(), buffer.size()).and_then<cobra::optional<cobra::unit>>([&sock, &buffer](std::size_t count) {
-				return sock.write_all(buffer.data(), count).and_then<cobra::optional<std::size_t>>([](std::size_t) {
-					return resolve(cobra::some<cobra::unit>());
+				return sock.write_all(buffer.data(), count).and_then<cobra::optional<cobra::unit>>([](std::size_t nwritten) {
+					return resolve(nwritten == 0 ? cobra::some<cobra::unit>() : cobra::none<cobra::unit>());
 				});
 			});
 		}, std::move(socket), std::move(buffer)));
 	});
 }
 
+cobra::future<cobra::http_request> parse_request_from_file() {
+	cobra::fstream stream("test.http", std::fstream::in);
+	std::unique_ptr<cobra::buffered_istream> file = cobra::make_unique<cobra::buffered_istream>(std::move(stream));
+
+	return cobra::parse_request(*file).and_then<cobra::http_request>(capture([](std::unique_ptr<cobra::buffered_istream>&, cobra::http_request result) {
+		return resolve(std::move(result));
+	}, std::move(file)));
+}
+
 int main() {
 	std::unique_ptr<cobra::context> ctx = cobra::default_context();
 
-	server().start_later(*ctx, [](cobra::future_result<cobra::unit> result) {
+	parse_request_from_file().start_later(*ctx, [](cobra::future_result<cobra::http_request> result) {
 		if (!result) {
 			std::cerr << result.err()->what() << std::endl;
+		} else {
+			std::cout << result->headers().at("host") << std::endl;
 		}
 	});
 

@@ -20,15 +20,6 @@ namespace cobra {
 		using type = index_sequence<I...>;
 	};
 
-	template<class T>
-	struct rename_tuple {};
-
-	template<class... T>
-	struct rename_tuple<std::tuple<T...>> {
-		template<template<class...> class Type>
-		using type = Type<T...>;
-	};
-
 	template<class T, class... Args>
 	std::unique_ptr<T> make_unique(Args&&... args) {
 		return std::unique_ptr<T>(new T(std::forward<Args>(args)...));

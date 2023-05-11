@@ -19,12 +19,14 @@ namespace cobra {
 
 		std::basic_fstream<CharT, Traits> stream;
 	public:
+		basic_fstream() = delete;
+
 		basic_fstream(const char* filename, typename stream_type::openmode mode) : stream(filename, mode) {
-			stream.exceptions(stream_type::failbit | stream_type::badbit);
+			stream.exceptions(stream_type::badbit);
 		}
 
 		basic_fstream(const std::string& filename, typename stream_type::openmode mode) : stream(filename, mode) {
-			stream.exceptions(stream_type::failbit | stream_type::badbit);
+			stream.exceptions(stream_type::badbit);
 		}
 
 		basic_fstream(basic_fstream&& other) : stream(std::move(other.stream)) {
@@ -32,19 +34,24 @@ namespace cobra {
 
 		basic_fstream(const basic_fstream&) = delete;
 
+		basic_fstream& operator=(basic_fstream other) {
+			std::swap(stream, other.stream);
+			return *this;
+		}
+
 		future<std::size_t> read(char_type* dst, std::size_t count) override {
 			stream.read(dst, count);
-			return future<std::size_t>(stream.gcount());
+			return resolve(static_cast<std::size_t>(stream.gcount()));
 		}
 
 		future<std::size_t> write(const char_type* data, std::size_t count) override {
 			stream.write(data, count);
-			return future<std::size_t>(count);
+			return resolve(std::move(count));
 		}
 
-		future<> flush() override {
+		future<unit> flush() override {
 			stream.flush();
-			return future<>();
+			return resolve(unit());
 		}
 	};
 

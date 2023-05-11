@@ -65,37 +65,6 @@ namespace cobra {
 		}
 	};
 
-	template<class Return, class... Args>
-	class shared_function {
-	private:
-		std::shared_ptr<base_function<Return, Args...>> inner;
-	public:
-		shared_function() = default;
-
-		shared_function(const shared_function& other) : inner(other.inner) {
-		}
-
-		shared_function(shared_function&& other) : inner(std::move(other.inner)) {
-		}
-
-		shared_function(function<Return, Args...>&& other) : inner(other.leak_inner()) {
-		}
-
-		shared_function& operator=(shared_function other) {
-			std::swap(inner, other.inner);
-			return *this;
-		}
-
-		Return operator()(Args... args) const {
-			// TODO: handle null inner
-			return inner->apply(std::forward<Args>(args)...);
-		}
-
-		bool empty() const {
-			return !inner;
-		}
-	};
-
 	template<class F, class... T>
 	class captured {
 	private:

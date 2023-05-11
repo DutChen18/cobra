@@ -1,6 +1,7 @@
 #ifndef COBRA_ASIO_HH
 #define COBRA_ASIO_HH
 
+#include "cobra/function.hh"
 #include "cobra/future.hh"
 #include "cobra/optional.hh"
 
@@ -13,6 +14,10 @@
 #include <utility>
 #include <vector>
 #include <cstring>
+
+extern "C" {
+#include <signal.h>
+}
 
 namespace cobra {
 
@@ -42,6 +47,31 @@ namespace cobra {
 		using off_type = typename Traits::off_type;
 
 		virtual future<std::size_t> read(char_type* dst, std::size_t count) = 0;
+
+		virtual future<optional<int_type>> get() {
+			std::shared_ptr<char_type> tmp = std::make_shared<char_type>(traits_type::to_char_type(traits_type::eof()));
+			return read(tmp.get(), 1).template and_then<optional<int_type>>([tmp](std::size_t nread) {
+				if (nread == 0)
+					return resolve(none<int_type>());
+				return resolve(some<int_type>(traits_type::to_int_type(*tmp)));
+			});
+		}
+
+		virtual future<std::size_t> ignore(const std::size_t count, const int_type delim = traits_type::eof()) {
+			std::size_t num_ignored = 0;
+			return async_while<std::size_t>([this, count, delim, num_ignored]() mutable {
+				if (num_ignored < count) {
+					return get().template and_then<optional<std::size_t>>([delim, &num_ignored](optional<int_type> ch) {
+						num_ignored += 1;
+						if (!ch || ch == delim)
+							return resolve(some<std::size_t>(num_ignored));
+						return resolve(none<std::size_t>());
+					});
+				} else {
+					return resolve(some<std::size_t>(num_ignored));
+				}
+			});
+		}
 	};
 
 	template <class CharT, class Traits = std::char_traits<CharT>>
@@ -61,14 +91,14 @@ namespace cobra {
 		virtual future<std::size_t> write_all(const char_type* data, std::size_t count) {
 			std::size_t progress = 0;
 			return async_while<std::size_t>(capture([this, data, count](std::size_t& progress) {
-			        return write(data + progress, count - progress).template map<optional<std::size_t>>([&progress, count](result<std::size_t, future_error> nwritten) {
-                                    if (!nwritten) {
-                                        return reject<optional<std::size_t>>(*nwritten.err());
-                                    }
-                                    progress += *nwritten;
-                                    if (*nwritten == 0 || progress == count)
-                                        return resolve(some<std::size_t>(progress));
-				    return resolve(none<std::size_t>());
+				return write(data + progress, count - progress).template map<optional<std::size_t>>([&progress, count](result<std::size_t, future_error> nwritten) {
+					if (!nwritten) {
+						return reject<optional<std::size_t>>(*nwritten.err());
+					}
+					progress += *nwritten;
+					if (*nwritten == 0 || progress == count)
+						return resolve(some<std::size_t>(progress));
+					return resolve(none<std::size_t>());
 				});
 			}, std::move(progress)));
 		}
@@ -86,7 +116,7 @@ namespace cobra {
 	};
 
 	template <class CharT, class Traits = std::char_traits<CharT>, class Allocator = std::allocator<CharT>>
-	class buffered_istream : public virtual basic_istream<CharT, Traits> {
+	class basic_buffered_istream : public virtual basic_istream<CharT, Traits> {
         public:
 		using _base = basic_istream<CharT, Traits>;
 		using char_type = typename _base::char_type;
@@ -99,58 +129,64 @@ namespace cobra {
 		using size_type = typename buffer_type::size_type;
 
 	protected:
-                using stream_type = _base;
-
-                std::unique_ptr<stream_type> _stream;
+		using stream_type = _base;
+		
+		std::unique_ptr<stream_type> _stream;
+		size_type _capacity = 0; //not needed
 		buffer_type _buffer;
-		size_type _size;
-		size_type _read_offset;
+		size_type _size = 0;
+		size_type _read_offset = 0;
 
-		size_type _capacity;
 
 	public:
-		buffered_istream() = delete;
+		basic_buffered_istream() = delete;
+		basic_buffered_istream(const basic_buffered_istream&) = delete;
 
-		buffered_istream(stream_type&& stream, size_type capacity = 1024) noexcept : _stream(make_unique(std::move(stream))), _capacity(capacity) {}
+		template<class Stream>
+		basic_buffered_istream(Stream&& stream, size_type capacity = 1024) noexcept : _stream(make_unique<Stream>(std::move(stream))), _capacity(capacity), _buffer(capacity) {
+		}
 
-		buffered_istream(buffered_istream&& other) noexcept : buffered_istream(std::move(other._stream)) {
+		basic_buffered_istream(basic_buffered_istream&& other) noexcept : basic_buffered_istream(std::move(other._stream)) {
+			_capacity = other._capacity;
 			other._capacity = 0;
 			std::swap(_buffer, other._buffer);
 			std::swap(_size, other._size);
 			std::swap(_read_offset, other._read_offset);
 		}
 
+		basic_buffered_istream& operator=(const basic_buffered_istream&) = delete;
+
 		size_type in_avail() const {
 			return egptr() - gptr();
 		}
 
 		virtual future<size_type> read(char_type* dst, size_type count) override {
-			fill_buf().and_then([this, dst, count]() {
-				return read_now(dst, count);
+			return fill_buf().template and_then<size_type>([this, dst, count](size_type) {
+				return resolve(read_now(dst, count));
 			});
 		}
 
-		virtual future<int_type> get() {
-			return fill_buf().and_then([this]() {
-				return get_now();
+		virtual future<optional<int_type>> get() override {
+			return fill_buf().template and_then<optional<int_type>>([this](size_type) {
+				return resolve(get_now());
 			});
 		}
 
-		virtual future<int_type> peek() {
-			return fill_buf().and_then([this]() {
-				return peek_now();
+		virtual future<optional<int_type>> peek() {
+			return fill_buf().template and_then<optional<int_type>>([this](size_type) {
+				return resolve(peek_now());
 			});
 		}
 
-	protected:
 		char_type *gptr() const {
-			return _buffer.data() + read_offset();
+			return const_cast<char_type*>(_buffer.data() + read_offset());
 		}
 
 		char_type *egptr() const {
-			return _buffer.data() + size();
+			return const_cast<char_type*>(_buffer.data() + size());
 		}
 
+	protected:
 		bool empty() const {
 			return in_avail() == 0;
 		}
@@ -173,37 +209,38 @@ namespace cobra {
 
 		future<size_type> fill_buf() {
 			if (empty()) {
-				_buffer.clear();
-				return _stream->read(_buffer.data(), capacity()).and_then([this](size_type nread) {
+				_size = 0;
+				return _stream->read(_buffer.data(), capacity()).template and_then<size_type>([this](size_type nread) {
 					_size = nread;
-					return nread;
+					return resolve(std::move(nread));
 				});
 			}
-			return in_avail();
+			return resolve<size_type>(in_avail());
 		}
 
 		size_type read_now(char_type* dst, size_type count) {
 			size_type capacity = count < in_avail() ? count : in_avail();
 			std::memcpy(dst, gptr(), capacity);
 			consume(capacity);
+			return capacity;
 		}
 
-		int_type peek_now() {
-			if (in_avail() == 0) //TODO debug code, remove
-				throw std::runtime_error("would block");
-			const int_type result = *gptr();
-			return result;
+		optional<int_type> peek_now() {
+			if (empty())
+				return none<int_type>();
+			return some<int_type>(traits_type::to_int_type(*gptr()));
 		}
 
-		int_type get_now() {
-			const int_type result = peek_now();
-			consume(1);
+		optional<int_type> get_now() {
+			const optional<int_type> result = peek_now();
+			if (result)
+				consume(1);
 			return result;
 		}
 	};
 
 	template <class CharT, class Traits = std::char_traits<CharT>, class Allocator = std::allocator<CharT>>
-	class buffered_ostream : public virtual basic_ostream<CharT, Traits> {
+	class basic_buffered_ostream : public virtual basic_ostream<CharT, Traits> {
         public:
 		using _base = basic_ostream<CharT, Traits>;
 		using char_type = typename _base::char_Type;
@@ -216,21 +253,23 @@ namespace cobra {
 		using size_type = typename buffer_type::size_type;
 
 	protected:
-                using stream_type = _base;
+		using stream_type = _base;
 
-                std::unique_ptr<stream_type> _stream;
+		std::unique_ptr<stream_type> _stream;
+		size_type _capacity = 0;
 		buffer_type _buffer;
-		size_type _size;
-		size_type _write_offset;
+		size_type _size = 0;
+		size_type _write_offset = 0;
 
-		size_type _capacity;
 
 	public:
-		buffered_ostream() = delete;
+		basic_buffered_ostream() = delete;
 
-		buffered_ostream(stream_type&& stream, size_type capacity = 1024) noexcept : _stream(make_unique(std::move(stream))), _capacity(capacity) {}
+		template<class Stream>
+		basic_buffered_ostream(Stream&& stream, size_type capacity = 1024) noexcept : _stream(make_unique<Stream>(std::move(stream))), _capacity(capacity), _buffer(capacity) {}
 
-		buffered_ostream(buffered_ostream&& other) noexcept : buffered_ostream(std::move(other._stream)) {
+		basic_buffered_ostream(basic_buffered_ostream&& other) noexcept : basic_buffered_ostream(std::move(other._stream)) {
+			_capacity = other._capacity;
 			other._capacity = 0;
 			std::swap(_buffer, other._buffer);
 			std::swap(_size, other._size);
@@ -255,7 +294,7 @@ namespace cobra {
 		}
 
 		virtual future<unit> flush() override {
-			return sync().and_then([this]() {
+			return sync().template and_then<unit>([this]() {
 				return _stream->flush();
 			});
 		}
@@ -288,7 +327,7 @@ namespace cobra {
 		}
 
 		char_type *pptr() const {
-			return _buffer.data() + write_offset();
+			return const_cast<char_type*>(_buffer.data() + write_offset());
 		}
 
 		void clear() {
@@ -344,6 +383,7 @@ namespace cobra {
 		}
 	};
 
-        using buffered_isstream = buffered_istream<char>;
+	using buffered_istream = basic_buffered_istream<char>;
+	using istream = basic_istream<char>;
 }
 #endif

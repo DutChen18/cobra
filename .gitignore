@@ -2,4 +2,5 @@
 /compile_commands.json
 /webserv
 /.cache
+/.clang-format
 *.plist

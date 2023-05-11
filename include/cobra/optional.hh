@@ -67,6 +67,16 @@ namespace cobra {
 			return *this;
 		}
 
+		bool operator==(const T& other) {
+			if (has_value)
+				return *(*this) == other;
+			return false;
+		}
+
+		bool operator!=(const T& other) {
+			return !(*this == other);
+		}
+
 		explicit operator bool() const noexcept {
 			return has_value;
 		}
