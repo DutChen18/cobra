@@ -1,10 +1,10 @@
 CXX = clang++
 CXXFLAGS = -Wall -Wextra -std=c++11 -Iinclude -fsanitize=address,undefined -g3
 LDFLAGS = -fsanitize=address,undefined
-# CXXFLAGS = -Wall -Wextra -std=c++11 -Iinclude -fsanitize=thread,undefined -g3
-# LDFLAGS = -fsanitize=thread,undefined
-# CXXFLAGS = -Wall -Wextra -std=c++11 -Iinclude -Ofast -march=native
-# CXXFLAGS = -Wall -Wextra -std=c++11 -Iinclude -g3
+# CXXFLAGS = -Wall -Wextra -std=c++11 -Iinclude -fsanitize=thread -g3
+# LDFLAGS = -fsanitize=thread
+# CXXFLAGS = -Wall -Wextra -std=c++11 -Iinclude -Ofast -march=native -flto
+# LDFLAGS = -flto
 
 ifdef pedantic
 	CXXFLAGS += -pedantic

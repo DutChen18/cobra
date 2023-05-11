@@ -91,12 +91,9 @@ namespace cobra {
 		virtual future<std::size_t> write_all(const char_type* data, std::size_t count) {
 			std::size_t progress = 0;
 			return async_while<std::size_t>(capture([this, data, count](std::size_t& progress) {
-				return write(data + progress, count - progress).template map<optional<std::size_t>>([&progress, count](result<std::size_t, future_error> nwritten) {
-					if (!nwritten) {
-						return reject<optional<std::size_t>>(*nwritten.err());
-					}
-					progress += *nwritten;
-					if (*nwritten == 0 || progress == count)
+				return write(data + progress, count - progress).template and_then<optional<std::size_t>>([&progress, count](std::size_t nwritten) {
+					progress += nwritten;
+					if (nwritten == 0 || progress == count)
 						return resolve(some<std::size_t>(progress));
 					return resolve(none<std::size_t>());
 				});
@@ -131,19 +128,17 @@ namespace cobra {
 	protected:
 		using stream_type = _base;
 		
-		std::unique_ptr<stream_type> _stream;
+		std::shared_ptr<stream_type> _stream;
 		size_type _capacity = 0; //not needed
 		buffer_type _buffer;
 		size_type _size = 0;
 		size_type _read_offset = 0;
 
-
 	public:
 		basic_buffered_istream() = delete;
 		basic_buffered_istream(const basic_buffered_istream&) = delete;
 
-		template<class Stream>
-		basic_buffered_istream(Stream&& stream, size_type capacity = 1024) noexcept : _stream(make_unique<Stream>(std::move(stream))), _capacity(capacity), _buffer(capacity) {
+		basic_buffered_istream(std::shared_ptr<stream_type> stream, size_type capacity = 1024) noexcept : _stream(stream), _capacity(capacity), _buffer(capacity) {
 		}
 
 		basic_buffered_istream(basic_buffered_istream&& other) noexcept : basic_buffered_istream(std::move(other._stream)) {
@@ -243,7 +238,7 @@ namespace cobra {
 	class basic_buffered_ostream : public virtual basic_ostream<CharT, Traits> {
         public:
 		using _base = basic_ostream<CharT, Traits>;
-		using char_type = typename _base::char_Type;
+		using char_type = typename _base::char_type;
 		using traits_type = typename _base::traits_type;
 		using int_type = typename _base::int_type;
 		using pos_type = typename _base::pos_type;
@@ -255,18 +250,16 @@ namespace cobra {
 	protected:
 		using stream_type = _base;
 
-		std::unique_ptr<stream_type> _stream;
+		std::shared_ptr<stream_type> _stream;
 		size_type _capacity = 0;
 		buffer_type _buffer;
 		size_type _size = 0;
 		size_type _write_offset = 0;
 
-
 	public:
 		basic_buffered_ostream() = delete;
 
-		template<class Stream>
-		basic_buffered_ostream(Stream&& stream, size_type capacity = 1024) noexcept : _stream(make_unique<Stream>(std::move(stream))), _capacity(capacity), _buffer(capacity) {}
+		basic_buffered_ostream(std::shared_ptr<stream_type> stream, size_type capacity = 1024) noexcept : _stream(stream), _capacity(capacity), _buffer(capacity) {}
 
 		basic_buffered_ostream(basic_buffered_ostream&& other) noexcept : basic_buffered_ostream(std::move(other._stream)) {
 			_capacity = other._capacity;
@@ -276,37 +269,41 @@ namespace cobra {
 			std::swap(_write_offset, other._write_offset);
 		}
 
+		// TODO: doesn't seem to work
 		virtual future<size_type> write(const char_type* data, size_type count) override {
 			if (count > capacity()) {
-				return sync().template and_then<size_type>([this, data, count]() {
+				return sync().template and_then<size_type>([this, data, count](unit) {
 					return _stream->write_all(data, count);
 				});
 			}
 			const size_type nwritten = write_now(data, count);
 			
 			if (nwritten < count) {
-				return sync().template map<size_type>([this, data, count, nwritten]() {
+				return sync().template and_then<size_type>([this, data, count, nwritten](unit) mutable {
 					write_now(data + nwritten, count - nwritten);
-					return count;
+					return resolve<size_type>(std::move(count));
 				});
 			}
-			return count;
+			return resolve<size_type>(std::move(count));
 		}
 
 		virtual future<unit> flush() override {
-			return sync().template and_then<unit>([this]() {
+			return sync().template and_then<unit>([this](unit) {
 				return _stream->flush();
 			});
 		}
 
 		virtual future<unit> put(char_type ch) {
-			return write(&ch, 1).map([](){});
+			return write(&ch, 1).template and_then<unit>([](size_type) {
+				return resolve<unit>(unit());
+			});
 		}
 	
 	protected:
 		future<unit> sync() {
-			return _stream->write_all(_buffer.data(), size()).map([this]() {
+			return _stream->write_all(_buffer.data(), size()).template and_then<unit>([this](size_type) {
 				clear();
+				return resolve<unit>(unit());
 			});
 		}
 
@@ -384,6 +381,8 @@ namespace cobra {
 	};
 
 	using buffered_istream = basic_buffered_istream<char>;
+	using buffered_ostream = basic_buffered_ostream<char>;
 	using istream = basic_istream<char>;
+	using ostream = basic_ostream<char>;
 }
 #endif

@@ -156,7 +156,7 @@ namespace cobra {
 		return future<connected_socket>([this](context& ctx, future_func<connected_socket>& resolve) {
 			ctx.on_ready(fd, listen_type::read, capture([this](future_func<connected_socket>& resolve) {
 				sockaddr_storage addr;
-				socklen_t len;
+				socklen_t len = sizeof addr;
 				int connected_fd = ::accept(fd, reinterpret_cast<sockaddr*>(&addr), &len);
 
 				if (connected_fd < 0) {
@@ -187,6 +187,12 @@ namespace cobra {
 	}
 
 	void initial_socket::bind(const address& addr) {
+		int val = 1;
+
+		if (::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof val) == -1) {
+			throw errno_exception();
+		}
+
 		if (::bind(fd, addr.get_addr(), addr.get_len()) == -1) {
 			throw errno_exception();
 		}

@@ -51,7 +51,8 @@ namespace cobra {
 
 	std::unique_ptr<context> default_context() {
 		std::unique_ptr<context> ctx = make_unique<context>();
-		ctx->set_executor(make_unique<thread_pool_executor>(ctx.get(), 4));
+		ctx->set_executor(make_unique<thread_pool_executor>(ctx.get(), 8));
+		// ctx->set_executor(make_unique<sequential_executor>(ctx.get()));
 		ctx->set_event_loop(make_unique<epoll_event_loop>(ctx.get()));
 		return ctx;
 	}

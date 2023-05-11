@@ -1,3 +1,4 @@
+#include "cobra/asio.hh"
 #include "cobra/context.hh"
 #include "cobra/event_loop.hh"
 #include "cobra/executor.hh"
@@ -11,37 +12,29 @@
 #include <thread>
 #include <chrono>
 
+static const char *response = "HTTP/1.1 200 OK\r\nContent-Length: 15\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nHello, World!\r\n";
+
 cobra::future<cobra::unit> server() {
-	return cobra::start_server(NULL, "25565", [](cobra::connected_socket socket) {
-		std::vector<char> buffer(1024);
-		
-		return cobra::async_while<cobra::unit>(cobra::capture([](cobra::connected_socket& sock, std::vector<char>& buffer) {
-			return sock.read(buffer.data(), buffer.size()).and_then<cobra::optional<cobra::unit>>([&sock, &buffer](std::size_t count) {
-				return sock.write_all(buffer.data(), count).and_then<cobra::optional<cobra::unit>>([](std::size_t nwritten) {
-					return resolve(nwritten == 0 ? cobra::some<cobra::unit>() : cobra::none<cobra::unit>());
-				});
+	return cobra::start_server(NULL, "25565", [](cobra::connected_socket sock) {
+		std::shared_ptr<cobra::connected_socket> socket = std::make_shared<cobra::connected_socket>(std::move(sock));
+		std::shared_ptr<cobra::buffered_istream> istream = std::make_shared<cobra::buffered_istream>(socket);
+		std::shared_ptr<cobra::buffered_ostream> ostream = std::make_shared<cobra::buffered_ostream>(socket);
+
+		return cobra::parse_request(*istream).and_then<cobra::unit>([socket, istream, ostream](cobra::http_request) {
+			return socket->write_all(response, std::strlen(response)).and_then<cobra::unit>([socket, istream, ostream](std::size_t) {
+				return cobra::resolve(cobra::unit());
 			});
-		}, std::move(socket), std::move(buffer)));
+		});
 	});
-}
-
-cobra::future<cobra::http_request> parse_request_from_file() {
-	cobra::fstream stream("test.http", std::fstream::in);
-	std::unique_ptr<cobra::buffered_istream> file = cobra::make_unique<cobra::buffered_istream>(std::move(stream));
-
-	return cobra::parse_request(*file).and_then<cobra::http_request>(capture([](std::unique_ptr<cobra::buffered_istream>&, cobra::http_request result) {
-		return resolve(std::move(result));
-	}, std::move(file)));
 }
 
 int main() {
 	std::unique_ptr<cobra::context> ctx = cobra::default_context();
 
-	parse_request_from_file().start_later(*ctx, [](cobra::future_result<cobra::http_request> result) {
+	server().start_later(*ctx, [](cobra::future_result<cobra::unit> result) {
 		if (!result) {
+			kill(getpid(), SIGTRAP);
 			std::cerr << result.err()->what() << std::endl;
-		} else {
-			std::cout << result->headers().at("host") << std::endl;
 		}
 	});
 
