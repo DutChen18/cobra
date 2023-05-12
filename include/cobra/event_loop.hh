@@ -31,6 +31,7 @@ namespace cobra {
 		event_loop &operator=(const event_loop& other) = delete;
 		
 		virtual void on_ready(int fd, listen_type, callback_type&& callback) = 0;
+		virtual void on_pid(int pid, callback_type&& callback) = 0;
 
 		virtual void poll() = 0;
 		virtual bool done() const = 0;
@@ -53,6 +54,7 @@ namespace cobra {
 		~epoll_event_loop();
 		
 		void on_ready(int fd, listen_type, callback_type&& callback) override;
+		void on_pid(int pid, callback_type&& callback) override;
 
 		void poll() override;
 		bool done() const override;

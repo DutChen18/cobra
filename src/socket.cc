@@ -126,12 +126,12 @@ namespace cobra {
 	future<std::size_t> connected_socket::write(const char_type* data, std::size_t count) {
 		return future<std::size_t>([this, data, count](context& ctx, future_func<std::size_t>& resolve) {
 			ctx.on_ready(fd, listen_type::write, capture([this, data, count](future_func<std::size_t>& resolve) {
-				ssize_t nread = ::write(fd, data, count);
+				ssize_t nwritten = ::send(fd, data, count, 0);
 
-				if (nread < 0) {
+				if (nwritten < 0) {
 					resolve(err<std::size_t, future_error>(errno_exception()));
 				} else {
-					resolve(ok<std::size_t, future_error>(nread));
+					resolve(ok<std::size_t, future_error>(nwritten));
 				}
 			}, std::move(resolve)));
 		});
@@ -213,7 +213,7 @@ namespace cobra {
 				if (::getsockopt(self.fd, SOL_SOCKET, SO_ERROR, &error, &len) == -1) {
 					resolve(err<connected_socket, future_error>(errno_exception()));
 				} else if (error != 0) {
-					resolve(err<connected_socket, future_error>("connect error"));
+					resolve(err<connected_socket, future_error>(errno_exception(error)));
 				} else {
 					resolve(ok<connected_socket, future_error>(self.leak_fd()));
 				}

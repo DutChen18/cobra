@@ -10,19 +10,26 @@
 
 namespace cobra {
 
-	enum class http_status_code {
-		bad_request = 400,
-		uri_too_long = 414,
-		not_implemented = 501,
-	};
+	constexpr std::size_t max_uri_length = 1024;
+	constexpr std::size_t max_method_length = 1024;
+	constexpr std::size_t max_header_key_length = 1024;
+	constexpr std::size_t max_header_value_length = 1024;
+	constexpr std::size_t max_header_count = 1024;
+	constexpr std::size_t max_reason_phrase_length = 1024;
 
-	class uri {
-		std::string _scheme;
-		std::string _opaque;
+	enum class http_status_code {
+		ok = 200,
+		bad_request = 400,
+		content_too_large = 413,
+		uri_too_long = 414,
+		request_header_fields_too_large = 431,
+		not_implemented = 501,
 	};
 
 	class path {
 		std::vector<std::string> segments;
+	public:
+		void push_back(const std::string& segment);
 	};
 
 	class http_version {
@@ -63,8 +70,31 @@ namespace cobra {
 		map_type map;
 
 	public:
-		void insert(std::string key, std::string value);
-		const std::string& at(std::string key) const;
+		using key_type = map_type::key_type;
+		using mapped_type = map_type::mapped_type;
+		using value_type = map_type::value_type;
+		using size_type = map_type::size_type;
+		using difference_type = map_type::difference_type;
+		using hasher = map_type::hasher;
+		using key_equal = map_type::key_equal;
+		using allocator_type = map_type::allocator_type;
+		using reference = map_type::reference;
+		using const_reference = map_type::const_reference;
+		using pointer = map_type::pointer;
+		using const_pointer = map_type::const_pointer;
+		using iterator = map_type::iterator;
+		using const_iterator = map_type::const_iterator;
+
+		mapped_type& insert_or_assign(const key_type& key, const mapped_type& value);
+		mapped_type& insert_or_append(const key_type& key, const mapped_type& value);
+		const mapped_type& at(const key_type& key) const;
+		bool contains(const key_type& key) const;
+		size_type size() const;
+
+		iterator begin();
+		const_iterator begin() const;
+		iterator end();
+		const_iterator end() const;
 	};
 
 	enum class http_method  {
@@ -79,25 +109,70 @@ namespace cobra {
 		connect,
 	};
 
-	class http_request {
-		http_method _method;
-		std::string _request_uri;
+	class http_message {
+		header_map _headers;
 		http_version _version;
 
-		header_map _headers;
-
 	public:
-		http_request() = default;
-		http_request(http_method method, const std::string& request_uri, http_version version, const header_map& map);//TODO use move semantics
+		http_message(http_version version);
+		http_message(http_version version, header_map map);
 
 		inline const header_map& headers() const { return _headers; }
 		inline header_map& headers() { return _headers; };
+		inline const http_version& version() const { return _version; }
+		inline http_version& version() { return _version; }
+	};
+
+	class http_request : public http_message {
+		std::string _method;
+		std::string _request_uri;
+
+	public:
+		http_request() = delete;
+		http_request(std::string method, std::string uri, http_version version);
+		http_request(std::string method, std::string uri, http_version version, header_map map);
+
+		inline const std::string& method() const { return _method; }
+		inline std::string& method() { return _method; }
+		inline const std::string& request_uri() const { return _request_uri; }
+		inline std::string& request_uri() { return _request_uri; }
+	};
+
+	class http_response : public http_message {
+		unsigned int _status_code;
+		std::string _reason_phrase;
+
+	public:
+		http_response(http_version version, unsigned int status_code, std::string reason_phrase = std::string());
+		http_response(http_version version, unsigned int status_code, std::string reason_phrase, header_map map);
+
+		http_response(http_version version, http_status_code status_code, std::string reason_phrase = std::string());
+		http_response(http_version version, http_status_code status_code, std::string reason_phrase, header_map map);
+
+		inline const unsigned int& status_code() const { return _status_code; }
+		inline unsigned int& status_code() { return _status_code; }
+		inline const std::string& reason_phrase() const { return _reason_phrase; }
+		inline std::string& reason_phrase() { return _reason_phrase; }
 	};
 
 	http_method parse_method(const std::string& string);
 	//future<http_request> parse_request(buffered_istream<& stream);
 	future<header_map> parse_headers(istream& stream);
 	future<http_request> parse_request(buffered_istream& stream);
-}
+	future<http_response> parse_response(buffered_istream& stream); // TODO
 
+	std::ostream& operator<<(std::ostream& os, const header_map& headers);
+	std::ostream& operator<<(std::ostream& os, const http_request& request);
+	std::ostream& operator<<(std::ostream& os, const http_response& response);
+
+	future<unit> write_request(ostream& stream, const http_request& request);
+	future<unit> write_response(ostream& stream, const http_response& response);
+
+	bool is_ctl(int ch);
+	bool is_separator(int ch);
+	bool is_token(int ch);
+	bool is_token(const std::string& str);
+	bool is_crlf(int ch);
+	future<int> get_ch(istream& stream);
+}
 #endif

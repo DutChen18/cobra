@@ -78,7 +78,19 @@ namespace cobra {
 
 		for (int idx = 0; idx < ready_count; ++idx) {
 			const epoll_event& event = events[idx];
-			result.push_back(std::make_pair(event.data.fd, get_type(event.events)));
+
+			if (event.events & (EPOLLERR | EPOLLHUP)) {
+				result.push_back(std::make_pair(event.data.fd, listen_type::read));
+				result.push_back(std::make_pair(event.data.fd, listen_type::write));
+			}
+
+			if (event.events & EPOLLIN) {
+				result.push_back(std::make_pair(event.data.fd, listen_type::read));
+			}
+
+			if (event.events & EPOLLOUT) {
+				result.push_back(std::make_pair(event.data.fd, listen_type::write));
+			}
 		}
 		return result;
 	}
@@ -94,7 +106,6 @@ namespace cobra {
 		case listen_type::read:
 			return EPOLLIN;
 		}
-		std::terminate();
 	}
 
 	listen_type epoll_event_loop::get_type(int event) const {
@@ -115,15 +126,15 @@ namespace cobra {
 	optional<epoll_event_loop::callback_type> epoll_event_loop::remove_callback(event_type event) {
 		std::lock_guard<const epoll_event_loop> guard(*this);
 
-		int rc = epoll_ctl(epoll_fd, EPOLL_CTL_DEL, event.first, nullptr);
-		if (rc == -1)
-			throw errno_exception();
-
 		callback_map& map = get_map(event.second);
 
 		auto it = map.find(event.first);
 		if (it == map.end())
 			return optional<callback_type>();
+
+		int rc = epoll_ctl(epoll_fd, EPOLL_CTL_DEL, event.first, nullptr);
+		if (rc == -1)
+			throw errno_exception();
 
 		optional<callback_type> result(std::move(it->second));
 		map.erase(it);
@@ -150,5 +161,11 @@ namespace cobra {
 		}
 
 		ctx->get_condition_variable().notify_all(); //TODO move this to on_read_ready etc. so it's on by default
+	}
+
+	// TODO: implement this function
+	void epoll_event_loop::on_pid(int pid, callback_type&& callback) {
+		(void) pid;
+		ctx->execute(std::move(callback));
 	}
 }

@@ -30,6 +30,10 @@ namespace cobra {
 	void context::on_ready(int fd, listen_type type, function<void>&& func) const {
 		loop->on_ready(fd, type, std::move(func));
 	}
+	
+	void context::on_pid(int pid, function<void>&& func) const {
+		loop->on_pid(pid, std::move(func));
+	}
 
 	void context::run_until_complete() const {
 		std::unique_lock<std::mutex> guard(mutex);

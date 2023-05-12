@@ -30,6 +30,7 @@ namespace cobra {
 		void set_event_loop(std::unique_ptr<event_loop>&& loop);
 		void execute(function<void>&& func) const;
 		void on_ready(int fd, listen_type type, function<void>&& func) const;
+		void on_pid(int pid, function<void>&& func) const;
 		void run_until_complete() const;
 	};
 

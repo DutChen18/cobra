@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <exception>
+#include <future>
 #include <ios>
 #include <memory>
 #include <stdexcept>
@@ -87,6 +88,15 @@ namespace cobra {
 		
 		virtual future<std::size_t> write(const char_type* data, std::size_t count) = 0;
 		virtual future<unit> flush() = 0;
+
+		virtual future<bool> put(char_type ch) {
+			std::unique_ptr<char_type> ch_ptr = make_unique<char_type>(ch);
+			return write(ch_ptr.get(), 1).template and_then<bool>(capture([](std::unique_ptr<char_type>&, std::size_t nwritten) {
+				if (nwritten == 0)
+					return resolve(false);
+				return resolve(true);
+			}, std::move(ch_ptr)));
+		}
 
 		virtual future<std::size_t> write_all(const char_type* data, std::size_t count) {
 			std::size_t progress = 0;
@@ -181,6 +191,19 @@ namespace cobra {
 			return const_cast<char_type*>(_buffer.data() + size());
 		}
 
+		optional<int_type> peek_now() {
+			if (empty())
+				return none<int_type>();
+			return some<int_type>(traits_type::to_int_type(*gptr()));
+		}
+
+		optional<int_type> get_now() {
+			const optional<int_type> result = peek_now();
+			if (result)
+				consume(1);
+			return result;
+		}
+
 	protected:
 		bool empty() const {
 			return in_avail() == 0;
@@ -219,19 +242,6 @@ namespace cobra {
 			consume(capacity);
 			return capacity;
 		}
-
-		optional<int_type> peek_now() {
-			if (empty())
-				return none<int_type>();
-			return some<int_type>(traits_type::to_int_type(*gptr()));
-		}
-
-		optional<int_type> get_now() {
-			const optional<int_type> result = peek_now();
-			if (result)
-				consume(1);
-			return result;
-		}
 	};
 
 	template <class CharT, class Traits = std::char_traits<CharT>, class Allocator = std::allocator<CharT>>
@@ -269,7 +279,6 @@ namespace cobra {
 			std::swap(_write_offset, other._write_offset);
 		}
 
-		// TODO: doesn't seem to work
 		virtual future<size_type> write(const char_type* data, size_type count) override {
 			if (count > capacity()) {
 				return sync().template and_then<size_type>([this, data, count](unit) {
@@ -277,7 +286,7 @@ namespace cobra {
 				});
 			}
 			const size_type nwritten = write_now(data, count);
-			
+
 			if (nwritten < count) {
 				return sync().template and_then<size_type>([this, data, count, nwritten](unit) mutable {
 					write_now(data + nwritten, count - nwritten);
@@ -290,12 +299,6 @@ namespace cobra {
 		virtual future<unit> flush() override {
 			return sync().template and_then<unit>([this](unit) {
 				return _stream->flush();
-			});
-		}
-
-		virtual future<unit> put(char_type ch) {
-			return write(&ch, 1).template and_then<unit>([](size_type) {
-				return resolve<unit>(unit());
 			});
 		}
 	

@@ -50,8 +50,11 @@ namespace cobra {
 	public:
 		using return_type = T;
 
+		future() = default;
 		future(const future&) = delete;
 		future(future&&) = default;
+
+		// TODO: warning if future never awaited
 
 		future(function<void, context&, future_func<T>&>&& func) : func(std::move(func)) {
 		}
@@ -70,31 +73,50 @@ namespace cobra {
 		}
 
 		template<class U>
-		future<U> map(function<future<U>, future_result<T>>&& func)&& {
-			using func_type = function<future<U>, future_result<T>>;
+		future<U> and_then(function<future<U>, T>&& func)&& {
+			using func_type = function<future<U>, T>;
 
-			return future<U>(capture([](future& self, func_type& func, context& ctx, future_func<U>& resolve ) {
+			return future<U>(capture([](future& self, func_type& func, context& ctx, future_func<U>& resolve) {
 				std::move(self).start_now(ctx, capture([&ctx](func_type& func, future_func<U>& resolve, future_result<T> result) {
-					try {
-						func(std::move(result)).start_now(ctx, std::move(resolve));
-					} catch (const std::exception& ex) {
-						resolve(err<U, future_error>(ex.what()));
+					if (result) {
+						future<U> ret;
+
+						try {
+							ret = func(std::move(*result));
+						} catch (const std::exception& ex) {
+							resolve(err<U, future_error>(ex.what()));
+							return;
+						}
+
+						std::move(ret).start_now(ctx, std::move(resolve));
+					} else {
+						resolve(err<U, future_error>(*result.err()));
 					}
 				}, std::move(func), std::move(resolve)));
 			}, std::move(*this), std::move(func)));
 		}
 
-		template<class U>
-		future<U> and_then(function<future<U>, T>&& func)&& {
-			return std::move(*this).template map<U>(capture([](function<future<U>, T>& func, future_result<T> result) {
-				return result ? func(std::move(*result)) : reject<U>(*result.err());
-			}, std::move(func)));
-		}
-
 		future or_else(function<future, future_error>&& func)&& {
-			return std::move(*this).map(capture([](function<future<T>, future_error>& func, future_result<T> result) {
-				return result ? resolve(std::move(*result)) : func(*result.err());
-			}, std::move(func)));
+			using func_type = function<future, T>;
+
+			return future(capture([](future& self, func_type& func, context& ctx, future_func<T>& resolve) {
+				std::move(self).start_now(ctx, capture([&ctx](func_type& func, future_func<T>& resolve, future_result<T> result) {
+					if (result) {
+						resolve(std::move(result));
+					} else {
+						future ret;
+
+						try {
+							ret = func(*result.err());
+						} catch (const std::exception& ex) {
+							resolve(err<T, future_error>(ex.what()));
+							return;
+						}
+
+						std::move(ret).start_now(ctx, std::move(resolve));
+					}
+				}, std::move(func), std::move(resolve)));
+			}, std::move(*this), std::move(func)));
 		}
 	};
 	

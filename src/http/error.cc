@@ -14,6 +14,8 @@ namespace cobra {
 			return "Not implemented";
 		case http_status_code::bad_request:
 			return "Bad request";
+		case http_status_code::content_too_large:
+			return "Requset entity too large";
 		default:
 			return "Unknown error";
 		}
