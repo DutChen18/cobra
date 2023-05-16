@@ -19,12 +19,6 @@ namespace cobra {
 	http_response::http_response(http_version version, unsigned int status_code, std::string reason_phrase, header_map map) : http_message(version, std::move(map)), _status_code(status_code), _reason_phrase(reason_phrase) {
 	}
 
-	http_response::http_response(http_version version, http_status_code status_code, std::string reason_phrase) : http_response(version, static_cast<unsigned int>(status_code), std::move(reason_phrase)) {}
-
-	http_response::http_response(http_version version, http_status_code status_code, std::string reason_phrase, header_map map) : http_response(version, static_cast<unsigned int>(status_code), std::move(reason_phrase), std::move(map)) {}
-
-
-
 	bool is_ctl(int ch) {
 		return (ch >= 0 && ch <= 31) || ch == 127;
 	}
@@ -82,10 +76,14 @@ namespace cobra {
 		return ch == '\r' || ch == '\n';
 	}
 
+	bool is_cgi_value(int ch) {
+		return (!is_ctl(ch) && ch >= 0 && ch <= 127) || ch == '\t';
+	}
+
 	future<int> get_ch(istream& stream) {
 		return stream.get().and_then<int>([](optional<int> ch) {
 			if (!ch) {
-				throw http_error(http_status_code::bad_request);
+				throw http_error(http_error_code::unexpected_eof);
 			} else {
 				return resolve(std::move(*ch));
 			}

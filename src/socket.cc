@@ -77,25 +77,15 @@ namespace cobra {
 	}
 
 	socket::socket(socket&& other) {
-		fd = other.leak_fd();
+		fd = std::move(other.fd);
 	}
 
 	socket::~socket() {
-		if (fd >= 0 && close(fd) == -1) {
-			std::cerr << "Failed to properly close socket fd " << fd;
-			std::cerr << ": " << std::strerror(errno) << std::endl;
-		}
 	}
-	
+
 	socket& socket::operator=(socket other) {
 		std::swap(fd, other.fd);
 		return *this;
-	}
-
-	int socket::leak_fd() {
-		int result = fd;
-		fd = -1;
-		return result;
 	}
 
 	connected_socket::connected_socket(int fd) : socket(fd) {
@@ -111,8 +101,8 @@ namespace cobra {
 	
 	future<std::size_t> connected_socket::read(char_type* dst, std::size_t count) {
 		return future<std::size_t>([this, dst, count](context& ctx, future_func<std::size_t>& resolve) {
-			ctx.on_ready(fd, listen_type::read, capture([this, dst, count](future_func<std::size_t>& resolve) {
-				ssize_t nread = ::recv(fd, dst, count, 0);
+			ctx.on_ready(fd.get(), listen_type::read, capture([this, dst, count](future_func<std::size_t>& resolve) {
+				ssize_t nread = ::recv(fd.get(), dst, count, 0);
 
 				if (nread < 0) {
 					resolve(err<std::size_t, future_error>(errno_exception()));
@@ -125,8 +115,8 @@ namespace cobra {
 
 	future<std::size_t> connected_socket::write(const char_type* data, std::size_t count) {
 		return future<std::size_t>([this, data, count](context& ctx, future_func<std::size_t>& resolve) {
-			ctx.on_ready(fd, listen_type::write, capture([this, data, count](future_func<std::size_t>& resolve) {
-				ssize_t nwritten = ::send(fd, data, count, 0);
+			ctx.on_ready(fd.get(), listen_type::write, capture([this, data, count](future_func<std::size_t>& resolve) {
+				ssize_t nwritten = ::send(fd.get(), data, count, 0);
 
 				if (nwritten < 0) {
 					resolve(err<std::size_t, future_error>(errno_exception()));
@@ -139,6 +129,12 @@ namespace cobra {
 
 	future<unit> connected_socket::flush() {
 		return resolve(unit());
+	}
+
+	void connected_socket::shutdown(int how) {
+		if (::shutdown(fd.get(), how) == -1) {
+			throw errno_exception();
+		}
 	}
 
 	server_socket::server_socket(int fd) : socket(fd) {
@@ -154,10 +150,10 @@ namespace cobra {
 
 	future<connected_socket> server_socket::accept() {
 		return future<connected_socket>([this](context& ctx, future_func<connected_socket>& resolve) {
-			ctx.on_ready(fd, listen_type::read, capture([this](future_func<connected_socket>& resolve) {
+			ctx.on_ready(fd.get(), listen_type::read, capture([this](future_func<connected_socket>& resolve) {
 				sockaddr_storage addr;
 				socklen_t len = sizeof addr;
-				int connected_fd = ::accept(fd, reinterpret_cast<sockaddr*>(&addr), &len);
+				int connected_fd = ::accept(fd.get(), reinterpret_cast<sockaddr*>(&addr), &len);
 
 				if (connected_fd < 0) {
 					resolve(err<connected_socket, future_error>(errno_exception()));
@@ -171,9 +167,9 @@ namespace cobra {
 	}
 	
 	initial_socket::initial_socket(int family, int type, int proto) : socket(::socket(family, type, proto)) {
-		if (fd < 0) {
+		if (fd.get() < 0) {
 			throw errno_exception();
-		} else if (fcntl(fd, F_SETFL, O_NONBLOCK) == -1) {
+		} else if (fcntl(fd.get(), F_SETFL, O_NONBLOCK) == -1) {
 			throw errno_exception();
 		}
 	}
@@ -189,44 +185,44 @@ namespace cobra {
 	void initial_socket::bind(const address& addr) {
 		int val = 1;
 
-		if (::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof val) == -1) {
+		if (::setsockopt(fd.get(), SOL_SOCKET, SO_REUSEADDR, &val, sizeof val) == -1) {
 			throw errno_exception();
 		}
 
-		if (::bind(fd, addr.get_addr(), addr.get_len()) == -1) {
+		if (::bind(fd.get(), addr.get_addr(), addr.get_len()) == -1) {
 			throw errno_exception();
 		}
 	}
 
 	future<connected_socket> initial_socket::connect(const address& addr)&& {
 		return future<connected_socket>(capture([addr](initial_socket& self, context& ctx, future_func<connected_socket>& resolve) {
-			int result = ::connect(self.fd, addr.get_addr(), addr.get_len());
+			int result = ::connect(self.fd.get(), addr.get_addr(), addr.get_len());
 
 			if (result == -1 && errno != EINPROGRESS) {
 				resolve(err<connected_socket, future_error>(errno_exception()));
 			}
 
-			ctx.on_ready(self.fd, listen_type::write, capture([](initial_socket& self, future_func<connected_socket>& resolve) {
+			ctx.on_ready(self.fd.get(), listen_type::write, capture([](initial_socket& self, future_func<connected_socket>& resolve) {
 				int error;
 				socklen_t len = sizeof error;
 
-				if (::getsockopt(self.fd, SOL_SOCKET, SO_ERROR, &error, &len) == -1) {
+				if (::getsockopt(self.fd.get(), SOL_SOCKET, SO_ERROR, &error, &len) == -1) {
 					resolve(err<connected_socket, future_error>(errno_exception()));
 				} else if (error != 0) {
 					resolve(err<connected_socket, future_error>(errno_exception(error)));
 				} else {
-					resolve(ok<connected_socket, future_error>(self.leak_fd()));
+					resolve(ok<connected_socket, future_error>(self.fd.leak()));
 				}
 			}, std::move(self), std::move(resolve)));
 		}, std::move(*this)));
 	}
 
 	server_socket initial_socket::listen(int backlog)&& {
-		if (::listen(fd, backlog) == -1) {
+		if (::listen(fd.get(), backlog) == -1) {
 			throw errno_exception();
 		}
 
-		return server_socket(leak_fd());
+		return server_socket(fd.leak());
 	}
 	
 	std::vector<address_info> get_address_info(const char* host, const char* port, int family, int type) {

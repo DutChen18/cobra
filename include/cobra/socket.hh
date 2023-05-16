@@ -7,6 +7,7 @@
 
 #include "cobra/future.hh"
 #include "cobra/asio.hh"
+#include "cobra/fd.hh"
 
 extern "C" {
 #include <netdb.h>
@@ -50,16 +51,13 @@ namespace cobra {
 
 	class socket {
 	protected:
-		int fd;
+		fd_wrapper fd;
 	public:
 		socket(int fd);
 		socket(socket&& other);
-		socket(const socket&) = delete;
 		virtual ~socket();
 
 		socket& operator=(socket other);
-
-		int leak_fd();
 	};
 
 	class connected_socket : public socket, public basic_iostream<char> {
@@ -78,6 +76,7 @@ namespace cobra {
 		future<std::size_t> read(char_type* dst, std::size_t count) override;
 		future<std::size_t> write(const char_type* data, std::size_t count) override;
 		future<unit> flush() override; 
+		void shutdown(int how);
 	};
 
 	class server_socket : public socket {

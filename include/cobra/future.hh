@@ -8,6 +8,7 @@
 
 #include <atomic>
 #include <functional>
+#include <mutex>
 #include <stdexcept>
 #include <iostream>
 
@@ -165,9 +166,82 @@ namespace cobra {
 	}
 
 	template<class T>
+	struct while_state {
+		std::mutex mutex;
+		function<future<optional<T>>> func;
+		future_func<T> resolve;
+		optional<future_result<T>> result;
+		bool is_trivial;
+		bool is_complex;
+
+		while_state(function<future<optional<T>>>&& func, future_func<T>&& resolve) : func(std::move(func)), resolve(std::move(resolve)) {
+		}
+	};
+	
+	template<class T>
+	void async_while_impl(context& ctx, std::shared_ptr<while_state<T>> state) {
+		state->mutex.lock();
+
+		do {
+			if (state->result) {
+				state->resolve(std::move(*state->result));
+				break;
+			}
+
+			state->is_trivial = false;
+			state->is_complex = false;
+			state->mutex.unlock();
+
+			future<optional<T>> fut;
+		
+			try {
+				fut = state->func();
+			} catch (const std::exception& ex) {
+				state->resolve(err<T, future_error>(ex.what()));
+				return;
+			}
+
+			std::move(fut).start_now(ctx, [state, &ctx](future_result<optional<T>> result) {
+				state->mutex.lock();
+
+				if (state->is_complex) {
+					if (!result) {
+						state->resolve(err<T, future_error>(std::move(*result.err())));
+					} else if (*result) {
+						state->resolve(ok<T, future_error>(std::move(**result)));
+					} else {
+						state->mutex.unlock();
+						async_while_impl(ctx, state);
+						state->mutex.lock();
+					}
+				} else {
+					state->is_trivial = true;
+					
+					if (!result) {
+						state->result = some<future_result<T>>(err<T, future_error>(std::move(*result.err())));
+					} else if (*result) {
+						state->result = some<future_result<T>>(ok<T, future_error>(std::move(**result)));
+					} else {
+						state->result = none<future_result<T>>();
+					}
+				}
+
+				state->mutex.unlock();
+			});
+
+			state->mutex.lock();
+			state->is_complex = true;
+		} while (state->is_trivial);
+
+		state->mutex.unlock();
+	}
+
+	template<class T>
 	future<T> async_while(function<future<optional<T>>>&& func) {
-		return func().template and_then<T>(capture([](function<future<optional<T>>>& func, optional<T> result) {
-			return result ? resolve(std::move(*result)) : async_while(std::move(func));
+		return future<T>(capture([](function<future<optional<T>>>& func, context& ctx, future_func<T>& resolve) {
+			std::shared_ptr<while_state<T>> state = std::make_shared<while_state<T>>(std::move(func), std::move(resolve));
+
+			async_while_impl(ctx, state);
 		}, std::move(func)));
 	}
 }

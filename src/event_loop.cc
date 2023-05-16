@@ -123,6 +123,10 @@ namespace cobra {
 		return write_callbacks;
 	}
 
+	bool epoll_event_loop::has_callback(int fd) {
+		return get_map(listen_type::read).count(fd) == 1 || get_map(listen_type::write).count(fd) == 1;
+	}
+
 	optional<epoll_event_loop::callback_type> epoll_event_loop::remove_callback(event_type event) {
 		std::lock_guard<const epoll_event_loop> guard(*this);
 
@@ -132,12 +136,24 @@ namespace cobra {
 		if (it == map.end())
 			return optional<callback_type>();
 
-		int rc = epoll_ctl(epoll_fd, EPOLL_CTL_DEL, event.first, nullptr);
-		if (rc == -1)
-			throw errno_exception();
-
 		optional<callback_type> result(std::move(it->second));
 		map.erase(it);
+
+		const bool has_one = has_callback(event.first);
+
+		int rc = 0;
+
+		if (has_one) {
+			epoll_event epoll_event;
+			epoll_event.events = event.second == listen_type::read ? EPOLLOUT : EPOLLIN;
+			epoll_event.data.fd = event.first;
+			rc = epoll_ctl(epoll_fd, EPOLL_CTL_MOD, event.first, &epoll_event);
+		} else {
+			rc = epoll_ctl(epoll_fd, EPOLL_CTL_DEL, event.first, nullptr);
+		}
+
+		if (rc == -1)
+			throw errno_exception();
 		return result;
 	}
 
@@ -150,11 +166,20 @@ namespace cobra {
 
 		std::lock_guard<const epoll_event_loop> guard(*this);
 
+		const bool has_one = has_callback(fd);
+
 		if (!callbacks.emplace(std::make_pair(fd, std::move(callback))).second) {
 			throw std::invalid_argument("A callback for this operation was already registered for this fd");
 		}
+		int rc = 0;
 
-		int rc = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event);
+		if (has_one) {
+			event.events = EPOLLIN | EPOLLOUT;
+			rc = epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event);
+		} else {
+			rc = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &event);
+		}
+
 		if (rc == -1) {
 			callbacks.erase(fd);
 			throw errno_exception();

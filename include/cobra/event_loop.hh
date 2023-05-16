@@ -40,6 +40,7 @@ namespace cobra {
 		void unlock() const;
 	};
 
+	//TODO rewrite
 	class epoll_event_loop : public event_loop {
 		using callback_map = std::unordered_map<int, callback_type>;
 		using event_type = std::pair<int, listen_type>;
@@ -63,6 +64,7 @@ namespace cobra {
 		std::vector<event_type> poll(std::size_t count);
 		int get_events(listen_type type) const;
 		listen_type get_type(int event) const;
+		bool has_callback(int fd);
 
 		callback_map& get_map(listen_type type);
 		optional<callback_type> remove_callback(event_type event);

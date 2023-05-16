@@ -1,5 +1,6 @@
 #include "cobra/http.hh"
 #include "cobra/future.hh"
+#include "cobra/asio_utils.hh"
 #include <exception>
 #include <memory>
 #include <cctype>
@@ -161,13 +162,13 @@ namespace cobra {
 	static future<unsigned int> parse_status_code(istream& stream) {
 		return get_ch(stream).and_then<unsigned int>([&stream](int first_ch) {
 			if (!std::isdigit(first_ch))
-				throw http_error(http_status_code::bad_request);
+				throw http_error(http_error_code::bad_status_digit);
 			return get_ch(stream).and_then<unsigned int>([&stream, first_ch](int second_ch) {
 				if (!std::isdigit(second_ch))
-					throw http_error(http_status_code::bad_request);
+					throw http_error(http_error_code::bad_status_digit);
 				return get_ch(stream).and_then<unsigned int>([first_ch, second_ch](int third_ch) {
 					if (!std::isdigit(third_ch))
-						throw http_error(http_status_code::bad_request);
+						throw http_error(http_error_code::bad_status_digit);
 					return resolve(catoui(first_ch) * 100 + catoui(second_ch) * 10 + catoui(third_ch));
 				});
 			});
@@ -181,7 +182,7 @@ namespace cobra {
 					return resolve(some<std::string>(std::move(reason)));
 				reason.push_back(*ch);
 				if (reason.size() > max_reason_phrase_length)
-					throw http_error(http_status_code::content_too_large);
+					throw http_error(http_error_code::reason_phrase_too_long);
 				stream.get_now();
 				return resolve(none<std::string>());
 			});
@@ -193,15 +194,15 @@ namespace cobra {
 			return get_ch(stream).and_then<optional<std::string>>([&method](int ch) {
 				if (ch == ' ') {
 					if (method.empty())
-						throw http_error(http_status_code::bad_request);
+						throw http_error(http_error_code::missing_method);
 					return resolve(some<std::string>(std::move(method)));
 				} else if (is_token(ch)) {
 					method.push_back(ch);
 					if (method.size() > max_method_length)
-						throw http_error(http_status_code::content_too_large);
+						throw http_error(http_error_code::method_too_long);
 					return resolve(none<std::string>());
 				} else {
-					throw http_error(http_status_code::bad_request);
+					throw http_error(http_error_code::bad_method);
 				}
 			});
 		}, std::string()));
@@ -213,32 +214,20 @@ namespace cobra {
 			return stream.get().and_then<optional<std::string>>([&request_uri](optional<int> ch) {
 				if (!ch || ch == ' ')
 					return resolve(some<std::string>(std::move(request_uri)));
-				request_uri.push_back(*ch);
+				if (*ch < 32 || *ch > 126)
+					throw http_error(http_error_code::bad_request_uri);
+				request_uri.push_back(std::char_traits<char>::to_char_type(*ch));
 				if (request_uri.length() > max_uri_length)
-					throw http_error(http_status_code::uri_too_long);
+					throw http_error(http_error_code::request_uri_too_long);
 				return resolve(none<std::string>());
 			});
 		}, std::move(request_uri)));
 	}
 
-	future<bool> expect_string(istream& stream, std::string str) {
-		std::string::size_type offset = 0;
-		return async_while<bool>(capture([&stream, offset](std::string& str) mutable {
-			if (offset == str.size())
-				return resolve(some<bool>(true));
-			return stream.get().and_then<optional<bool>>([&str, &offset](optional<int> ch) {
-				if (ch != str[offset])
-					return resolve(some<bool>(false));
-				offset += 1;
-				return resolve(none<bool>());
-			});
-		}, std::move(str)));
-	}
-
-	future<unit> assert_string(istream &stream, std::string str) {
+	static future<unit> assert_string(istream &stream, std::string str) {
 		return expect_string(stream, str).and_then<unit>([](bool b) {
 			if (!b)
-				throw http_error(http_status_code::bad_request);
+				throw http_error(http_error_code::bad_request);
 			return resolve(unit());
 		});
 	}
@@ -253,11 +242,8 @@ namespace cobra {
 				if (!result)
 					result = some<UnsignedT>(UnsignedT());
 
-				UnsignedT tmp = *result * 10 + '0' - *ch;
-				if (tmp < *result)
-					return resolve(some<optional<UnsignedT>>(std::move(result)));
-				result = tmp;
-				
+				result = *result * 10 + *ch - '0';
+
 				stream.get_now();
 				return resolve(none<optional<UnsignedT>>());
 			});
@@ -267,15 +253,15 @@ namespace cobra {
 	future<http_version> parse_http_version(buffered_istream& stream) {
 		return expect_string(stream, "HTTP/").and_then<http_version>([&stream](bool b) {
 			if (!b)
-				throw http_error(http_status_code::bad_request);
+				throw http_error(http_error_code::bad_version);
 			return parse_unsigned<http_version::version_type>(stream).and_then<http_version>([&stream](optional<http_version::version_type> major_opt) {
 				if (!major_opt)
-					throw http_error(http_status_code::bad_request);
+					throw http_error(http_error_code::missing_major_version);
 				http_version::version_type major = *major_opt;
 				return assert_string(stream, ".").and_then<http_version>([&stream, major](unit)  {
 					return parse_unsigned<http_version::version_type>(stream).and_then<http_version>([major](optional<http_version::version_type> minor_opt) {
 						if (!minor_opt)
-							throw http_error(http_status_code::bad_request);
+							throw http_error(http_error_code::missing_minor_version);
 						return resolve(http_version(major, *minor_opt));
 					});
 				});

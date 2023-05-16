@@ -228,6 +228,7 @@ namespace cobra {
 		future<size_type> fill_buf() {
 			if (empty()) {
 				_size = 0;
+				_read_offset = 0;
 				return _stream->read(_buffer.data(), capacity()).template and_then<size_type>([this](size_type nread) {
 					_size = nread;
 					return resolve(std::move(nread));
@@ -346,42 +347,27 @@ namespace cobra {
 			return write_count;
 		}
 	};
-
-	template <class CharT, class Traits = std::char_traits<CharT>>
-	class combined_iostream : public basic_iostream<CharT, Traits> {
-	protected:
-		using stream_type = basic_ostream<CharT, Traits>;
-		using _base = basic_iostream<CharT, Traits>;
-
-	public:
-		using char_type = CharT;
-		using traits_type = Traits;
-		using int_type = typename Traits::int_type;
-		using pos_type = typename Traits::pos_type;
-		using off_type = typename Traits::off_type;
-		using istream_type = basic_istream<CharT, Traits>;
-		using ostream_type = basic_ostream<CharT, Traits>;
-
-	protected:
-		std::shared_ptr<istream_type> _in;
-		std::shared_ptr<ostream_type> _out;
-
-	public:
-		combined_iostream() = delete;
-		combined_iostream(std::shared_ptr<istream_type> in, std::shared_ptr<ostream_type> out) : _in(in), _out(out) {}
-
-		virtual future<std::size_t> read(char_type* dst, std::size_t count) {
-			return _in->read(dst, count);
-		}
-
-		virtual future<std::size_t> write(const char_type* src, std::size_t count) {
-			return _out->write(src, count);
-		}
-
-		virtual future<unit> flush() {
-			return _out->flush();
-		}
-	};
+	
+	template<class CharT, class Traits = std::char_traits<CharT>>
+	future<unit> pipe(basic_istream<CharT, Traits>& is, basic_ostream<CharT, Traits>& os, std::size_t buffer_size = 1024) {
+		return async_while<unit>(capture([&is, &os](std::vector<char>& buffer) {
+			return is.read(buffer.data(), buffer.size()).template and_then<optional<unit>>([&os, &buffer](std::size_t count) {
+				if (count == 0) {
+					return resolve(some<unit>());
+				} else {
+					return os.write_all(buffer.data(), count).template and_then<optional<unit>>([](std::size_t count) {
+						if (count == 0) {
+							return resolve(some<unit>());
+						} else {
+							return resolve(none<unit>());
+						}
+					});
+				}
+			});
+		}, std::vector<char>(buffer_size))).template and_then<unit>([&os](unit) {
+			return os.flush();
+		});
+	}
 
 	using buffered_istream = basic_buffered_istream<char>;
 	using buffered_ostream = basic_buffered_ostream<char>;

@@ -3,25 +3,6 @@
 #include <sstream>
 
 namespace cobra {
-	static const char* get_status_text(unsigned int status_code) {
-		switch (status_code) {
-		case static_cast<unsigned int>(http_status_code::ok):
-			return "OK";
-		case static_cast<unsigned int>(http_status_code::bad_request):
-			return "Bad Request";
-		case static_cast<unsigned int>(http_status_code::content_too_large):
-			return "Payload Too Large";
-		case static_cast<unsigned int>(http_status_code::uri_too_long):
-			return "URI Too Long";
-		case static_cast<unsigned int>(http_status_code::request_header_fields_too_large):
-			return "Request Header Fields Too Large";
-		case static_cast<unsigned int>(http_status_code::not_implemented):
-			return "Not Implemented";
-		default:
-			return "Unknown";
-		}
-	}
-
 	static std::ostream& operator<<(std::ostream& os, http_version version) {
 		return os << "HTTP/" << version.major() << "." << version.minor();
 	}
@@ -38,7 +19,7 @@ namespace cobra {
 		os << (response.status_code() / 100 % 10);
 		os << (response.status_code() / 10 % 10);
 		os << (response.status_code() / 1 % 10) << " ";
-		os << get_status_text(response.status_code()) << "\r\n";
+		os << response.reason_phrase() << "\r\n";
 		return os << response.headers();
 	}
 	
