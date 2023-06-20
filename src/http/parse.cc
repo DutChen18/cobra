@@ -251,14 +251,14 @@ namespace cobra {
 	}
 
 	future<http_version> parse_http_version(buffered_istream& stream) {
-		return expect_string(stream, "HTTP/").and_then<http_version>([&stream](bool b) {
+		return expect_string(stream, std::string("HTTP/")).and_then<http_version>([&stream](bool b) {
 			if (!b)
 				throw http_error(http_error_code::bad_version);
 			return parse_unsigned<http_version::version_type>(stream).and_then<http_version>([&stream](optional<http_version::version_type> major_opt) {
 				if (!major_opt)
 					throw http_error(http_error_code::missing_major_version);
 				http_version::version_type major = *major_opt;
-				return assert_string(stream, ".").and_then<http_version>([&stream, major](unit)  {
+				return assert_string(stream, std::string(".")).and_then<http_version>([&stream, major](unit)  {
 					return parse_unsigned<http_version::version_type>(stream).and_then<http_version>([major](optional<http_version::version_type> minor_opt) {
 						if (!minor_opt)
 							throw http_error(http_error_code::missing_minor_version);
@@ -273,7 +273,7 @@ namespace cobra {
 		return parse_method(stream).and_then<http_request>([&stream](std::string method) {
 			return parse_request_uri(stream).and_then<http_request>(capture([&stream](std::string& method , std::string uri) {
 				return parse_http_version(stream).and_then<http_request>(capture([&stream](std::string& method, std::string& uri, http_version version) {
-					return assert_string(stream, "\r\n").and_then<http_request>(capture([&stream, version](std::string& method, std::string& uri, unit) {
+					return assert_string(stream, std::string("\r\n")).and_then<http_request>(capture([&stream, version](std::string& method, std::string& uri, unit) {
 						return parse_headers(stream).and_then<http_request>(capture([version](std::string& method, std::string& uri, header_map headers) {
 							return resolve(http_request(std::move(method), std::move(uri), version, std::move(headers)));
 						}, std::move(method), std::move(uri)));
@@ -287,7 +287,7 @@ namespace cobra {
 		return parse_http_version(stream).and_then<http_response>([&stream](http_version version) {
 			return parse_status_code(stream).and_then<http_response>([&stream, version](unsigned int status_code) {
 				return parse_reason_phrase(stream).and_then<http_response>([&stream, version, status_code](std::string reason) {
-					return assert_string(stream, "\r\n").and_then<http_response>(capture([&stream, version, status_code](std::string& reason, unit) {
+					return assert_string(stream, std::string("\r\n")).and_then<http_response>(capture([&stream, version, status_code](std::string& reason, unit) {
 						return parse_headers(stream).and_then<http_response>(capture([version, status_code](std::string& reason, header_map headers) {
 							return resolve(http_response(version, status_code, std::move(reason), std::move(headers)));
 						}, std::move(reason)));

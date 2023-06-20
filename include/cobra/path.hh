@@ -22,6 +22,9 @@ namespace cobra {
 
 		path normalize() const;
 		path mount(const path& other) const;
+		path dirname() const;
+		std::string basename() const;
+		bool empty() const;
 	};
 };
 

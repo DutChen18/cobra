@@ -100,7 +100,6 @@ cobra::future<cobra::unit> cgi() {
 					return cobra::write_response(*socket_ostream, response).and_then<cobra::unit>([socket, process_istream, socket_ostream](cobra::unit) {
 						return cobra::pipe(*process_istream, *socket_ostream).and_then<cobra::unit>([socket](cobra::unit) {
 							socket->shutdown(SHUT_WR);
-
 							return cobra::resolve(cobra::unit());
 						});
 					});

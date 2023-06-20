@@ -81,5 +81,31 @@ namespace cobra {
 
 		return path(type, mounted);
 	}
+
+	path path::dirname() const {
+		std::vector<std::string> directory;
+
+		if (components.empty()) {
+			return *this;
+		} else {
+			directory.insert(directory.end(), components.begin(), components.end());
+		}
+
+		directory.pop_back();
+
+		return path(type, directory);
+	}
+
+	std::string path::basename() const {
+		if (components.empty()) {
+			return "";
+		} else {
+			return components.back();
+		}
+	}
+
+	bool path::empty() const {
+		return components.empty();
+	}
 }
 

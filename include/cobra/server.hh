@@ -5,22 +5,32 @@
 #include "cobra/asio.hh"
 #include "cobra/http.hh"
 #include "cobra/socket.hh"
+#include "cobra/path.hh"
 #include <memory>
 #include <vector>
 
 namespace cobra {
 
-	class request_info {
+	class command;
+
+	class request_info : public istream, public ostream {
 		std::shared_ptr<istream> _istream;
 		std::shared_ptr<ostream> _ostream;
 		http_request _request;
-		std::string _path_info;
+		http_response _response;
+		bool _response_sent = false;
 
 	public:
-		inline istream& istream() const { return *_istream; }
-		inline ostream& ostream() const { return *_ostream; }
 		inline const http_request& request() const { return _request; }
-		inline const std::string& path_info() const { return _path_info; }
+		inline const http_response& response() const { return _response; }
+		
+		future<std::size_t> read(char_type* dst, std::size_t count) override;
+		future<std::size_t> write(const char_type* data, std::size_t count) override;
+		future<unit> flush() override;
+
+		future<unit> send_response();
+		future<unit> end();
+		future<unit> end(istream& is);
 	};
 
 	class request_handler {
@@ -28,26 +38,28 @@ namespace cobra {
 		virtual ~request_handler();
 
 	public:
-		virtual future<bool> handle(const request_info& info) = 0;
+		virtual future<bool> handle(request_info& info, const std::string& path_info) = 0;
 	};
 
 	class static_request_handler : public request_handler {
-		std::string _root;
+		path _root;
 
 	public:
 		static_request_handler(std::string root);
 
-		future<bool> handle(const request_info& info) override;
+		future<bool> handle(request_info& info, const std::string& path_info) override;
 	};
 
 	class cgi_request_handler : public request_handler {
-		std::string _cgi_path;
-		std::string _script_path;
+		path _cgi_path;
+		path _script_path;
+
+		optional<command> get_command(const request_info& info, const std::string& path_info) const;
 
 	public:
 		cgi_request_handler(std::string cgi_path, std::string script_path);
 
-		future<bool> handle(const request_info& info) override;
+		future<bool> handle(request_info& info, const std::string& path_info) override;
 	};
 
 	class request_filter {

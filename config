@@ -5,7 +5,7 @@ server {
 	ssl_certificate pgp.hyxo.nl.crt;
 
 	location / {
-		set_header server cobra;
+		set_header server "cobra";
 
 		method GET {
 			root /var/www;

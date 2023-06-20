@@ -35,5 +35,18 @@ namespace cobra {
 			});
 		}, std::move(p)));
 	}
+
+	template <class UnaryPredicate, class CharT, class Traits = std::char_traits<CharT>, class Allocator = std::allocator<CharT>>
+	future<std::basic_string<CharT, Traits, Allocator>> get_while(basic_buffered_istream<CharT, Traits, Allocator>& stream, UnaryPredicate p) {
+		using string_type = std::basic_string<CharT, Traits, Allocator>;
+		return async_while<string_type>(capture([&stream](string_type &result, UnaryPredicate p) {
+			return stream.peek().template and_then<optional<string_type>>([&stream, &result, &p](optional<int> ch) {
+				if (!ch || !p(*ch))
+					return resolve(some<string_type>(std::move(result)));
+				stream.get_now();
+				return resolve(none<string_type>());
+			});
+		}, std::string(), std::move(p)));
+	}
 }
 #endif
