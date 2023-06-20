@@ -1,5 +1,5 @@
 CXX := clang++
-CXXFLAGS := -Wall -Wextra -std=c++11 -Iinclude
+CXXFLAGS := -Wall -Wextra -std=c++20 -Iinclude
 LDFLAGS := 
 # CXXFLAGS = -Wall -Wextra -std=c++11 -Iinclude -fsanitize=thread -g3
 # LDFLAGS = -fsanitize=thread
@@ -53,7 +53,7 @@ SRC_DIR := src
 OBJ_DIR := build
 DEP_DIR := build
 # SRC_FILES = $(shell find $(SRC_DIR) -type f -name "*.cc")
-SRC_FILES := src/event_loop.cc src/exception.cc src/executor.cc src/main.cc src/context.cc src/socket.cc src/http/error.cc src/http/header.cc src/http/parse.cc src/http/util.cc src/http/stringify.cc src/process.cc src/fd.cc src/path.cc
+SRC_FILES := src/main.cc
 OBJ_FILES := $(patsubst $(SRC_DIR)/%.cc,$(OBJ_DIR)/%.o,$(SRC_FILES))
 DEP_FILES := $(patsubst $(SRC_DIR)/%.cc,$(DEP_DIR)/%.d,$(SRC_FILES))
 NAME := webserv
