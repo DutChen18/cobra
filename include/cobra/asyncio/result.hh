@@ -7,35 +7,51 @@
 namespace cobra {
 	template<class T>
 	class result {
-		std::variant<std::exception_ptr, T> _result;
+		std::variant<std::monostate, std::exception_ptr, T> _result;
 
 	public:
-		void return_value(T value) {
-			_result = value;
+		void set_value(T value) {
+			_result.template emplace<T>(value);
 		}
 
-		void unhandled_exception() {
-			_result = std::current_exception();
+		void set_exception(std::exception_ptr exception) {
+			_result.template emplace<std::exception_ptr>(exception);
 		}
 
-		T get() const {
+		bool has_value() const {
+			return !std::holds_alternative<std::monostate>(_result);
+		}
+
+		const T& value() const {
+			if (auto exception = std::get_if<std::exception_ptr>(&_result)) {
+				std::rethrow_exception(*exception);
+			}
+
 			return std::get<T>(_result);
 		}
 	};
 
 	template<>
 	class result<void> {
-		std::exception_ptr _result;
+		std::variant<std::monostate, std::exception_ptr> _result;
 
 	public:
-		void return_void() {
+		void set_value() {
+			_result.emplace<std::exception_ptr>(nullptr);
 		}
 
-		void unhandled_exception() {
-			_result = std::current_exception();
+		void set_exception(std::exception_ptr exception) {
+			_result.emplace<std::exception_ptr>(exception);
 		}
 
-		void get() const {
+		bool has_value() const {
+			return !std::holds_alternative<std::monostate>(_result);
+		}
+
+		void value() const {
+			if (auto exception = std::get<std::exception_ptr>(_result)) {
+				std::rethrow_exception(exception);
+			}
 		}
 	};
 }

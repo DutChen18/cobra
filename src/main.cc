@@ -4,20 +4,15 @@
 #include <format>
 #include <cstdlib>
 
-cobra::task<int> test2() {
-	co_return 1;
-}
-
 cobra::task<int> test() {
-	co_return co_await test2();
+	co_return 1;
 }
 
 int main() {
 	cobra::task<int> task = test();
+	cobra::future<int>& future = task.operator co_await();
 
-	task.resume();
-	std::cout << std::format("{}", task.promise().value()) << std::endl;;
-	task.destroy();
+	std::cout << std::format("{}", future.await_resume()) << std::endl;
 
 	return EXIT_SUCCESS;
 }
