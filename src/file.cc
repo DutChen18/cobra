@@ -20,15 +20,8 @@ namespace cobra {
 				std::cerr << "Failed to properly close fd " << _fd << ": " << std::strerror(errno) << std::endl;
 		}
 	}
-
-	void file::swap(file& other) noexcept {
+	file& file::operator=(file other) noexcept {
 		std::swap(_fd, other._fd);
-	}
-
-	file& file::operator=(file&& other) noexcept {
-		if (this != &other) {
-			swap(other);
-		}
 		return *this;
 	}
 }

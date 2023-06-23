@@ -1,5 +1,5 @@
-#ifndef COBRA_FD_HH
-#define COBRA_FD_HH
+#ifndef COBRA_FILE_HH
+#define COBRA_FILE_HH
 
 namespace cobra {
 	class file {
@@ -14,9 +14,7 @@ namespace cobra {
 		~file();
 
 		file& operator=(const file& other) = delete;
-		file& operator=(file&& other) noexcept;
-
-		void swap(file& other) noexcept;
+		file& operator=(file other) noexcept;
 
 		inline int fd() const { return _fd; }
 	};

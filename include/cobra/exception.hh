@@ -10,6 +10,11 @@ namespace cobra {
 		errno_exception();
 		errno_exception(int errc);
 	};
+
+	class timeout_exception : public std::runtime_error {
+	public:
+		timeout_exception();
+	};
 }
 
 #endif
