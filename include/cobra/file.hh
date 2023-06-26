@@ -4,7 +4,7 @@
 namespace cobra {
 	class file {
 		int _fd;
-	
+
 	public:
 		file() = delete;
 		file(const file& other) = delete;
@@ -18,6 +18,6 @@ namespace cobra {
 
 		inline int fd() const { return _fd; }
 	};
-}
+} // namespace cobra
 
 #endif

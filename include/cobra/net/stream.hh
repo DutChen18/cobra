@@ -21,7 +21,8 @@ namespace cobra {
 	};
 
 	task<socket_stream> open_connection(event_loop* loop, const char* node, const char* service);
-	task<void> start_server(event_loop* loop, const char* node, const char* service, std::function<task<void>(socket_stream)> cb);
-}
+	task<void> start_server(event_loop* loop, const char* node, const char* service,
+							std::function<task<void>(socket_stream)> cb);
+} // namespace cobra
 
 #endif

@@ -13,7 +13,7 @@ namespace cobra {
 	class address {
 		sockaddr* _addr;
 		std::size_t _len;
-	
+
 	public:
 		address(const sockaddr* addr, std::size_t len);
 		address(const address& other);
@@ -41,7 +41,8 @@ namespace cobra {
 		inline const address& addr() const { return _addr; }
 	};
 
-	generator<address_info> get_address_info(const char* node, const char* service, int family = AF_UNSPEC, int socktype = SOCK_STREAM, int protocol = 0);
-};
+	generator<address_info> get_address_info(const char* node, const char* service, int family = AF_UNSPEC,
+											 int socktype = SOCK_STREAM, int protocol = 0);
+}; // namespace cobra
 
 #endif

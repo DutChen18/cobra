@@ -1,9 +1,9 @@
 #include "cobra/file.hh"
 
-#include <utility>
-#include <iostream>
-#include <cstring>
 #include <cerrno>
+#include <cstring>
+#include <iostream>
+#include <utility>
 
 extern "C" {
 #include <unistd.h>
@@ -24,4 +24,4 @@ namespace cobra {
 		std::swap(_fd, other._fd);
 		return *this;
 	}
-}
+} // namespace cobra

@@ -14,13 +14,9 @@ namespace cobra {
 		std::memcpy(_addr, other._addr, other._len);
 	}
 
-	address::address(address&& other) : _len(other._len) {
-		_addr = std::exchange(other._addr, nullptr);
-	}
+	address::address(address&& other) : _len(other._len) { _addr = std::exchange(other._addr, nullptr); }
 
-	address::~address() {
-		std::free(_addr);
-	}
+	address::~address() { std::free(_addr); }
 
 	address& address::operator=(address other) {
 		std::swap(_addr, other._addr);
@@ -28,10 +24,12 @@ namespace cobra {
 		return *this;
 	}
 
-	address_info::address_info(const addrinfo* info) : _family(info->ai_family), _socktype(info->ai_socktype), _protocol(info->ai_protocol), _addr(info->ai_addr, info->ai_addrlen) {
-	}
+	address_info::address_info(const addrinfo* info)
+		: _family(info->ai_family), _socktype(info->ai_socktype), _protocol(info->ai_protocol),
+		  _addr(info->ai_addr, info->ai_addrlen) {}
 
-	generator<address_info> get_address_info(const char* node, const char* service, int family, int socktype, int protocol) {
+	generator<address_info> get_address_info(const char* node, const char* service, int family, int socktype,
+											 int protocol) {
 		addrinfo hints;
 		addrinfo* info;
 
@@ -60,4 +58,4 @@ namespace cobra {
 
 		freeaddrinfo(info);
 	}
-}
+} // namespace cobra

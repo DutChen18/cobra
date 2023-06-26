@@ -15,6 +15,6 @@ namespace cobra {
 	public:
 		timeout_exception();
 	};
-}
+} // namespace cobra
 
 #endif

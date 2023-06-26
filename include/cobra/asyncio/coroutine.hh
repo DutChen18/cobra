@@ -4,49 +4,34 @@
 #include <coroutine>
 #include <utility>
 
-
-#include <iostream>
-
 namespace cobra {
-	template<class Promise>
-	class coroutine {
-	protected:
+	template <class Promise> class coroutine {
 		std::coroutine_handle<Promise> _handle;
 
 	public:
-		coroutine(std::coroutine_handle<Promise> handle) : _handle(handle) {
-			std::cout << "construct coro " << _handle.address() << std::endl;
+		using promise_type = Promise;
+
+		coroutine() noexcept = default;
+
+		coroutine(const coroutine& other) noexcept = delete;
+
+		coroutine(coroutine&& other) noexcept { _handle = std::exchange(_handle, other._handle); }
+
+		coroutine(Promise& promise) noexcept { _handle = std::coroutine_handle<Promise>::from_promise(promise); }
+
+		~coroutine() noexcept {
+			if (_handle) {
+				_handle.destroy();
+			}
 		}
 
-		coroutine(const coroutine& other) = delete;
-
-		coroutine(coroutine&& other) {
-			_handle = std::exchange(other._handle, nullptr);
-			std::cout << "move coro " << _handle.address() << std::endl;
-		}
-
-		~coroutine() {
-			std::cout << "destroy coro " << _handle.address() << std::endl;
-			// _handle.destroy(); // TODO: wut?
-		}
-
-		coroutine& operator=(coroutine other) {
+		coroutine& operator=(coroutine other) noexcept {
 			std::swap(_handle, other._handle);
-			std::cout << "assign coro " << _handle.address() << std::endl;
 			return *this;
 		}
-	};
 
-	class coroutine_promise {
-	public:
-		std::suspend_never initial_suspend() const noexcept {
-			return {};
-		}
-
-		std::suspend_always final_suspend() const noexcept {
-			return {};
-		}
+		std::coroutine_handle<Promise> handle() const noexcept { return _handle; }
 	};
-}
+} // namespace cobra
 
 #endif

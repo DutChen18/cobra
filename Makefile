@@ -76,6 +76,9 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc Makefile
 	mkdir -p $(@D)
 	$(CXX) -o $@ $< $(CXXFLAGS) -c -MMD
 
+fmt:
+	clang-format -i $(SRC_FILES) $(shell find include/ -type f -name "*.hh")
+
 clean:
 	rm -rf $(OBJ_DIR)
 	rm -rf $(DEP_DIR)
@@ -87,4 +90,4 @@ re: fclean
 	${MAKE} all
 
 -include $(DEP_FILES)
-.PHONY: all clean fclean re fuzz
+.PHONY: all clean fclean re fuzz fmt

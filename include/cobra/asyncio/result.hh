@@ -1,75 +1,59 @@
 #ifndef COBRA_ASYNCIO_RESULT_HH
 #define COBRA_ASYNCIO_RESULT_HH
 
-#include <variant>
 #include <exception>
+#include <optional>
 
 namespace cobra {
-	template<class T>
-	class result {
-		std::variant<std::monostate, std::exception_ptr, T> _result;
+	class result_base {
+		std::exception_ptr _exception;
+
+	protected:
+		void rethrow_exception() const {
+			if (_exception) {
+				std::rethrow_exception(_exception);
+			}
+		}
 
 	public:
-		void clear() {
-			_result.template emplace<std::monostate>();
-		}
+		std::exception_ptr exception() const noexcept { return _exception; }
 
-		void set_value(T value) {
-			_result.template emplace<T>(std::move(value));
-		}
-
-		void set_exception(std::exception_ptr exception) {
-			_result.template emplace<std::exception_ptr>(exception);
-		}
-
-		bool has_value() const {
-			return !std::holds_alternative<std::monostate>(_result);
-		}
-
-		const T& value() const {
-			if (auto exception = std::get_if<std::exception_ptr>(&_result)) {
-				std::rethrow_exception(*exception);
-			}
-
-			return std::get<T>(_result);
-		}
-
-		T& value() {
-			if (auto exception = std::get_if<std::exception_ptr>(&_result)) {
-				std::rethrow_exception(*exception);
-			}
-			
-			return std::get<T>(_result);
-		}
+		void set_exception(std::exception_ptr exception) noexcept { _exception = exception; }
 	};
 
-	template<>
-	class result<void> {
-		std::variant<std::monostate, std::exception_ptr> _result;
+	template <class T> class result : public result_base {
+		std::optional<T> _value;
+
+		const T& value() const noexcept { return _value.value(); }
+
+		T value_move() noexcept { return std::move(_value.value()); }
 
 	public:
-		void clear() {
-			_result.emplace<std::monostate>();
+		void set_value(T value) noexcept { _value.emplace(std::move(value)); }
+
+		const T& get_value() const {
+			rethrow_exception();
+			return value();
 		}
 
-		void set_value() {
-			_result.emplace<std::exception_ptr>(nullptr);
+		T get_value_move() {
+			rethrow_exception();
+			return value_move();
 		}
 
-		void set_exception(std::exception_ptr exception) {
-			_result.emplace<std::exception_ptr>(exception);
-		}
+		bool has_value() const noexcept { return exception() || _value.has_value(); }
 
-		bool has_value() const {
-			return !std::holds_alternative<std::monostate>(_result);
-		}
-
-		void value() const {
-			if (auto exception = std::get<std::exception_ptr>(_result)) {
-				std::rethrow_exception(exception);
-			}
-		}
+		void reset() noexcept { _value.reset(); }
 	};
-}
+
+	template <> class result<void> : public result_base {
+	public:
+		void set_value() noexcept { return; }
+
+		void get_value() const noexcept { rethrow_exception(); }
+
+		void get_value_move() noexcept { rethrow_exception(); }
+	};
+}; // namespace cobra
 
 #endif

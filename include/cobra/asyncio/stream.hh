@@ -6,8 +6,7 @@
 #include <string>
 
 namespace cobra {
-	template<class CharT, class Traits = std::char_traits<CharT>>
-	class basic_stream {
+	template <class CharT, class Traits = std::char_traits<CharT>> class basic_stream {
 	public:
 		using char_type = CharT;
 		using traits_type = Traits;
@@ -15,11 +14,10 @@ namespace cobra {
 		using pos_type = typename Traits::pos_type;
 		using off_type = typename Traits::off_type;
 
-		virtual ~basic_stream() {
-		}
+		virtual ~basic_stream() {}
 	};
 
-	template<class CharT, class Traits = std::char_traits<CharT>>
+	template <class CharT, class Traits = std::char_traits<CharT>>
 	class basic_istream : public basic_stream<CharT, Traits> {
 	public:
 		using typename basic_stream<CharT, Traits>::char_type;
@@ -31,7 +29,7 @@ namespace cobra {
 		virtual task<std::size_t> read(char_type* data, std::size_t size) = 0;
 	};
 
-	template<class CharT, class Traits = std::char_traits<CharT>>
+	template <class CharT, class Traits = std::char_traits<CharT>>
 	class basic_ostream : public basic_stream<CharT, Traits> {
 	public:
 		using typename basic_stream<CharT, Traits>::char_type;
@@ -59,6 +57,6 @@ namespace cobra {
 	using stream = basic_stream<char>;
 	using istream = basic_istream<char>;
 	using ostream = basic_ostream<char>;
-}
+} // namespace cobra
 
 #endif
