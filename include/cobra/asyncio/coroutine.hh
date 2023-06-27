@@ -5,7 +5,8 @@
 #include <utility>
 
 namespace cobra {
-	template <class Promise> class coroutine {
+	template <class Promise>
+	class coroutine {
 		std::coroutine_handle<Promise> _handle;
 
 	public:
@@ -15,9 +16,13 @@ namespace cobra {
 
 		coroutine(const coroutine& other) noexcept = delete;
 
-		coroutine(coroutine&& other) noexcept { _handle = std::exchange(_handle, other._handle); }
+		coroutine(coroutine&& other) noexcept {
+			_handle = std::exchange(_handle, other._handle);
+		}
 
-		coroutine(Promise& promise) noexcept { _handle = std::coroutine_handle<Promise>::from_promise(promise); }
+		coroutine(Promise& promise) noexcept {
+			_handle = std::coroutine_handle<Promise>::from_promise(promise);
+		}
 
 		~coroutine() noexcept {
 			if (_handle) {
@@ -30,7 +35,9 @@ namespace cobra {
 			return *this;
 		}
 
-		std::coroutine_handle<Promise> handle() const noexcept { return _handle; }
+		std::coroutine_handle<Promise> handle() const noexcept {
+			return _handle;
+		}
 	};
 } // namespace cobra
 

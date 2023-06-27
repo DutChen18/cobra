@@ -7,42 +7,64 @@
 #include <ranges>
 
 namespace cobra {
-	template <class T> class generator_promise;
+	template <class T>
+	class generator_promise;
 
-	template <class T> class generator_iterator;
+	template <class T>
+	class generator_iterator;
 
-	template <class T> class generator : public coroutine<generator_promise<T>> {
+	template <class T>
+	class generator : public coroutine<generator_promise<T>> {
 	public:
-		generator_iterator<T> begin() const noexcept { return this; }
+		generator_iterator<T> begin() const noexcept {
+			return this;
+		}
 
-		generator_iterator<T> end() const noexcept { return nullptr; }
+		generator_iterator<T> end() const noexcept {
+			return nullptr;
+		}
 	};
 
-	template <class T> class generator_promise {
+	template <class T>
+	class generator_promise {
 		result<T> _result;
 
 	public:
-		void unhandled_exception() noexcept { _result.set_exception(std::current_exception()); }
+		void unhandled_exception() noexcept {
+			_result.set_exception(std::current_exception());
+		}
 
 		auto yield_value(T value) noexcept {
 			_result.set_value(std::move(value));
 			return std::suspend_always();
 		}
 
-		void return_void() noexcept { _result.reset(); }
+		void return_void() noexcept {
+			_result.reset();
+		}
 
-		const result<T>& result() const noexcept { return _result; }
+		const result<T>& result() const noexcept {
+			return _result;
+		}
 
-		generator<T> get_return_object() noexcept { return {*this}; }
+		generator<T> get_return_object() noexcept {
+			return {*this};
+		}
 
-		auto initial_suspend() const noexcept { return std::suspend_never(); }
+		auto initial_suspend() const noexcept {
+			return std::suspend_never();
+		}
 
-		auto final_suspend() const noexcept { return std::suspend_always(); }
+		auto final_suspend() const noexcept {
+			return std::suspend_always();
+		}
 
-		template <class Task> void await_transform(Task task) const noexcept = delete;
+		template <class Task>
+		void await_transform(Task task) const noexcept = delete;
 	};
 
-	template <class T> class generator_iterator {
+	template <class T>
+	class generator_iterator {
 		const generator<T>* _generator;
 
 	public:
@@ -52,9 +74,13 @@ namespace cobra {
 		using reference = const T&;
 		using iterator_category = std::input_iterator_tag;
 
-		generator_iterator(const generator<T>* generator = nullptr) noexcept { _generator = generator; }
+		generator_iterator(const generator<T>* generator = nullptr) noexcept {
+			_generator = generator;
+		}
 
-		const T& operator*() const { return _generator->handle().promise().result().get_value(); }
+		const T& operator*() const {
+			return _generator->handle().promise().result().get_value();
+		}
 
 		generator_iterator& operator++() noexcept {
 			_generator->handle().resume();
@@ -72,7 +98,9 @@ namespace cobra {
 			return _generator == other._generator || (empty && other_empty);
 		}
 
-		bool operator!=(const generator_iterator& other) const noexcept { return !(*this == other); }
+		bool operator!=(const generator_iterator& other) const noexcept {
+			return !(*this == other);
+		}
 	};
 
 	static_assert(std::ranges::range<generator<int>>);

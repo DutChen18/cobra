@@ -16,20 +16,31 @@ namespace cobra {
 		}
 
 	public:
-		std::exception_ptr exception() const noexcept { return _exception; }
+		std::exception_ptr exception() const noexcept {
+			return _exception;
+		}
 
-		void set_exception(std::exception_ptr exception) noexcept { _exception = exception; }
+		void set_exception(std::exception_ptr exception) noexcept {
+			_exception = exception;
+		}
 	};
 
-	template <class T> class result : public result_base {
+	template <class T>
+	class result : public result_base {
 		std::optional<T> _value;
 
-		const T& value() const noexcept { return _value.value(); }
+		const T& value() const noexcept {
+			return _value.value();
+		}
 
-		T value_move() noexcept { return std::move(_value.value()); }
+		T value_move() noexcept {
+			return std::move(_value.value());
+		}
 
 	public:
-		void set_value(T value) noexcept { _value.emplace(std::move(value)); }
+		void set_value(T value) noexcept {
+			_value.emplace(std::move(value));
+		}
 
 		const T& get_value() const {
 			rethrow_exception();
@@ -41,18 +52,29 @@ namespace cobra {
 			return value_move();
 		}
 
-		bool has_value() const noexcept { return exception() || _value.has_value(); }
+		bool has_value() const noexcept {
+			return exception() || _value.has_value();
+		}
 
-		void reset() noexcept { _value.reset(); }
+		void reset() noexcept {
+			_value.reset();
+		}
 	};
 
-	template <> class result<void> : public result_base {
+	template <>
+	class result<void> : public result_base {
 	public:
-		void set_value() noexcept { return; }
+		void set_value() noexcept {
+			return;
+		}
 
-		void get_value() const noexcept { rethrow_exception(); }
+		void get_value() const noexcept {
+			rethrow_exception();
+		}
 
-		void get_value_move() noexcept { rethrow_exception(); }
+		void get_value_move() noexcept {
+			rethrow_exception();
+		}
 	};
 }; // namespace cobra
 

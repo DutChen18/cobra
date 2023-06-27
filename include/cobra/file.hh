@@ -16,7 +16,9 @@ namespace cobra {
 		file& operator=(const file& other) = delete;
 		file& operator=(file other) noexcept;
 
-		inline int fd() const { return _fd; }
+		inline int fd() const {
+			return _fd;
+		}
 	};
 } // namespace cobra
 

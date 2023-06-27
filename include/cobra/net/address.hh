@@ -22,8 +22,12 @@ namespace cobra {
 
 		address& operator=(address other);
 
-		inline const sockaddr* addr() const { return _addr; }
-		inline std::size_t len() const { return _len; }
+		inline const sockaddr* addr() const {
+			return _addr;
+		}
+		inline std::size_t len() const {
+			return _len;
+		}
 	};
 
 	class address_info {
@@ -35,10 +39,18 @@ namespace cobra {
 	public:
 		address_info(const addrinfo* info);
 
-		inline int family() const { return _family; }
-		inline int socktype() const { return _socktype; }
-		inline int protocol() const { return _protocol; }
-		inline const address& addr() const { return _addr; }
+		inline int family() const {
+			return _family;
+		}
+		inline int socktype() const {
+			return _socktype;
+		}
+		inline int protocol() const {
+			return _protocol;
+		}
+		inline const address& addr() const {
+			return _addr;
+		}
 	};
 
 	generator<address_info> get_address_info(const char* node, const char* service, int family = AF_UNSPEC,

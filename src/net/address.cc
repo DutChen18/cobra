@@ -14,9 +14,13 @@ namespace cobra {
 		std::memcpy(_addr, other._addr, other._len);
 	}
 
-	address::address(address&& other) : _len(other._len) { _addr = std::exchange(other._addr, nullptr); }
+	address::address(address&& other) : _len(other._len) {
+		_addr = std::exchange(other._addr, nullptr);
+	}
 
-	address::~address() { std::free(_addr); }
+	address::~address() {
+		std::free(_addr);
+	}
 
 	address& address::operator=(address other) {
 		std::swap(_addr, other._addr);

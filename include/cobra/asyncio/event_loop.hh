@@ -1,5 +1,5 @@
-#ifndef COBRA_EVENT_LOOP_HH
-#define COBRA_EVENT_LOOP_HH
+#ifndef COBRA_ASYNCIO_EVENT_LOOP_HH
+#define COBRA_ASYNCIO_EVENT_LOOP_HH
 #include "cobra/asyncio/event.hh"
 #include "cobra/asyncio/generator.hh"
 #include "cobra/asyncio/task.hh"

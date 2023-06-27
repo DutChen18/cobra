@@ -39,7 +39,9 @@ namespace cobra {
 		co_return check(send(_file.fd(), data, size, 0));
 	}
 
-	task<void> socket_stream::flush() { co_return; }
+	task<void> socket_stream::flush() {
+		co_return;
+	}
 
 	task<socket_stream> open_connection(event_loop* loop, const char* node, const char* service) {
 		for (const address_info& info : get_address_info(node, service)) {
