@@ -27,6 +27,7 @@ namespace cobra {
 
 		inline const std::string& get() const { return _token; }
 		friend task<http_token> parse(buffered_istream& stream);
+		friend task<http_token> parse(istream& stream);
 		friend http_token parse(const std::string& str);
 	};
 

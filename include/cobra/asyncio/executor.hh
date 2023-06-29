@@ -4,6 +4,11 @@
 #include "cobra/asyncio/event.hh"
 #include "cobra/asyncio/async_task.hh"
 
+#include <thread>
+#include <vector>
+#include <condition_variable>
+#include <queue>
+
 namespace cobra {
 	class executor {
 	protected:
@@ -21,7 +26,7 @@ namespace cobra {
 		event_type schedule();
 
 		template<class Awaitable>
-		auto schedule_task(Awaitable&& awaitable) -> async_task<decltype(awaitable.await_resume())> {
+		auto schedule_task(Awaitable awaitable) -> async_task<decltype(awaitable.await_resume())> {
 			co_await schedule();
 			co_return co_await awaitable;
 		}
@@ -31,8 +36,24 @@ namespace cobra {
 	};
 
 	class sequential_executor : public executor {
+	private:
+		void schedule_event(event_type::handle_type& handle) override;
+	};
+
+	class thread_pool_executor : public executor {
+		std::vector<std::jthread> _threads;
+		std::queue<event_type::handle_type*> _queue;
+		std::mutex _mutex;
+		std::condition_variable _condition_variable;
+
 	public:
-		void schedule_event(event_type::handle_type& handle);
+		thread_pool_executor();
+		thread_pool_executor(std::size_t count);
+		~thread_pool_executor();
+
+	private:
+		void schedule_event(event_type::handle_type& handle) override;
+		void create_threads(std::size_t count);
 	};
 }
 

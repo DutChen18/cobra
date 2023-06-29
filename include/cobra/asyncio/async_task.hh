@@ -22,7 +22,7 @@ namespace cobra {
 		async_task(const async_task& other) noexcept = delete;
 
 		async_task(async_task&& other) noexcept {
-			_handle = std::exchange(_handle, other._handle);
+			_handle = std::exchange(other._handle, nullptr);
 		}
 
 		async_task(async_task_promise<T>& promise) noexcept {

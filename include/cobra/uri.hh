@@ -26,7 +26,9 @@ namespace cobra {
 			static constexpr std::size_t max_length = 128;
 			scheme() = delete;
 
-			friend task<scheme> parse(buffered_istream &stream);
+			static task<scheme> parse(buffered_istream &stream);
+
+			inline const std::string& get() const { return _scheme; }
 		};
 
 		class segment {
@@ -36,7 +38,9 @@ namespace cobra {
 		public:
 			static constexpr std::size_t max_length = 512;
 			segment() = delete;
+			static task<segment> parse(buffered_istream &stream);
 		};
+
 	}
 }
 

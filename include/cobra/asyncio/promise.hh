@@ -9,7 +9,7 @@ namespace cobra {
 	template <class T>
 	class promise_base {
 	protected:
-		result<T> _result;
+		cobra::result<T> _result;
 		std::coroutine_handle<> _next;
 
 	public:
@@ -17,7 +17,7 @@ namespace cobra {
 			_result.set_exception(std::current_exception());
 		}
 
-		result<T>& result() noexcept {
+		cobra::result<T>& result() noexcept {
 			return _result;
 		}
 

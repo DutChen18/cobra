@@ -37,6 +37,7 @@ namespace cobra {
 	}
 
 	task<http_token> parse(buffered_istream& stream) {
-		co_return http_token(co_await collect(take(take_while(wrap_stream(stream), [](int ch) { return !is_separator(ch) && !is_ctl(ch); }), http_token::max_length)));
+		//http_token(co_await make_adapter(wrap_stream(stream)).take_while([](int ch) { return !is_separator(ch) && !is_ctl(ch); }).take(http_token::max_length).collect());
+		co_return http_token(co_await make_adapter(wrap_stream(stream)).take_while([](int) { return true; }).take(http_token::max_length).collect());
 	}
 }

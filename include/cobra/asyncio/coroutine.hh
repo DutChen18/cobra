@@ -17,7 +17,7 @@ namespace cobra {
 		coroutine(const coroutine& other) noexcept = delete;
 
 		coroutine(coroutine&& other) noexcept {
-			_handle = std::exchange(_handle, other._handle);
+			_handle = std::exchange(other._handle, nullptr);
 		}
 
 		coroutine(Promise& promise) noexcept {
