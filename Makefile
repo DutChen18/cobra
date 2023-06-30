@@ -53,7 +53,7 @@ SRC_DIR := src
 OBJ_DIR := build
 DEP_DIR := build
 # SRC_FILES = $(shell find $(SRC_DIR) -type f -name "*.cc")
-SRC_FILES := src/main.cc src/asyncio/executor.cc src/http/parse.cc src/uri.cc src/exception.cc # src/asyncio/event_loop.cc src/exception.cc src/file.cc src/net/address.cc src/net/stream.cc src/http/parse.cc
+SRC_FILES := src/main.cc src/asyncio/executor.cc src/http/parse.cc src/uri.cc src/exception.cc src/asyncio/event_loop.cc src/exception.cc src/file.cc src/net/address.cc src/net/stream.cc src/http/parse.cc
 OBJ_FILES := $(patsubst $(SRC_DIR)/%.cc,$(OBJ_DIR)/%.o,$(SRC_FILES))
 DEP_FILES := $(patsubst $(SRC_DIR)/%.cc,$(DEP_DIR)/%.d,$(SRC_FILES))
 NAME := webserv
@@ -77,7 +77,7 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc Makefile
 	$(CXX) -o $@ $< $(CXXFLAGS) -c -MMD
 
 fmt:
-	clang-format -i $(SRC_FILES) $(shell find include/ -type f -name "*.hh")
+	docker run -v $(PWD):/src xianpengshen/clang-tools:16 clang-format -i $(SRC_FILES) $(shell find include/ -type f -name '*.hh')
 
 clean:
 	rm -rf $(OBJ_DIR)

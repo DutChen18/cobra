@@ -3,276 +3,273 @@
 
 #include "cobra/asyncio/task.hh"
 
-#include <concepts>
-#include <memory>
-#include <optional>
 #include <string>
+#include <optional>
 
 namespace cobra {
+	template<class CharT, class Traits>
+	class basic_istream_tag;
 
-	template <class T>
-	concept Stream = requires(T t) {
-						 typename T::char_type;
-						 typename T::traits_type;
-						 typename T::int_type;
-						 typename T::pos_type;
-						 typename T::off_type;
-					 };
+	template<class CharT, class Traits>
+	class basic_ostream_tag;
 
-	template <class T, class CharT, class SizeT>
-	concept AsyncReadable = requires(T& t, CharT* data, SizeT size) {
-								{ t.read(data, size) } -> std::convertible_to<task<SizeT>>;
-							};
+	template<class CharT, class Traits>
+	class basic_buffered_istream_tag;
 
-	template <class T, class CharT, class SizeT>
-	concept AsyncWritable = requires(T& t, const CharT* data, SizeT size) {
-								{ t.write(data, size) } -> std::convertible_to<task<SizeT>>;
-								{ t.flush() } -> std::convertible_to<task<void>>;
-							};
+	template<class CharT, class Traits>
+	class basic_buffered_ostream_tag;
 
-	template <class T, class CharT>
-	concept AsyncPeekable = requires(T& t) {
-								{ t.peek() } -> std::convertible_to<task<std::optional<CharT>>>;
-							};
+	template<class Stream, class Tag>
+	class basic_istream_tag_impl;
 
-	template <class T>
-	concept AsyncReadableStream = requires(T t) {
-									  requires Stream<T>;
-									  requires AsyncReadable<T, typename T::char_type, std::size_t>;
-								  };
+	template<class Stream, class Tag>
+	class basic_ostream_tag_impl;
 
-	template <class T>
-	concept AsyncWritableStream = requires(T t) {
-									  requires Stream<T>;
-									  requires AsyncWritable<T, typename T::char_type, std::size_t>;
-								  };
+	template<class Stream, class Tag>
+	class basic_buffered_istream_tag_impl;
 
-	template <class T>
-	concept AsyncPeekableStream = requires(T t) {
-									  requires AsyncReadableStream<T>;
-									  requires AsyncPeekable<T, typename T::char_type>;
-								  };
+	template<class Stream, class Tag>
+	class basic_buffered_ostream_tag_impl;
 
-	template <class CharT, class Traits = std::char_traits<CharT>>
-	class basic_stream {
+	template<class CharT, class Traits = std::char_traits<CharT>>
+	class basic_istream {
 	public:
 		using char_type = CharT;
 		using traits_type = Traits;
-		using int_type = typename Traits::int_type;
-		using pos_type = typename Traits::pos_type;
-		using off_type = typename Traits::off_type;
+		using tag_type = basic_istream_tag<CharT, Traits>;
 
-		virtual ~basic_stream() {}
+		template<class Stream>
+		constexpr static basic_istream_tag_impl<Stream, tag_type> tag;
 	};
 
-	template <class CharT, class Traits = std::char_traits<CharT>>
-	class basic_istream : public basic_stream<CharT, Traits> {
+	template<class CharT, class Traits = std::char_traits<CharT>>
+	class basic_ostream {
 	public:
-		using typename basic_stream<CharT, Traits>::char_type;
-		using typename basic_stream<CharT, Traits>::traits_type;
-		using typename basic_stream<CharT, Traits>::int_type;
-		using typename basic_stream<CharT, Traits>::pos_type;
-		using typename basic_stream<CharT, Traits>::off_type;
+		using char_type = CharT;
+		using traits_type = Traits;
+		using tag_type = basic_ostream_tag<CharT, Traits>;
 
-		[[nodiscard]] virtual task<std::size_t> read(char_type* data, std::size_t size) = 0;
-
-		[[nodiscard]] virtual task<std::optional<char_type>> get() {
-			char_type result;
-
-			if (co_await read(&result, 1) == 1) {
-				co_return result;
-			} else {
-				co_return std::nullopt;
-			}
-		}
+		template<class Stream>
+		constexpr static basic_ostream_tag_impl<Stream, tag_type> tag;
 	};
 
-	template <class CharT, class Traits = std::char_traits<CharT>>
-	class basic_ostream : public basic_stream<CharT, Traits> {
-	public:
-		using typename basic_stream<CharT, Traits>::char_type;
-		using typename basic_stream<CharT, Traits>::traits_type;
-		using typename basic_stream<CharT, Traits>::int_type;
-		using typename basic_stream<CharT, Traits>::pos_type;
-		using typename basic_stream<CharT, Traits>::off_type;
-
-		[[nodiscard]] virtual task<std::size_t> write(const char_type* data, std::size_t size) = 0;
-		[[nodiscard]] virtual task<void> flush() = 0;
-
-		[[nodiscard]] virtual task<std::size_t> write_all(const char_type* data, std::size_t size) {
-			std::size_t index = 0;
-			std::size_t ret = 1;
-
-			while (index < size && ret > 0) {
-				ret = co_await write(data + index, size - index);
-				index += ret;
-			}
-
-			co_return index;
-		}
-	};
-
-	template <class CharT, class Traits = std::char_traits<CharT>>
+	template<class CharT, class Traits = std::char_traits<CharT>>
 	class basic_buffered_istream : public basic_istream<CharT, Traits> {
 	public:
-		using typename basic_istream<CharT, Traits>::char_type;
-		using typename basic_istream<CharT, Traits>::traits_type;
-		using typename basic_istream<CharT, Traits>::int_type;
-		using typename basic_istream<CharT, Traits>::pos_type;
-		using typename basic_istream<CharT, Traits>::off_type;
+		using tag_type = basic_buffered_istream_tag<CharT, Traits>;
 
-		[[nodiscard]] virtual task<std::optional<char_type>> peek() = 0;
+		template<class Stream>
+		constexpr static basic_buffered_istream_tag_impl<Stream, tag_type> tag;
 	};
 
-	template <class CharT, class Traits = std::char_traits<CharT>>
+	template<class CharT, class Traits = std::char_traits<CharT>>
 	class basic_buffered_ostream : public basic_ostream<CharT, Traits> {
 	public:
-		using typename basic_ostream<CharT, Traits>::char_type;
-		using typename basic_ostream<CharT, Traits>::traits_type;
-		using typename basic_ostream<CharT, Traits>::int_type;
-		using typename basic_ostream<CharT, Traits>::pos_type;
-		using typename basic_ostream<CharT, Traits>::off_type;
+		using tag_type = basic_buffered_ostream_tag<CharT, Traits>;
+
+		template<class Stream>
+		constexpr static basic_buffered_ostream_tag_impl<Stream, tag_type> tag;
 	};
 
-	template <AsyncReadableStream Stream>
-	class basic_istream_buffer
-		: public basic_buffered_istream<typename Stream::char_type, typename Stream::traits_type> {
-		Stream _stream;
-		std::unique_ptr<typename Stream::char_type[]> _buffer;
-		std::size_t _buffer_begin = 0;
-		std::size_t _buffer_end = 0;
-		std::size_t _buffer_size;
-
+	template<class Stream, class Base = basic_istream<typename Stream::char_type, typename Stream::traits_type>>
+	class istream_impl : public Base {
 	public:
-		using char_type = typename Stream::char_type;
-		using traits_type = typename Stream::traits_type;
-		using int_type = typename Stream::int_type;
-		using pos_type = typename Stream::pos_type;
-		using off_type = typename Stream::off_type;
+		using typename Base::char_type;
 
-		basic_istream_buffer(Stream&& stream, std::size_t buffer_size) : _stream(std::move(stream)) {
-			_buffer = std::make_unique<char_type[]>(buffer_size);
-			_buffer_size = buffer_size;
+		[[nodiscard]] task<std::optional<char_type>> get() {
+			Stream* self = static_cast<Stream*>(this);
+
+			// TODO
 		}
+	};
+	
+	template<class Stream, class Base = basic_istream<typename Stream::char_type, typename Stream::traits_type>>
+	class ostream_impl : public Base {
+	public:
+		using typename Base::char_type;
 
-		task<std::size_t> read(char_type* data, std::size_t size) override {
-			if (_buffer_begin == _buffer_end) {
-				if (size >= _buffer_size) {
-					co_return co_await _stream.read(data, size);
-				}
+		[[nodiscard]] task<std::size_t> write_all(const char_type* data, std::size_t size) {
+			Stream* self = static_cast<Stream*>(this);
 
-				_buffer_begin = 0;
-				_buffer_end = co_await _stream.read(_buffer.get(), _buffer_size);
-			}
-
-			std::size_t count = std::min(_buffer_end - _buffer_begin, size);
-			const char_type* begin = _buffer.get() + _buffer_begin;
-			std::copy(begin, begin + count, data);
-			_buffer_begin += count;
-			co_return count;
-		}
-
-		task<std::optional<char_type>> peek() {
-			if (_buffer_begin == _buffer_end) {
-				_buffer_begin = 0;
-				_buffer_end = co_await _stream.read(_buffer.get(), _buffer_size);
-			}
-
-			if (_buffer_begin == _buffer_end) {
-				co_return std::nullopt;
-			} else {
-				co_return _buffer[_buffer_begin];
-			}
+			// TODO
 		}
 	};
 
-	template <AsyncWritableStream Stream>
-	class basic_ostream_buffer
-		: public basic_buffered_ostream<typename Stream::char_type, typename Stream::traits_type> {
-		Stream _stream;
-		std::unique_ptr<typename Stream::char_type[]> _buffer;
-		std::size_t _buffer_end = 0;
-		std::size_t _buffer_size;
+	template<class Stream, class Base = basic_buffered_istream<typename Stream::char_type, typename Stream::traits_type>>
+	class buffered_istream_impl : public istream_impl<Stream, Base> {};
 
+	template<class Stream, class Base = basic_buffered_ostream<typename Stream::char_type, typename Stream::traits_type>>
+	class buffered_ostream_impl : public ostream_impl<Stream, Base> {};
+
+	template<class CharT, class Traits>
+	class basic_istream_tag {
 	public:
-		using char_type = typename Stream::char_type;
-		using traits_type = typename Stream::traits_type;
-		using int_type = typename Stream::int_type;
-		using pos_type = typename Stream::pos_type;
-		using off_type = typename Stream::off_type;
+		using stream_type = basic_istream<CharT, Traits>;
+		using typename stream_type::char_type;
 
-		basic_ostream_buffer(Stream&& stream, std::size_t buffer_size) : _stream(std::move(stream)) {
-			_buffer = std::make_unique<char_type[]>(buffer_size);
-			_buffer_size = buffer_size;
+		virtual ~basic_istream_tag() {}
+
+		[[nodiscard]] virtual task<std::size_t> read(stream_type* stream, char_type* data, std::size_t size) const = 0;
+		[[nodiscard]] virtual task<std::optional<char_type>> get(stream_type* stream) const = 0;
+	};
+
+	template<class CharT, class Traits>
+	class basic_ostream_tag {
+	public:
+		using stream_type = basic_ostream<CharT, Traits>;
+		using typename stream_type::char_type;
+
+		virtual ~basic_ostream_tag() {}
+
+		[[nodiscard]] virtual task<std::size_t> write(stream_type* stream, const char_type* data, std::size_t size) const = 0;
+		[[nodiscard]] virtual task<void> flush(stream_type* stream) const = 0;
+		[[nodiscard]] virtual task<std::size_t> write_all(stream_type* stream, const char_type* data, std::size_t size) const = 0;
+	};
+
+	template<class CharT, class Traits>
+	class basic_buffered_istream_tag : public basic_istream_tag<CharT, Traits> {
+	public:
+		using stream_type = basic_istream<CharT, Traits>;
+		using typename stream_type::char_type;
+
+		[[nodiscard]] virtual task<std::optional<char_type>> peek(stream_type* stream) const = 0;
+	};
+
+	template<class CharT, class Traits>
+	class basic_buffered_ostream_tag : public basic_ostream_tag<CharT, Traits> {
+	public:
+		using stream_type = basic_istream<CharT, Traits>;
+		using typename stream_type::char_type;
+	};
+
+	template<class Stream, class Tag>
+	class istream_tag_impl : public Tag {
+	public:
+		using typename Tag::stream_type;
+		using typename Tag::char_type;
+
+		[[nodiscard]] task<std::size_t> read(stream_type* stream, char_type* data, std::size_t size) const override {
+			return static_cast<Stream*>(stream)->read(data, size);
 		}
 
-		task<std::size_t> write(const char_type* data, std::size_t size) override {
-			if (size >= _buffer_size && _buffer_end == 0) {
-				co_return co_await _stream.write(data, size);
-			}
-
-			std::size_t count = std::min(_buffer_size - _buffer_end, size);
-			const char_type* begin = _buffer.get() + _buffer_end;
-			std::copy(data, data + count, begin);
-			_buffer_end += count;
-
-			if (_buffer_end == _buffer_size) {
-				co_await _stream.write_all(_buffer.get(), _buffer_end);
-				_buffer_end = 0;
-			}
-
-			co_return count;
-		}
-
-		task<void> flush() override {
-			if (_buffer_end != 0) {
-				co_await _stream.write_all(_buffer.get(), _buffer_end);
-				_buffer_end = 0;
-			}
-
-			co_return co_await _stream.flush();
+		[[nodiscard]] task<std::optional<char_type>> get(stream_type* stream) const override {
+			return static_cast<Stream*>(stream)->get();
 		}
 	};
 
-	template <AsyncReadableStream Stream>
-	class basic_istream_reference : public basic_istream<typename Stream::char_type, typename Stream::traits_type> {
-		Stream& _stream;
-
+	template<class Stream, class Tag>
+	class ostream_tag_impl : public Tag {
 	public:
-		basic_istream_reference(Stream& stream) : _stream(stream) {}
-		basic_istream_reference(basic_istream_reference& other) : _stream(other._stream) {}
-		basic_istream_reference(basic_istream_reference&& other) : _stream(other._stream) {}
+		using typename Tag::stream_type;
+		using typename Tag::char_type;
 
-		using char_type = typename Stream::char_type;
-		using traits_type = typename Stream::traits_type;
-		using int_type = typename Stream::int_type;
-		using pos_type = typename Stream::pos_type;
-		using off_type = typename Stream::off_type;
-
-		task<std::size_t> read(char_type* data, std::size_t size) override {
-			return _stream.read(data, size);
+		[[nodiscard]] task<std::size_t> write(stream_type* stream, const char_type* data, std::size_t size) const override {
+			return static_cast<Stream*>(stream)->write(data, size);
 		}
 
-		task<std::optional<char_type>> peek()
-			requires AsyncPeekableStream<Stream>
+		[[nodiscard]] task<void> flush(stream_type* stream) const override {
+			return static_cast<Stream*>(stream)->flush();
+		}
+
+		[[nodiscard]] task<std::size_t> write_all(stream_type* stream, const char_type* data, std::size_t size) const override {
+			return static_cast<Stream*>(stream)->write_all(data, size);
+		}
+	};
+
+	template<class Stream, class Tag>
+	class buffered_istream_tag_impl : public istream_tag_impl<Stream, Tag> {
+	public:
+		using typename Tag::stream_type;
+		using typename Tag::char_type;
+
+		[[nodiscard]] task<std::optional<char_type>> peek(stream_type* stream) const override {
+			return static_cast<Stream*>(stream)->get();
+		}
+	};
+
+	template<class Stream, class Tag>
+	class buffered_ostream_tag_impl : public ostream_tag_impl<Stream, Tag> {
+	public:
+		using typename Tag::stream_type;
+		using typename Tag::char_type;
+	};
+
+	template<class Base>
+	class stream_reference {
+		Base* _ptr;
+		const typename Base::tag_type* _tag;
+
+	public:
+		using typename Base::char_type;
+		using typename Base::traits_type;
+
+		template<class Stream>
+		stream_reference(Stream& stream) {
+			_ptr = &stream;
+			_tag = &Base::template tag<Stream>;
+		}
+
+		template<class Stream>
+		stream_reference(const stream_reference<Stream>& other) {
+			_ptr = other._ptr;
+			_tag = other._tag;
+		}
+
+		[[nodiscard]] task<std::size_t> read(char_type* data, std::size_t size) const
+			requires std::is_base_of_v<basic_istream<char_type, traits_type>, Base>
 		{
-			return _stream.peek();
+			return _tag->read(_ptr, data, size);
+		}
+
+		[[nodiscard]] task<std::optional<char_type>> get() const
+			requires std::is_base_of_v<basic_istream<char_type, traits_type>, Base>
+		{
+			return _tag->get(_ptr);
+		}
+
+		[[nodiscard]] task<std::optional<char_type>> peek() const
+			requires std::is_base_of_v<basic_buffered_istream<char_type, traits_type>, Base>
+		{
+			return _tag->peek(_ptr);
+		}
+
+		[[nodiscard]] task<std::size_t> write(const char_type* data, std::size_t size) const
+			requires std::is_base_of_v<basic_ostream<char_type, traits_type>, Base>
+		{
+			return _tag->write(_ptr, data, size);
+		}
+
+		[[nodiscard]] task<void> flush() const
+			requires std::is_base_of_v<basic_ostream<char_type, traits_type>, Base>
+		{
+			return _tag->flush(_ptr);
+		}
+
+		[[nodiscard]] task<std::size_t> write_all(const char_type* data, std::size_t size) const
+			requires std::is_base_of_v<basic_ostream<char_type, traits_type>, Base>
+		{
+			return _tag->write_all(_ptr, data, size);
 		}
 	};
 
-	template <AsyncReadableStream Stream>
-	basic_istream_reference<Stream> wrap_stream(Stream& stream) {
-		return basic_istream_reference<Stream>(stream);
-	}
+	template<class CharT, class Traits = std::char_traits<CharT>>
+	using basic_istream_reference = stream_reference<basic_istream<CharT, Traits>>;
+	template<class CharT, class Traits = std::char_traits<CharT>>
+	using basic_ostream_reference = stream_reference<basic_ostream<CharT, Traits>>;
+	template<class CharT, class Traits = std::char_traits<CharT>>
+	using basic_buffered_istream_reference = stream_reference<basic_buffered_istream<CharT, Traits>>;
+	template<class CharT, class Traits = std::char_traits<CharT>>
+	using basic_buffered_ostream_reference = stream_reference<basic_buffered_ostream<CharT, Traits>>;
 
-	using stream = basic_stream<char>;
 	using istream = basic_istream<char>;
 	using ostream = basic_ostream<char>;
 	using buffered_istream = basic_buffered_istream<char>;
 	using buffered_ostream = basic_buffered_ostream<char>;
 
-	// static_assert(AsyncReadable<buffered_istream, char, std::size_t>);
-	static_assert(AsyncPeekableStream<buffered_istream>);
-} // namespace cobra
+	using istream_reference = basic_istream_reference<char>;
+	using ostream_reference = basic_ostream_reference<char>;
+	using buffered_istream_reference = basic_buffered_istream_reference<char>;
+	using buffered_ostream_reference = basic_buffered_ostream_reference<char>;
+}
 
 #endif

@@ -6,6 +6,7 @@
 
 #include <cctype>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace cobra {
@@ -24,6 +25,10 @@ namespace cobra {
 			return ch == '-' || ch == '_' || ch == '.' || ch == '!' || ch == '~' || ch == '*' || ch == '\'' ||
 				   ch == '(' || ch == ')';
 		}
+		inline bool is_reserved(int ch) {
+			return ch == ';' || ch == '/' || ch == '?' || ch == ':' || ch == '@' || ch == '&' || ch == '=' ||
+				   ch == '+' || ch == '$' || ch == ',';
+		}
 		inline bool is_unreserved(int ch) {
 			return is_alpanum(ch) || is_mark(ch);
 		}
@@ -32,19 +37,19 @@ namespace cobra {
 		}
 		unsigned char hex_to_byte(int ch);
 
-		class scheme {
-			std::string _scheme;
+		class uri_scheme {
+			std::string _uri_scheme;
 
-			explicit scheme(std::string scheme);
+			explicit uri_scheme(std::string uri_scheme);
 
 		public:
 			static constexpr std::size_t max_length = 128;
-			scheme() = delete;
+			uri_scheme() = delete;
 
-			static task<scheme> parse(buffered_istream& stream);
+			static task<uri_scheme> parse(buffered_istream& stream);
 
 			inline const std::string& get() const {
-				return _scheme;
+				return _uri_scheme;
 			}
 		};
 
@@ -59,7 +64,7 @@ namespace cobra {
 			using pos_type = typename Stream::pos_type;
 			using off_type = typename Stream::off_type;
 
-			constexpr unescape_stream(Stream stream) : _stream(std::move(stream)) {}
+			unescape_stream(Stream stream) : _stream(std::move(stream)) {}
 
 			[[nodiscard]] task<std::size_t> read(char_type* data, std::size_t count) override {
 				std::size_t nwritten = 0;
@@ -89,14 +94,10 @@ namespace cobra {
 		class path_word {
 			std::string _word;
 
-			explicit path_word(std::string scheme);
+			explicit path_word(std::string uri_scheme);
 
 		public:
 			static constexpr std::size_t max_length = 512;
-
-			path_word();
-			path_word(const path_word& other) = default;
-			path_word(path_word&& other) = default;
 
 			inline const std::string& get() const {
 				return _word;
@@ -112,7 +113,6 @@ namespace cobra {
 		public:
 			static constexpr std::size_t max_params = 5;
 
-			segment();
 			segment(path_word path, std::vector<path_word> params = std::vector<path_word>());
 
 			inline path_word& path() {
@@ -137,10 +137,6 @@ namespace cobra {
 			explicit path_segments(std::vector<segment> segments);
 
 		public:
-			path_segments() = delete;
-			path_segments(const path_segments& other) = default;
-			path_segments(path_segments&& other) = default;
-
 			inline const std::vector<segment>& segments() const {
 				return _segments;
 			}
@@ -162,6 +158,124 @@ namespace cobra {
 			}
 
 			static task<abs_path> parse(buffered_istream& stream);
+		};
+
+		class authority {
+			std::string _authority;
+
+			explicit authority(std::string auth);
+
+		public:
+			static constexpr std::size_t max_length = 256;
+
+			authority() = delete;
+
+			inline const std::string& get() const {
+				return _authority;
+			}
+
+			static task<authority> parse(buffered_istream& stream);
+		};
+
+		class net_path {
+			authority _authority;
+			std::optional<abs_path> _path;
+
+		public:
+			net_path(authority auth, std::optional<abs_path> path = std::nullopt);
+
+			inline authority& auth() {
+				return _authority;
+			}
+			inline const authority& auth() const {
+				return _authority;
+			}
+			inline std::optional<abs_path>& path() {
+				return _path;
+			}
+			inline const std::optional<abs_path>& path() const {
+				return _path;
+			}
+
+			static task<net_path> parse(buffered_istream& stream);
+		};
+
+		class uri_query {
+			std::string _uri_query;
+
+			explicit uri_query(std::string str);
+
+		public:
+			static constexpr std::size_t max_length = 1024;
+
+			inline const std::string& get() const {
+				return _uri_query;
+			}
+
+			static task<uri_query> parse(buffered_istream& stream);
+		};
+
+		class hier_part {
+			std::variant<net_path, abs_path> _path;
+			std::optional<uri_query> _query;
+
+		public:
+			hier_part(std::variant<net_path, abs_path> path, std::optional<uri_query> query = std::nullopt);
+
+			inline std::variant<net_path, abs_path>& path() {
+				return _path;
+			};
+			inline const std::variant<net_path, abs_path>& path() const {
+				return _path;
+			};
+			inline std::optional<uri_query>& query() {
+				return _query;
+			}
+			inline const std::optional<uri_query>& query() const {
+				return _query;
+			}
+
+			static task<hier_part> parse(buffered_istream& stream);
+		};
+
+		class opaque_part {
+			std::string _opaque;
+
+			explicit opaque_part(std::string opaque);
+
+		public:
+			static constexpr std::size_t max_length = 1024;
+
+			opaque_part() = delete;
+
+			inline const std::string& get() const {
+				return _opaque;
+			};
+
+			static task<opaque_part> parse(buffered_istream& stream);
+		};
+
+		class abs_uri {
+			uri_scheme _uri_scheme;
+			std::variant<hier_part, opaque_part> _part;
+
+		public:
+			abs_uri(uri_scheme scheme, std::variant<hier_part, opaque_part> part);
+
+			inline uri_scheme& scheme() {
+				return _uri_scheme;
+			}
+			inline const uri_scheme& scheme() const {
+				return _uri_scheme;
+			}
+			inline std::variant<hier_part, opaque_part>& part() {
+				return _part;
+			}
+			inline const std::variant<hier_part, opaque_part>& part() const {
+				return _part;
+			}
+
+			static task<abs_uri> parse(buffered_istream& stream);
 		};
 	} // namespace uri
 } // namespace cobra

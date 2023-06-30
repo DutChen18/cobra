@@ -58,7 +58,7 @@ namespace cobra {
 			std::size_t nwritten = 0;
 			std::optional<char_type> ch;
 
-			while ((ch = co_await peek())) {
+			while (nwritten < size && (ch = co_await peek())) {
 				data[nwritten] = *ch;
 				++nwritten;
 			}
@@ -138,7 +138,7 @@ namespace cobra {
 	}
 
 	template <AsyncReadableStream Stream>
-	constexpr stream_adapter<basic_istream_reference<Stream>> wrap_adapter(Stream& stream) noexcept {
+	constexpr stream_adapter<stream_reference<Stream>> wrap_adapter(Stream& stream) noexcept {
 		return make_adapter(wrap_stream(stream));
 	}
 } // namespace cobra

@@ -46,4 +46,9 @@ namespace cobra {
 								 .take(http_token::max_length)
 								 .collect());
 	}
+
+	// TODO this doesn't work for authority (required for CONNECT)
+	task<http_request_uri> http_request_uri::parse(buffered_istream& stream) {
+		auto ch = co_await stream.peek();
+	}
 } // namespace cobra

@@ -126,6 +126,8 @@ namespace cobra {
 
 		http_request_uri& operator=(const http_request_uri& other) = default;
 		http_request_uri& operator=(http_request_uri&& other) noexcept = default;
+
+		[[nodiscard]] task<http_request_uri> parse(buffered_istream& stream);
 	};
 
 	class http_request : public http_message {

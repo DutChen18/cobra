@@ -27,7 +27,7 @@ namespace cobra {
 
 	template <class T>
 	class generator_promise {
-		result<T> _result;
+		cobra::result<T> _result;
 
 	public:
 		void unhandled_exception() noexcept {
@@ -43,7 +43,7 @@ namespace cobra {
 			_result.reset();
 		}
 
-		const result<T>& result() const noexcept {
+		const cobra::result<T>& result() const noexcept {
 			return _result;
 		}
 

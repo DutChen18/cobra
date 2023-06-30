@@ -1,17 +1,18 @@
-CXX		:= c++
+CXX			:= clang++
 WARNINGS	:= -Wall -Wextra
 ANALYZER	:=
 #SANITIZERS	:= -fsanitize=address,undefined,integer
 SANITIZERS	:= -fsanitize=address,undefined
 CXXFLAGS	:= -std=c++20 $(WARNINGS) $(ANALYZER) $(SANITIZERS) -I../include \
-			-Isupport -MMD -MP -DFT_TEST -Og -g3 -DCOBRA_DEBUG
+			-Isupport -MMD -MP -DFT_TEST -Og -g3 -DCOBRA_DEBUG -I.
+
+OBJ_DIR		:= build
 
 COBRA_SRC	:= ../src
 COBRA_FILES	:= $(shell find $(COBRA_SRC) -type f -name '*.cc')
-COBRA_OBJS	:= $(COBRA_FILES:.cc=.o)
-COBRA_DEPS	:= $(COBRA_FILES:.cc=.d)
+COBRA_OBJS	:= $(patsubst $(COBRA_SRC)/%.cc,$(OBJ_DIR)/%.o,$(COBRA_FILES))
+COBRA_DEPS	:= $(patsubst $(COBRA_SRC)/%.cc,$(OBJ_DIR)/%.d,$(COBRA_FILES))
 
-OBJ_DIR		:= build/
 
 CXXFILES	:= $(shell find . -type f -name '*.cc')
 HEADER_DEPS	:= $(CXXFILES:.cc=.d)
@@ -61,11 +62,12 @@ testdrivers: $(TSTFILES)
 
 -include $(COBRA_DEPS)
 $(OBJ_DIR)/%.o: $(COBRA_SRC)/%.cc Makefile
+	@mkdir -p $(@D)
 	$(SILENT)$(CXX) -o $@ $< $(CXXFLAGS) -c -MMD
 
 .PHONY: clean
 clean:
-	rm -f $(TSTFILES) $(HEADER_DEPS)
+	rm -f $(TSTFILES) $(HEADER_DEPS) $(COBRA_OBJS) $(COBRA_DEPS)
 
 .PHONY: fclean
 fclean:

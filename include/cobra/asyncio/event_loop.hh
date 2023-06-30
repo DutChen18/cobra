@@ -103,22 +103,12 @@ namespace cobra {
 		std::optional<time_point> get_timeout(const std::unordered_map<int, timed_future>& map);
 		std::optional<time_point> get_timeout();
 
-		inline std::unordered_map<int, timed_future>& get_map(poll_type event) {
-			switch (event) {
-			case poll_type::read:
-				return _read_events;
-			case poll_type::write:
-				return _write_events;
-			}
+		inline std::unordered_map<int, timed_future>& get_map(poll_type type) {
+			return type == poll_type::read ? _read_events : _write_events;
 		}
 
 		static inline uint32_t event_to_epoll(poll_type type) {
-			switch (type) {
-			case poll_type::read:
-				return EPOLLIN;
-			case poll_type::write:
-				return EPOLLOUT;
-			}
+			return type == poll_type::read ? EPOLLIN : EPOLLOUT;
 		}
 	};
 } // namespace cobra

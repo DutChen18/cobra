@@ -20,12 +20,7 @@ extern "C" {
 namespace cobra {
 
 	poll_type operator!(poll_type type) {
-		switch (type) {
-		case poll_type::read:
-			return poll_type::write;
-		case poll_type::write:
-			return poll_type::read;
-		}
+		return type == poll_type::read ? poll_type::write : poll_type::read;
 	}
 
 	event_loop::~event_loop() {}
@@ -101,17 +96,22 @@ namespace cobra {
 	}
 
 	generator<std::pair<int, poll_type>> epoll_event_loop::convert(epoll_event event) {
+		int fd = event.data.fd;
+
 		if (event.events & (EPOLLERR | EPOLLHUP)) {
-			co_yield std::make_pair(event.data.fd, poll_type::read);
-			co_yield std::make_pair(event.data.fd, poll_type::write);
+			co_yield {fd, poll_type::read};
+			co_yield {fd, poll_type::write};
 		} else {
 			if (event.events & EPOLLIN) {
-				co_yield std::make_pair(event.data.fd, poll_type::read);
+				co_yield {fd, poll_type::read};
 			}
+
 			if (event.events & EPOLLOUT) {
-				co_yield std::make_pair(event.data.fd, poll_type::write);
+				co_yield {fd, poll_type::write};
 			}
 		}
+
+		co_return;
 	}
 
 	std::vector<epoll_event_loop::event_pair> epoll_event_loop::poll(std::size_t count,
@@ -148,7 +148,9 @@ namespace cobra {
 
 			if (future) {
 				auto handle = future.value();
-				_exec.get().schedule([handle]() { handle.get().set_value(); });
+				_exec.get().schedule([handle]() {
+					handle.get().set_value();
+				});
 			}
 		}
 	}
