@@ -7,10 +7,10 @@
 #include <atomic>
 
 namespace cobra {
-	template<class T>
+	template <class T>
 	class async_task_promise;
 
-	template<class T>
+	template <class T>
 	class async_task {
 		std::coroutine_handle<async_task_promise<T>> _handle;
 
@@ -34,7 +34,7 @@ namespace cobra {
 				_handle.destroy();
 			}
 		}
-		
+
 		async_task& operator=(async_task other) noexcept {
 			std::swap(_handle, other._handle);
 			return *this;
@@ -79,7 +79,7 @@ namespace cobra {
 		}
 	};
 
-	template<class T>
+	template <class T>
 	class async_task_promise : public promise<T> {
 		std::atomic_flag _done_flag;
 		std::atomic_flag _destroy_flag;
@@ -105,6 +105,6 @@ namespace cobra {
 			return _destroy_flag;
 		}
 	};
-}
+} // namespace cobra
 
 #endif

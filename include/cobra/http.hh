@@ -3,9 +3,9 @@
 
 #include "cobra/asyncio/stream.hh"
 
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
-#include <stdexcept>
 
 namespace cobra {
 
@@ -15,6 +15,7 @@ namespace cobra {
 		std::string _token;
 
 		explicit http_token(std::string token);
+
 	public:
 		static constexpr std::size_t max_length = 1024;
 
@@ -25,7 +26,9 @@ namespace cobra {
 		http_token& operator=(const http_token& other) = default;
 		http_token& operator=(http_token&& other) noexcept = default;
 
-		inline const std::string& get() const { return _token; }
+		inline const std::string& get() const {
+			return _token;
+		}
 		friend task<http_token> parse(buffered_istream& stream);
 		friend task<http_token> parse(istream& stream);
 		friend http_token parse(const std::string& str);
@@ -79,10 +82,18 @@ namespace cobra {
 		http_message(const http_message& other) = default;
 		http_message(http_message&& other) noexcept = default;
 
-		inline const header_map& headers() const { return _headers; }
-		inline header_map& headers() { return _headers; }
-		inline const http_version& version() const { return _version; }
-		inline http_version& version() { return _version; }
+		inline const header_map& headers() const {
+			return _headers;
+		}
+		inline header_map& headers() {
+			return _headers;
+		}
+		inline const http_version& version() const {
+			return _version;
+		}
+		inline http_version& version() {
+			return _version;
+		}
 	};
 
 	class http_method {
@@ -92,15 +103,22 @@ namespace cobra {
 		http_method() = delete;
 		http_method(http_token token);
 
-		inline const std::string& method() const { return token().get(); }
-		inline const http_token& token() const { return _method; }
-		inline http_token token() { return _method; }
+		inline const std::string& method() const {
+			return token().get();
+		}
+		inline const http_token& token() const {
+			return _method;
+		}
+		inline http_token token() {
+			return _method;
+		}
 	};
 
 	class http_request_uri {
 		std::string _request_uri;
 
 		http_request_uri(std::string request_uri);
+
 	public:
 		http_request_uri() = delete;
 		http_request_uri(const http_request_uri& other) = default;
@@ -117,6 +135,6 @@ namespace cobra {
 
 	bool is_separator(int ch);
 	bool is_ctl(int ch);
-}
+} // namespace cobra
 
 #endif

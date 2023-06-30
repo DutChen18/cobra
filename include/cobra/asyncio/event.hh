@@ -53,9 +53,7 @@ namespace cobra {
 	public:
 		using handle_type = event_handle<T>;
 
-		event(Function&& function) {
-			_function = std::move(function);
-		}
+		event(Function&& function) : _function(std::move(function)) {}
 
 		bool await_ready() const noexcept {
 			return false;

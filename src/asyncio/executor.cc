@@ -4,17 +4,19 @@
 
 namespace cobra {
 	void executor::executor_event::operator()(event_handle<void>& handle) {
-		_exec->schedule_event(handle);
+		_exec.get().schedule([&handle]() {
+			handle.set_value();
+		});
 	}
 
 	executor::~executor() {}
 
 	executor::event_type executor::schedule() {
-		return {{ this }};
+		return executor_event{*this};
 	}
 
-	void sequential_executor::schedule_event(executor::event_type::handle_type& handle) {
-		handle.set_value();
+	void sequential_executor::schedule(std::function<void()> func) {
+		func();
 	}
 
 	thread_pool_executor::thread_pool_executor() {
@@ -38,9 +40,9 @@ namespace cobra {
 		_threads.clear();
 	}
 
-	void thread_pool_executor::schedule_event(event_type::handle_type& handle) {
+	void thread_pool_executor::schedule(std::function<void()> func) {
 		std::lock_guard lock(_mutex);
-		_queue.emplace(&handle);
+		_queue.emplace(func);
 		_condition_variable.notify_one();
 	}
 
@@ -51,10 +53,10 @@ namespace cobra {
 
 				while (!stop_token.stop_requested()) {
 					if (!_queue.empty()) {
-						event_type::handle_type& handle = *_queue.front();
+						auto func = _queue.front();
 						_queue.pop();
 						lock.unlock();
-						handle.set_value();
+						func();
 						lock.lock();
 					}
 
@@ -63,4 +65,4 @@ namespace cobra {
 			});
 		}
 	}
-}
+} // namespace cobra

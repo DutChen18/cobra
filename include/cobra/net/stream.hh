@@ -1,8 +1,8 @@
 #ifndef COBRA_NET_STREAM_HH
 #define COBRA_NET_STREAM_HH
 
-#include "cobra/asyncio/stream.hh"
 #include "cobra/asyncio/event_loop.hh"
+#include "cobra/asyncio/stream.hh"
 
 #include <functional>
 

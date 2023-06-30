@@ -1,0 +1,77 @@
+CXX		:= c++
+WARNINGS	:= -Wall -Wextra
+ANALYZER	:=
+#SANITIZERS	:= -fsanitize=address,undefined,integer
+SANITIZERS	:= -fsanitize=address,undefined
+CXXFLAGS	:= -std=c++20 $(WARNINGS) $(ANALYZER) $(SANITIZERS) -I../include \
+			-Isupport -MMD -MP -DFT_TEST -Og -g3 -DCOBRA_DEBUG
+
+COBRA_SRC	:= ../src
+COBRA_FILES	:= $(shell find $(COBRA_SRC) -type f -name '*.cc')
+COBRA_OBJS	:= $(COBRA_FILES:.cc=.o)
+COBRA_DEPS	:= $(COBRA_FILES:.cc=.d)
+
+OBJ_DIR		:= build/
+
+CXXFILES	:= $(shell find . -type f -name '*.cc')
+HEADER_DEPS	:= $(CXXFILES:.cc=.d)
+TSTFILES	:= $(CXXFILES:.cc=.out)
+
+BIN_DIR		:= bin
+
+SILENT		:= @
+
+ifdef verbose
+	SILENT	:=
+endif
+
+ifdef std
+	CXXFLAGS += -DFT_TEST_STD
+endif
+
+.PHONY:	all
+all: run
+
+.PHONY: analyze
+analyze:
+	${MAKE} clean
+	${MAKE} testdrivers ANALYZER="-fanalyzer"
+
+.PHONY: run
+run: $(COBRA_OBJS) $(TSTFILES)
+	-@rc=0; count=0; res=0; \
+	for file in $(TSTFILES); do \
+		timeout 5s ./$$file; \
+		res="$$?"; \
+		if [ "$$res" -eq 0 ]; \
+		then printf PASSED; \
+		else printf FAILED; \
+		fi; \
+		echo "	$$file"; \
+		rc=`expr $$rc + $$(($$res != 0))`; count=`expr $$count + 1`; \
+	done; \
+	echo; echo "Executed $$count tests	Failed tests $$rc"
+
+.PHONY: testdrivers
+testdrivers: $(TSTFILES)
+
+-include $(HEADER_DEPS)
+%.out: %.cc Makefile
+	$(SILENT)$(CXX) -o $@ $< $(CXXFLAGS) 
+
+-include $(COBRA_DEPS)
+$(OBJ_DIR)/%.o: $(COBRA_SRC)/%.cc Makefile
+	$(SILENT)$(CXX) -o $@ $< $(CXXFLAGS) -c -MMD
+
+.PHONY: clean
+clean:
+	rm -f $(TSTFILES) $(HEADER_DEPS)
+
+.PHONY: fclean
+fclean:
+	${MAKE} clean
+
+.PHONY: re
+re:
+	${MAKE} fclean
+	${MAKE}

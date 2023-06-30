@@ -1,8 +1,9 @@
 #ifndef COBRA_ASYNCIO_EVENT_LOOP_HH
 #define COBRA_ASYNCIO_EVENT_LOOP_HH
+
 #include "cobra/asyncio/event.hh"
+#include "cobra/asyncio/executor.hh"
 #include "cobra/asyncio/generator.hh"
-#include "cobra/asyncio/task.hh"
 #include "cobra/file.hh"
 
 #include <chrono>
@@ -33,7 +34,7 @@ namespace cobra {
 
 	protected:
 		struct event_loop_event {
-			event_loop* _loop;
+			std::reference_wrapper<event_loop> _loop;
 			event_pair _event;
 			std::optional<std::chrono::milliseconds> _timeout;
 
@@ -67,6 +68,7 @@ namespace cobra {
 	private:
 		file _epoll_fd;
 		std::mutex _mutex;
+		std::reference_wrapper<executor> _exec;
 
 		struct timed_future {
 			std::reference_wrapper<future_type> future;
@@ -79,7 +81,7 @@ namespace cobra {
 		using event_list = std::vector<event_pair>;
 
 	public:
-		epoll_event_loop();
+		epoll_event_loop(executor& exec);
 		epoll_event_loop(const epoll_event_loop& other) = delete;
 		epoll_event_loop(epoll_event_loop&& other) noexcept;
 

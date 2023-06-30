@@ -1,19 +1,20 @@
 #ifndef COBRA_ASYNCIO_EXECUTOR_HH
 #define COBRA_ASYNCIO_EXECUTOR_HH
 
-#include "cobra/asyncio/event.hh"
 #include "cobra/asyncio/async_task.hh"
+#include "cobra/asyncio/event.hh"
 
+#include <condition_variable>
+#include <functional>
+#include <queue>
 #include <thread>
 #include <vector>
-#include <condition_variable>
-#include <queue>
 
 namespace cobra {
 	class executor {
 	protected:
 		struct executor_event {
-			executor* _exec;
+			std::reference_wrapper<executor> _exec;
 
 			void operator()(event_handle<void>& handle);
 		};
@@ -25,36 +26,35 @@ namespace cobra {
 
 		event_type schedule();
 
-		template<class Awaitable>
-		auto schedule_task(Awaitable awaitable) -> async_task<decltype(awaitable.await_resume())> {
+		template <class Awaitable>
+		auto schedule(Awaitable awaitable) -> async_task<decltype(awaitable.await_resume())> {
 			co_await schedule();
 			co_return co_await awaitable;
 		}
 
-	private:
-		virtual void schedule_event(event_type::handle_type& handle) = 0;
+		virtual void schedule(std::function<void()> func) = 0;
 	};
 
 	class sequential_executor : public executor {
-	private:
-		void schedule_event(event_type::handle_type& handle) override;
+	public:
+		virtual void schedule(std::function<void()> func) override;
 	};
 
 	class thread_pool_executor : public executor {
 		std::vector<std::jthread> _threads;
-		std::queue<event_type::handle_type*> _queue;
+		std::queue<std::function<void()>> _queue;
 		std::mutex _mutex;
 		std::condition_variable _condition_variable;
+
+		void create_threads(std::size_t count);
 
 	public:
 		thread_pool_executor();
 		thread_pool_executor(std::size_t count);
 		~thread_pool_executor();
 
-	private:
-		void schedule_event(event_type::handle_type& handle) override;
-		void create_threads(std::size_t count);
+		virtual void schedule(std::function<void()> func) override;
 	};
-}
+} // namespace cobra
 
 #endif

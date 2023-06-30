@@ -15,6 +15,13 @@ namespace cobra {
 	public:
 		timeout_exception();
 	};
+
+	class parse_error : public std::runtime_error {
+	public:
+		parse_error(const std::string& what);
+		parse_error(const char* what);
+	};
+
 } // namespace cobra
 
 #endif

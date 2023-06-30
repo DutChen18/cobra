@@ -40,20 +40,20 @@ namespace cobra {
 
 	event_loop::event_type event_loop::wait_ready(poll_type type, const file& fd,
 												  std::optional<std::chrono::milliseconds> timeout) {
-		return event_loop::event_loop_event{this, std::make_pair(fd.fd(), type), timeout};
+		return event_loop::event_loop_event{*this, std::make_pair(fd.fd(), type), timeout};
 	}
 
 	void event_loop::event_loop_event::operator()(event_handle<void>& handle) {
-		_loop->schedule_event(_event, _timeout, handle);
+		_loop.get().schedule_event(_event, _timeout, handle);
 	}
 
-	epoll_event_loop::epoll_event_loop() : _epoll_fd(epoll_create(1)) {
+	epoll_event_loop::epoll_event_loop(executor& exec) : _epoll_fd(epoll_create(1)), _exec(exec) {
 		if (_epoll_fd.fd() == -1)
 			throw errno_exception();
 	}
 
 	epoll_event_loop::epoll_event_loop(epoll_event_loop&& other) noexcept
-		: _epoll_fd(std::move(other._epoll_fd)), _write_events(std::move(other._write_events)),
+		: _epoll_fd(std::move(other._epoll_fd)), _exec(other._exec), _write_events(std::move(other._write_events)),
 		  _read_events(std::move(other._read_events)) {}
 
 	void epoll_event_loop::schedule_event(event_pair event, std::optional<std::chrono::milliseconds> timeout,
@@ -145,8 +145,11 @@ namespace cobra {
 
 		for (auto&& event : events) {
 			auto future = remove_event(event);
-			if (future)
-				future.value().get().set_value();
+
+			if (future) {
+				auto handle = future.value();
+				_exec.get().schedule([handle]() { handle.get().set_value(); });
+			}
 		}
 	}
 

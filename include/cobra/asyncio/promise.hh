@@ -45,6 +45,6 @@ namespace cobra {
 			_result.set_value();
 		}
 	};
-}
+} // namespace cobra
 
 #endif

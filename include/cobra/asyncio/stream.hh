@@ -4,47 +4,54 @@
 #include "cobra/asyncio/task.hh"
 
 #include <concepts>
+#include <memory>
 #include <optional>
 #include <string>
-#include <vector>
 
 namespace cobra {
 
 	template <class T>
 	concept Stream = requires(T t) {
-		typename T::char_type;
-		typename T::traits_type;
-		typename T::int_type;
-		typename T::pos_type;
-		typename T::off_type;
-	};
+						 typename T::char_type;
+						 typename T::traits_type;
+						 typename T::int_type;
+						 typename T::pos_type;
+						 typename T::off_type;
+					 };
 
 	template <class T, class CharT, class SizeT>
 	concept AsyncReadable = requires(T& t, CharT* data, SizeT size) {
-		{ t.read(data, size) } -> std::convertible_to<task<SizeT>>;
-	};
+								{ t.read(data, size) } -> std::convertible_to<task<SizeT>>;
+							};
 
-	template <class T, class CharT, class SizeT>//Not tested
-	concept AsyncWriteable = requires(T t, const CharT* data, SizeT size) {
-		{ t.read(data, size) } -> std::convertible_to<task<SizeT>>;
-	};
+	template <class T, class CharT, class SizeT>
+	concept AsyncWritable = requires(T& t, const CharT* data, SizeT size) {
+								{ t.write(data, size) } -> std::convertible_to<task<SizeT>>;
+								{ t.flush() } -> std::convertible_to<task<void>>;
+							};
 
 	template <class T, class CharT>
 	concept AsyncPeekable = requires(T& t) {
-		{ t.peek() } -> std::convertible_to<task<std::optional<CharT>>>;
-	};
+								{ t.peek() } -> std::convertible_to<task<std::optional<CharT>>>;
+							};
 
 	template <class T>
 	concept AsyncReadableStream = requires(T t) {
-		requires Stream<T>;
-		requires AsyncReadable<T, typename T::char_type, std::size_t>;
-	};
+									  requires Stream<T>;
+									  requires AsyncReadable<T, typename T::char_type, std::size_t>;
+								  };
+
+	template <class T>
+	concept AsyncWritableStream = requires(T t) {
+									  requires Stream<T>;
+									  requires AsyncWritable<T, typename T::char_type, std::size_t>;
+								  };
 
 	template <class T>
 	concept AsyncPeekableStream = requires(T t) {
-		requires AsyncReadableStream<T>;
-		requires AsyncPeekable<T, typename T::char_type>;
-	};
+									  requires AsyncReadableStream<T>;
+									  requires AsyncPeekable<T, typename T::char_type>;
+								  };
 
 	template <class CharT, class Traits = std::char_traits<CharT>>
 	class basic_stream {
@@ -105,7 +112,7 @@ namespace cobra {
 		}
 	};
 
-	template<class CharT, class Traits = std::char_traits<CharT>>
+	template <class CharT, class Traits = std::char_traits<CharT>>
 	class basic_buffered_istream : public basic_istream<CharT, Traits> {
 	public:
 		using typename basic_istream<CharT, Traits>::char_type;
@@ -117,7 +124,117 @@ namespace cobra {
 		[[nodiscard]] virtual task<std::optional<char_type>> peek() = 0;
 	};
 
-	template<AsyncReadableStream Stream>
+	template <class CharT, class Traits = std::char_traits<CharT>>
+	class basic_buffered_ostream : public basic_ostream<CharT, Traits> {
+	public:
+		using typename basic_ostream<CharT, Traits>::char_type;
+		using typename basic_ostream<CharT, Traits>::traits_type;
+		using typename basic_ostream<CharT, Traits>::int_type;
+		using typename basic_ostream<CharT, Traits>::pos_type;
+		using typename basic_ostream<CharT, Traits>::off_type;
+	};
+
+	template <AsyncReadableStream Stream>
+	class basic_istream_buffer
+		: public basic_buffered_istream<typename Stream::char_type, typename Stream::traits_type> {
+		Stream _stream;
+		std::unique_ptr<typename Stream::char_type[]> _buffer;
+		std::size_t _buffer_begin = 0;
+		std::size_t _buffer_end = 0;
+		std::size_t _buffer_size;
+
+	public:
+		using char_type = typename Stream::char_type;
+		using traits_type = typename Stream::traits_type;
+		using int_type = typename Stream::int_type;
+		using pos_type = typename Stream::pos_type;
+		using off_type = typename Stream::off_type;
+
+		basic_istream_buffer(Stream&& stream, std::size_t buffer_size) : _stream(std::move(stream)) {
+			_buffer = std::make_unique<char_type[]>(buffer_size);
+			_buffer_size = buffer_size;
+		}
+
+		task<std::size_t> read(char_type* data, std::size_t size) override {
+			if (_buffer_begin == _buffer_end) {
+				if (size >= _buffer_size) {
+					co_return co_await _stream.read(data, size);
+				}
+
+				_buffer_begin = 0;
+				_buffer_end = co_await _stream.read(_buffer.get(), _buffer_size);
+			}
+
+			std::size_t count = std::min(_buffer_end - _buffer_begin, size);
+			const char_type* begin = _buffer.get() + _buffer_begin;
+			std::copy(begin, begin + count, data);
+			_buffer_begin += count;
+			co_return count;
+		}
+
+		task<std::optional<char_type>> peek() {
+			if (_buffer_begin == _buffer_end) {
+				_buffer_begin = 0;
+				_buffer_end = co_await _stream.read(_buffer.get(), _buffer_size);
+			}
+
+			if (_buffer_begin == _buffer_end) {
+				co_return std::nullopt;
+			} else {
+				co_return _buffer[_buffer_begin];
+			}
+		}
+	};
+
+	template <AsyncWritableStream Stream>
+	class basic_ostream_buffer
+		: public basic_buffered_ostream<typename Stream::char_type, typename Stream::traits_type> {
+		Stream _stream;
+		std::unique_ptr<typename Stream::char_type[]> _buffer;
+		std::size_t _buffer_end = 0;
+		std::size_t _buffer_size;
+
+	public:
+		using char_type = typename Stream::char_type;
+		using traits_type = typename Stream::traits_type;
+		using int_type = typename Stream::int_type;
+		using pos_type = typename Stream::pos_type;
+		using off_type = typename Stream::off_type;
+
+		basic_ostream_buffer(Stream&& stream, std::size_t buffer_size) : _stream(std::move(stream)) {
+			_buffer = std::make_unique<char_type[]>(buffer_size);
+			_buffer_size = buffer_size;
+		}
+
+		task<std::size_t> write(const char_type* data, std::size_t size) override {
+			if (size >= _buffer_size && _buffer_end == 0) {
+				co_return co_await _stream.write(data, size);
+			}
+
+			std::size_t count = std::min(_buffer_size - _buffer_end, size);
+			const char_type* begin = _buffer.get() + _buffer_end;
+			std::copy(data, data + count, begin);
+			_buffer_end += count;
+
+			if (_buffer_end == _buffer_size) {
+				co_await _stream.write_all(_buffer.get(), _buffer_end);
+				_buffer_end = 0;
+			}
+
+			co_return count;
+		}
+
+		task<void> flush() override {
+			if (_buffer_end != 0) {
+				co_await _stream.write_all(_buffer.get(), _buffer_end);
+				_buffer_end = 0;
+			}
+
+			co_return co_await _stream.flush();
+		}
+	};
+
+	template <AsyncReadableStream Stream>
 	class basic_istream_reference : public basic_istream<typename Stream::char_type, typename Stream::traits_type> {
 		Stream& _stream;
 
@@ -136,90 +253,17 @@ namespace cobra {
 			return _stream.read(data, size);
 		}
 
-		task<std::optional<char_type>> peek() requires AsyncPeekableStream<Stream> {
+		task<std::optional<char_type>> peek()
+			requires AsyncPeekableStream<Stream>
+		{
 			return _stream.peek();
 		}
 	};
 
-	template<AsyncReadableStream Stream>
+	template <AsyncReadableStream Stream>
 	basic_istream_reference<Stream> wrap_stream(Stream& stream) {
 		return basic_istream_reference<Stream>(stream);
 	}
-
-	template<class CharT, class Traits = std::char_traits<CharT>>
-	class basic_buffered_ostream : public basic_ostream<CharT, Traits> {
-	public:
-		using typename basic_ostream<CharT, Traits>::char_type;
-		using typename basic_ostream<CharT, Traits>::traits_type;
-		using typename basic_ostream<CharT, Traits>::int_type;
-		using typename basic_ostream<CharT, Traits>::pos_type;
-		using typename basic_ostream<CharT, Traits>::off_type;
-	};
-
-	template <class Stream>
-	class basic_istream_buffer : public basic_buffered_istream<typename Stream::char_type, typename Stream::traits_type> {
-		Stream _stream;
-		std::vector<typename Stream::char_type> _buffer;
-		std::size_t _buffer_end = 0;
-		std::size_t _buffer_begin = 0;
-
-	public:
-		using char_type = typename Stream::char_type;
-		using traits_type = typename Stream::traits_type;
-		using int_type = typename Stream::int_type;
-		using pos_type = typename Stream::pos_type;
-		using off_type = typename Stream::off_type;
-
-		basic_istream_buffer(std::size_t buffer_size) {
-			_buffer.resize(buffer_size);
-		}
-
-		task<std::size_t> read(char_type* data, std::size_t size) override {
-			auto count = std::min(co_await fill(), size);
-			auto begin = std::advance(_buffer.begin(), _buffer_begin);
-			auto end = std::advance(_buffer.begin(), _buffer_begin += count);
-			std::copy(begin, end, data);
-			co_return count;
-		}
-
-		task<std::optional<char_type>> peek() {
-			if (co_await fill() > 0) {
-				co_return _buffer[_buffer_begin];
-			} else {
-				co_return std::nullopt;
-			}
-		}
-
-	private:
-		task<std::size_t> fill() {
-			if (_buffer_end >= _buffer_begin) {
-				_buffer_end = co_await _stream.read(_buffer.size());
-				_buffer_begin = 0;
-			}
-
-			co_return _buffer_end - _buffer_begin;
-		}
-	};
-
-	template <class Stream>
-	class basic_ostream_buffer : public basic_buffered_ostream<typename Stream::char_type, typename Stream::traits_type> {
-		Stream _stream;
-
-	public:
-		using char_type = typename Stream::char_type;
-		using traits_type = typename Stream::traits_type;
-		using int_type = typename Stream::int_type;
-		using pos_type = typename Stream::pos_type;
-		using off_type = typename Stream::off_type;
-
-		task<std::size_t> write(const char_type* data, std::size_t size) override {
-			return _stream.write(data, size);
-		}
-
-		task<void> flush() override {
-			return _stream.flush();
-		}
-	};
 
 	using stream = basic_stream<char>;
 	using istream = basic_istream<char>;
@@ -227,7 +271,7 @@ namespace cobra {
 	using buffered_istream = basic_buffered_istream<char>;
 	using buffered_ostream = basic_buffered_ostream<char>;
 
-	//static_assert(AsyncReadable<buffered_istream, char, std::size_t>);
+	// static_assert(AsyncReadable<buffered_istream, char, std::size_t>);
 	static_assert(AsyncPeekableStream<buffered_istream>);
 } // namespace cobra
 
