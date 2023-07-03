@@ -2,7 +2,7 @@
 /compile_commands.json
 /webserv
 /webserv_fuzz
-/.cache
+.cache
 /.clang-format
 *.plist
 /CORPUS

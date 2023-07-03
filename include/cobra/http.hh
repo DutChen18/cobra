@@ -29,9 +29,7 @@ namespace cobra {
 		inline const std::string& get() const {
 			return _token;
 		}
-		friend task<http_token> parse(buffered_istream& stream);
-		friend task<http_token> parse(istream& stream);
-		friend http_token parse(const std::string& str);
+		static task<http_token> parse(buffered_istream_reference stream);
 	};
 
 	struct http_version {
@@ -127,7 +125,7 @@ namespace cobra {
 		http_request_uri& operator=(const http_request_uri& other) = default;
 		http_request_uri& operator=(http_request_uri&& other) noexcept = default;
 
-		[[nodiscard]] task<http_request_uri> parse(buffered_istream& stream);
+		task<http_request_uri> parse(buffered_istream_reference stream);
 	};
 
 	class http_request : public http_message {

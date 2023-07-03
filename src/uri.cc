@@ -5,6 +5,7 @@
 
 #include <cctype>
 #include <optional>
+#include <variant>
 #include <vector>
 
 namespace cobra {
@@ -21,30 +22,26 @@ namespace cobra {
 
 		uri_scheme::uri_scheme(std::string scheme) : _uri_scheme(std::move(scheme)) {}
 
-		task<uri_scheme> uri_scheme::parse(buffered_istream &stream) {
-			if (is_alpha(co_await assert_get(stream))) {
-				co_return uri_scheme(co_await wrap_adapter(stream)
-										 .take_while([](int ch) {
-											 return is_alpha(ch) || is_digit(ch) || ch == '+' || ch == '-' || ch == '.';
-										 })
-										 .take(uri_scheme::max_length)
-										 .collect());
-			} else {
-				throw parse_error("An url must start with an alpha character");
-			}
+		task<uri_scheme> uri_scheme::parse(buffered_istream_reference stream) {
+			co_await expect(stream, is_alpha);
+			co_return uri_scheme(co_await make_adapter(std::move(stream))
+									 .take_while([](int ch) {
+										 return is_alpha(ch) || is_digit(ch) || ch == '+' || ch == '-' || ch == '.';
+									 })
+									 .take(uri_scheme::max_length)
+									 .collect());
 		}
 
 		path_word::path_word(std::string uri_scheme) : _word(std::move(uri_scheme)) {}
 
-		task<path_word> path_word::parse(buffered_istream &stream) {
-			co_return path_word(co_await make_adapter(unescape_stream(wrap_adapter(stream)
+		task<path_word> path_word::parse(buffered_istream_reference stream) {
+			co_return path_word(co_await make_adapter(unescape_stream(make_adapter(std::move(stream))
 																		  .take_while([](int ch) {
 																			  return is_unreserved(ch) || ch == '%' ||
 																					 ch == ':' || ch == '@' ||
 																					 ch == '=' || ch == '+' ||
 																					 ch == '$' || ch == ',';
-																		  })
-																		  .into_inner()))
+																		  })))
 									.take(path_word::max_length)
 									.collect());
 		}
@@ -52,8 +49,8 @@ namespace cobra {
 		segment::segment(path_word path, std::vector<path_word> params)
 			: _path(std::move(path)), _params(std::move(params)) {}
 
-		task<segment> segment::parse(buffered_istream &stream) {
-			path_word path = co_await path_word::parse(stream);
+		task<segment> segment::parse(buffered_istream_reference stream) {
+			path_word path = co_await path_word::parse(stream.copy());
 			std::vector<path_word> params;
 
 			while (co_await stream.peek() == ';') {
@@ -62,35 +59,35 @@ namespace cobra {
 				}
 				co_await stream.get();
 
-				params.push_back(co_await path_word::parse(stream));
+				params.push_back(co_await path_word::parse(stream.copy()));
 			}
 			co_return segment(std::move(path), std::move(params));
 		}
 
 		path_segments::path_segments(std::vector<segment> segments) : _segments(std::move(segments)) {}
 
-		task<path_segments> path_segments::parse(buffered_istream &stream) {
+		task<path_segments> path_segments::parse(buffered_istream_reference stream) {
 			std::vector<segment> segments;
-			segments.push_back(co_await segment::parse(stream));
+			segments.push_back(co_await segment::parse(stream.copy()));
 
 			while (co_await stream.peek() == '/') {
 				co_await stream.get();
-				segments.push_back(co_await segment::parse(stream));
+				segments.push_back(co_await segment::parse(stream.copy()));
 			}
 			co_return path_segments(std::move(segments));
 		}
 
 		abs_path::abs_path(path_segments segments) : _segments(std::move(segments)) {}
 
-		task<abs_path> abs_path::parse(buffered_istream &stream) {
+		task<abs_path> abs_path::parse(buffered_istream_reference stream) {
 			co_await expect(stream, '/');
-			co_return abs_path(co_await path_segments::parse(stream));
+			co_return abs_path(co_await path_segments::parse(std::move(stream)));
 		}
 
 		authority::authority(std::string authority) : _authority(std::move(authority)) {}
 
-		task<authority> authority::parse(buffered_istream &stream) {
-			co_return authority(co_await make_adapter(stream)
+		task<authority> authority::parse(buffered_istream_reference stream) {
+			co_return authority(co_await make_adapter(std::move(stream))
 									.take_while([](int ch) { // TODO check if the escaped characters are correct
 										return is_unreserved(ch) || ch == '%' || ch == ';' || ch == ':' || ch == '&' ||
 											   ch == '=' || ch == '+' || ch == '$' || ch == ',' || ch == '@';
@@ -102,51 +99,51 @@ namespace cobra {
 		net_path::net_path(authority auth, std::optional<abs_path> path)
 			: _authority(std::move(auth)), _path(std::move(path)) {}
 
-		task<net_path> net_path::parse(buffered_istream &stream) {
+		task<net_path> net_path::parse(buffered_istream_reference stream) {
 			co_await expect(stream, "//");
 
-			authority auth = co_await authority::parse(stream);
+			authority auth = co_await authority::parse(stream.copy());
 
 			std::optional<abs_path> path;
 			if (co_await stream.peek() == '/') {
-				path = co_await abs_path::parse(stream);
+				path = co_await abs_path::parse(std::move(stream));
 			}
 			co_return net_path(std::move(auth), std::move(path));
 		}
 
 		uri_query::uri_query(std::string str) : _uri_query(std::move(str)) {}
 
-		task<uri_query> uri_query::parse(buffered_istream &stream){
+		task<uri_query> uri_query::parse(buffered_istream_reference stream){
 			// TODO check if the escaped characters are correct
-			co_return uri_query(co_await wrap_adapter(stream)
+			co_return uri_query(co_await make_adapter(std::move(stream))
 									.take_while([](int ch) {
 										return is_unreserved(ch) || is_reserved(ch) || ch == '%';
 									})
 									.take(uri_query::max_length)
-									.collect()) :
+									.collect());
 		}
 
 		hier_part::hier_part(std::variant<net_path, abs_path> path, std::optional<uri_query> query)
 			: _path(std::move(path)), _query(std::move(query)) {}
 
-		task<hier_part> hier_part::parse(buffered_istream &stream) {
+		task<hier_part> hier_part::parse(buffered_istream_reference stream) {
 			co_await expect(stream, '/');
 
 			auto ch = co_await expect(stream);
-			auto path = ch == '/' ? std::variant<net_path, abs_path>(co_await net_path::parse(stream))
-								  : co_await abs_path::parse(stream);
+			auto path = ch == '/' ? std::variant<net_path, abs_path>(co_await net_path::parse(stream.copy()))
+								  : co_await abs_path::parse(stream.copy());
 			std::optional<uri_query> query;
 
 			if (co_await stream.peek() == '?') {
 				co_await stream.get();
-				query = co_await uri_query::parse(stream);
+				query = co_await uri_query::parse(std::move(stream));
 			}
 			co_return hier_part(std::move(path), std::move(query));
 		}
 
 		opaque_part::opaque_part(std::string opaque) : _opaque(std::move(opaque)) {}
 
-		task<opaque_part> parse(buffered_istream &stream) {
+		task<opaque_part> opaque_part::parse(buffered_istream_reference stream) {
 			auto ch = co_await expect_peek(stream);
 
 			// TODO check if escaped characters are correct
@@ -156,8 +153,8 @@ namespace cobra {
 			};
 
 			if (is_uric_no_slash(ch)) {
-				co_return opaque_part(wrap_adapter(stream)
-										  .take_while([](int ch) {
+				co_return opaque_part(co_await make_adapter(std::move(stream))
+										  .take_while([is_uric_no_slash](int ch) {
 											  return is_uric_no_slash(ch) || ch == '/';
 										  })
 										  .take(opaque_part::max_length)
@@ -167,12 +164,14 @@ namespace cobra {
 			}
 		}
 
-		task<abs_uri> abs_uri::parse(buffered_istream &stream) {
-			uri_scheme scheme = co_await scheme::parse(stream);
+		abs_uri::abs_uri(uri_scheme scheme, std::variant<hier_part, opaque_part> part) : _uri_scheme(std::move(scheme)), _part(std::move(part)) {}
+
+		task<abs_uri> abs_uri::parse(buffered_istream_reference stream) {
+			uri_scheme scheme = co_await uri_scheme::parse(stream.copy());
 			co_await expect(stream, ':');
-			std::variant<hier_part, opaque_part> part = co_await expect(stream) == '/'
-															? co_await hier_part::parse(stream)
-															: co_await opaque_part::parse(stream);
+			auto part = co_await expect(stream) == '/'
+												? std::variant<hier_part, opaque_part>(co_await hier_part::parse(std::move(stream)))
+												: co_await opaque_part::parse(std::move(stream));
 			co_return abs_uri(std::move(scheme), part);
 		}
 	} // namespace uri

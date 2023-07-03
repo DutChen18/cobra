@@ -15,9 +15,9 @@ namespace cobra {
 		socket_stream(event_loop* loop, file&& f);
 		socket_stream(socket_stream&& other);
 
-		task<std::size_t> read(char_type* data, std::size_t size) override;
-		task<std::size_t> write(const char_type* data, std::size_t size) override;
-		task<void> flush() override;
+		task<std::size_t> read(char_type* data, std::size_t size);
+		task<std::size_t> write(const char_type* data, std::size_t size);
+		task<void> flush();
 	};
 
 	task<socket_stream> open_connection(event_loop* loop, const char* node, const char* service);

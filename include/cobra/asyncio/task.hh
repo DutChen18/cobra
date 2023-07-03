@@ -9,7 +9,7 @@ namespace cobra {
 	class task_promise;
 
 	template <class T>
-	class task : public coroutine<task_promise<T>> {
+	class [[nodiscard]] task : public coroutine<task_promise<T>> {
 	public:
 		bool await_ready() const noexcept {
 			return false;

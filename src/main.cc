@@ -2,6 +2,7 @@
 #include "cobra/asyncio/executor.hh"
 #include "cobra/asyncio/future_task.hh"
 #include "cobra/asyncio/task.hh"
+#include "cobra/asyncio/stream.hh"
 
 #include <chrono>
 #include <cstdlib>

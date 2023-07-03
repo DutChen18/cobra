@@ -11,7 +11,7 @@ namespace cobra {
 	class async_task_promise;
 
 	template <class T>
-	class async_task {
+	class [[nodiscard]] async_task {
 		std::coroutine_handle<async_task_promise<T>> _handle;
 
 	public:

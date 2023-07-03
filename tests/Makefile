@@ -4,7 +4,7 @@ ANALYZER	:=
 #SANITIZERS	:= -fsanitize=address,undefined,integer
 SANITIZERS	:= -fsanitize=address,undefined
 CXXFLAGS	:= -std=c++20 $(WARNINGS) $(ANALYZER) $(SANITIZERS) -I../include \
-			-Isupport -MMD -MP -DFT_TEST -Og -g3 -DCOBRA_DEBUG -I.
+			-Isupport -MMD -MP -DFT_TEST -O0 -g3 -DCOBRA_DEBUG -I. -DCOBRA_TEST
 
 OBJ_DIR		:= build
 
@@ -39,7 +39,7 @@ analyze:
 	${MAKE} testdrivers ANALYZER="-fanalyzer"
 
 .PHONY: run
-run: $(COBRA_OBJS) $(TSTFILES)
+run: $(TSTFILES)
 	-@rc=0; count=0; res=0; \
 	for file in $(TSTFILES); do \
 		timeout 5s ./$$file; \
@@ -57,8 +57,8 @@ run: $(COBRA_OBJS) $(TSTFILES)
 testdrivers: $(TSTFILES)
 
 -include $(HEADER_DEPS)
-%.out: %.cc Makefile
-	$(SILENT)$(CXX) -o $@ $< $(CXXFLAGS) 
+%.out: %.cc $(COBRA_OBJS) Makefile
+	$(SILENT)$(CXX) -o $@ $< $(COBRA_OBJS) $(CXXFLAGS)
 
 -include $(COBRA_DEPS)
 $(OBJ_DIR)/%.o: $(COBRA_SRC)/%.cc Makefile

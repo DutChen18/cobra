@@ -9,6 +9,8 @@
 #include <variant>
 #include <vector>
 
+#include <iostream>
+
 namespace cobra {
 
 	namespace uri {
@@ -46,7 +48,7 @@ namespace cobra {
 			static constexpr std::size_t max_length = 128;
 			uri_scheme() = delete;
 
-			static task<uri_scheme> parse(buffered_istream& stream);
+			static task<uri_scheme> parse(buffered_istream_reference stream);
 
 			inline const std::string& get() const {
 				return _uri_scheme;
@@ -66,9 +68,9 @@ namespace cobra {
 
 			unescape_stream(Stream stream) : _stream(std::move(stream)) {}
 
-			[[nodiscard]] task<std::size_t> read(char_type* data, std::size_t count) override {
+			task<std::size_t> read(char_type* data, std::size_t count) {
 				std::size_t nwritten = 0;
-				for (; nwritten < count; ++nwritten) {
+				while (nwritten < count) {
 					auto ch = co_await _stream.get();
 					if (ch) {
 						if (*ch == '%') {
@@ -78,7 +80,7 @@ namespace cobra {
 							if (!left || !right || !is_hex(*left) || !is_hex(*right)) {
 								throw parse_error("Invalid escape sequence");
 							}
-							data[nwritten] = hex_to_byte(*left) << 16 | hex_to_byte(*right);
+							data[nwritten] = hex_to_byte(*left) << 4 | hex_to_byte(*right);
 						} else {
 							data[nwritten] = *ch;
 						}
@@ -103,7 +105,7 @@ namespace cobra {
 				return _word;
 			}
 
-			static task<path_word> parse(buffered_istream& stream);
+			static task<path_word> parse(buffered_istream_reference stream);
 		};
 
 		class segment {
@@ -128,7 +130,7 @@ namespace cobra {
 				return _params;
 			}
 
-			static task<segment> parse(buffered_istream& stream);
+			static task<segment> parse(buffered_istream_reference stream);
 		};
 
 		class path_segments {
@@ -141,7 +143,7 @@ namespace cobra {
 				return _segments;
 			}
 
-			static task<path_segments> parse(buffered_istream& stream);
+			static task<path_segments> parse(buffered_istream_reference stream);
 		};
 
 		class abs_path {
@@ -157,7 +159,7 @@ namespace cobra {
 				return _segments;
 			}
 
-			static task<abs_path> parse(buffered_istream& stream);
+			static task<abs_path> parse(buffered_istream_reference stream);
 		};
 
 		class authority {
@@ -174,7 +176,7 @@ namespace cobra {
 				return _authority;
 			}
 
-			static task<authority> parse(buffered_istream& stream);
+			static task<authority> parse(buffered_istream_reference stream);
 		};
 
 		class net_path {
@@ -197,7 +199,7 @@ namespace cobra {
 				return _path;
 			}
 
-			static task<net_path> parse(buffered_istream& stream);
+			static task<net_path> parse(buffered_istream_reference stream);
 		};
 
 		class uri_query {
@@ -212,7 +214,7 @@ namespace cobra {
 				return _uri_query;
 			}
 
-			static task<uri_query> parse(buffered_istream& stream);
+			static task<uri_query> parse(buffered_istream_reference stream);
 		};
 
 		class hier_part {
@@ -235,7 +237,7 @@ namespace cobra {
 				return _query;
 			}
 
-			static task<hier_part> parse(buffered_istream& stream);
+			static task<hier_part> parse(buffered_istream_reference stream);
 		};
 
 		class opaque_part {
@@ -252,7 +254,7 @@ namespace cobra {
 				return _opaque;
 			};
 
-			static task<opaque_part> parse(buffered_istream& stream);
+			static task<opaque_part> parse(buffered_istream_reference stream);
 		};
 
 		class abs_uri {
@@ -275,7 +277,7 @@ namespace cobra {
 				return _part;
 			}
 
-			static task<abs_uri> parse(buffered_istream& stream);
+			static task<abs_uri> parse(buffered_istream_reference stream);
 		};
 	} // namespace uri
 } // namespace cobra
