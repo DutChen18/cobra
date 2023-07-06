@@ -25,6 +25,7 @@ namespace cobra {
 		inline const sockaddr* addr() const {
 			return _addr;
 		}
+
 		inline std::size_t len() const {
 			return _len;
 		}
@@ -42,12 +43,15 @@ namespace cobra {
 		inline int family() const {
 			return _family;
 		}
+
 		inline int socktype() const {
 			return _socktype;
 		}
+
 		inline int protocol() const {
 			return _protocol;
 		}
+
 		inline const address& addr() const {
 			return _addr;
 		}

@@ -7,13 +7,12 @@
 #include <functional>
 
 namespace cobra {
-	class socket_stream : public istream, public ostream {
+	class socket_stream : public istream_impl<socket_stream>, public ostream_impl<socket_stream> {
 		event_loop* _loop;
 		file _file;
 
 	public:
 		socket_stream(event_loop* loop, file&& f);
-		socket_stream(socket_stream&& other);
 
 		task<std::size_t> read(char_type* data, std::size_t size);
 		task<std::size_t> write(const char_type* data, std::size_t size);
@@ -21,7 +20,7 @@ namespace cobra {
 	};
 
 	task<socket_stream> open_connection(event_loop* loop, const char* node, const char* service);
-	task<void> start_server(event_loop* loop, const char* node, const char* service,
+	task<void> start_server(executor* exec, event_loop* loop, const char* node, const char* service,
 							std::function<task<void>(socket_stream)> cb);
 } // namespace cobra
 

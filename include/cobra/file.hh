@@ -1,6 +1,10 @@
 #ifndef COBRA_FILE_HH
 #define COBRA_FILE_HH
 
+extern "C" {
+#include "unistd.h"
+}
+
 namespace cobra {
 	class file {
 		int _fd;
@@ -13,13 +17,14 @@ namespace cobra {
 		file(file&& other) noexcept;
 		~file();
 
-		file& operator=(const file& other) = delete;
 		file& operator=(file other) noexcept;
 
 		inline int fd() const {
 			return _fd;
 		}
 	};
+	
+	ssize_t check_return(ssize_t ret);
 } // namespace cobra
 
 #endif
