@@ -4,6 +4,7 @@
 
 extern "C" {
 #include <fcntl.h>
+#include <unistd.h>
 }
 
 namespace cobra {
@@ -42,6 +43,10 @@ namespace cobra {
 
 	process_istream<process_stream_type::err>& process::err() {
 		return *this;
+	}
+	
+	cobra::task<int> process::wait() {
+		co_return co_await _loop->wait_pid(std::exchange(_pid, -1));
 	}
 	
 	command::command(std::initializer_list<std::string> args) : _args(args) {
@@ -87,6 +92,10 @@ namespace cobra {
 				check_return(dup2(out.second.fd(), STDOUT_FILENO));
 			if (_err_mode == command_stream_mode::pipe)
 				check_return(dup2(err.second.fd(), STDERR_FILENO));
+
+			// TODO: unhardcode 4096
+			for (int fd = 3; fd < 4096; fd++)
+				close(fd);
 
 			std::vector<const char*> argv;
 			std::vector<std::string> envs;

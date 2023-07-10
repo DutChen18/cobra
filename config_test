@@ -1,0 +1,24 @@
+{
+	ssl "a .txt" b c
+	listen 443
+	listen 50000000000
+	listen 443 ssl;
+
+	server_name pgp.hyxo.nl;
+	ssl_certificate pgp.hyxo.nl.crt;
+
+	location / {
+		set_header server "cobra";
+
+		method GET {
+			root /var/www;
+		}
+
+		method POST {
+			cgi 127.0.0.1;
+		}
+
+		error 405
+	}
+}
+

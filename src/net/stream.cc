@@ -33,6 +33,10 @@ namespace cobra {
 		co_return;
 	}
 
+	void socket_stream::shutdown(int how) {
+		check_return(::shutdown(_file.fd(), how));
+	}
+
 	task<socket_stream> open_connection(event_loop* loop, const char* node, const char* service) {
 		for (const address_info& info : get_address_info(node, service)) {
 			file sock = check_return(socket(info.family(), info.socktype(), info.protocol()));

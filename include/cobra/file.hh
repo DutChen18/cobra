@@ -22,6 +22,8 @@ namespace cobra {
 		inline int fd() const {
 			return _fd;
 		}
+
+		void close();
 	};
 	
 	ssize_t check_return(ssize_t ret);

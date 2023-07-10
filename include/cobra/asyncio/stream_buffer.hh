@@ -43,6 +43,10 @@ namespace cobra {
 
 			co_return co_await base::read(data, size);
 		}
+
+		Stream& inner() {
+			return _stream;
+		}
 	};
 
 	template<class Stream>
@@ -86,6 +90,10 @@ namespace cobra {
 		task<void> flush() {
 			co_await flush_buf();
 			co_await _stream.flush();
+		}
+
+		Stream& inner() {
+			return _stream;
 		}
 	};
 }

@@ -4,6 +4,7 @@
 #include "cobra/asyncio/event.hh"
 #include "cobra/asyncio/executor.hh"
 #include "cobra/asyncio/generator.hh"
+#include "cobra/asyncio/task.hh"
 #include "cobra/file.hh"
 
 #include <chrono>
@@ -17,6 +18,7 @@
 
 extern "C" {
 #include <sys/epoll.h>
+#include <sys/wait.h>
 }
 
 namespace cobra {
@@ -50,6 +52,8 @@ namespace cobra {
 							  std::optional<std::chrono::milliseconds> timeout = std::nullopt);
 		event_type wait_read(const file& fd, std::optional<std::chrono::milliseconds> timeout = std::nullopt);
 		event_type wait_write(const file& fd, std::optional<std::chrono::milliseconds> timeout = std::nullopt);
+
+		task<int> wait_pid(int pid, std::optional<std::chrono::milliseconds> timeout = std::nullopt);
 
 		virtual void poll() = 0;
 

@@ -38,6 +38,22 @@ namespace cobra {
 		return event_loop::event_loop_event{*this, std::make_pair(fd.fd(), type), timeout};
 	}
 
+	task<int> event_loop::wait_pid(int pid, std::optional<std::chrono::milliseconds> timeout) {
+		int result;
+		
+		while (true) {
+			int ret = waitpid(pid, &result, 0); // TODO: very very very bad
+			
+			if (ret >= 0) {
+				break;
+			} else if (errno != EINTR) {
+				throw errno_exception();
+			}
+		}
+
+		co_return WEXITSTATUS(result);
+	}
+
 	void event_loop::event_loop_event::operator()(event_handle<void>& handle) {
 		_loop.get().schedule_event(_event, _timeout, handle);
 	}

@@ -17,6 +17,7 @@ namespace cobra {
 		task<std::size_t> read(char_type* data, std::size_t size);
 		task<std::size_t> write(const char_type* data, std::size_t size);
 		task<void> flush();
+		void shutdown(int how);
 	};
 
 	task<socket_stream> open_connection(event_loop* loop, const char* node, const char* service);

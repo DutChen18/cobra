@@ -53,6 +53,8 @@ namespace cobra {
 		process_ostream<process_stream_type::in>& in();
 		process_istream<process_stream_type::out>& out();
 		process_istream<process_stream_type::err>& err();
+
+		cobra::task<int> wait();
 	};
 
 	class command {
