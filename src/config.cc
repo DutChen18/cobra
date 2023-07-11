@@ -2,15 +2,45 @@
 
 #include "cobra/exception.hh"
 
+#include <any>
 #include <cctype>
+#include <cstddef>
 #include <memory>
 #include <optional>
+#include <ostream>
 #include <type_traits>
 #include <format>
 #include <memory>
 #include <utility>
+#include <vector>
 
 namespace cobra {
+
+	namespace config {
+		constexpr buf_pos::buf_pos(std::size_t line, std::size_t col) noexcept : buf_pos(line, col, 1) {}
+		constexpr buf_pos::buf_pos(std::size_t line, std::size_t col, std::size_t length) noexcept : line(line), col(col), length(length) {}
+
+		file_part::file_part(fs::path file, std::size_t line, std::size_t col) : file_part(file, line, col, 1) {}
+		file_part::file_part(fs::path file, std::size_t line, std::size_t col, std::size_t length) : file(std::move(file)), pos(line, col, length) {}
+		file_part::file_part(std::size_t line, std::size_t col): file_part(line, col, 1) {}
+		file_part::file_part(std::size_t line, std::size_t col, std::size_t length) : file(), pos(line, col, length) {}
+
+		diagnostic::diagnostic(level lvl, file_part part, std::string message) : diagnostic(lvl, part, message, "") {}
+		diagnostic::diagnostic(level lvl, file_part part, std::string message, std::string primary_label) : diagnostic(lvl, part, message, primary_label, "") {}
+		diagnostic::diagnostic(level lvl, file_part part, std::string message, std::string primary_label, std::string secondary_label) : lvl(lvl), part(std::move(part)), message(std::move(message)), primary_label(std::move(primary_label)), secondary_label(std::move(secondary_label)) {}
+
+	}
+
+	std::ostream& operator<<(std::ostream& stream, const diagnostic_level& level) {
+		switch (level) {
+		case diagnostic_level::error:
+			return stream << "error";
+		case diagnostic_level::warning:
+			return stream << "warning";
+		case diagnostic_level::info:
+			return stream << "info";
+		}
+	}
 
 	config_error::config_error(config_diagnostic diagnostic) : _diagnostic(std::move(diagnostic)) {}
 
@@ -101,7 +131,7 @@ namespace cobra {
 			part = take_while([](int ch) { return ch != '"'; });
 
 			if (peek() != '"')
-				throw config_error(config_diagnostic { "unclosed \"", file(), start_line, std::make_pair(start_column, 1), "", "", std::vector<config_diagnostic>() });
+				throw config_error(config_diagnostic { diagnostic_level::error, "unclosed \"", file(), start_line, std::make_pair(start_column, 1), "", "", std::vector<config_diagnostic>() });
 
 			consume(1);
 		} else {
@@ -112,7 +142,7 @@ namespace cobra {
 	}
 
 	void parse_session::print_diagnostic(const config_diagnostic& diagnostic, std::ostream& out) const {
-		out << "error: " << diagnostic.message << std::endl;
+		out << diagnostic.level << ": " << diagnostic.message << std::endl;
 		out << "  --> " << diagnostic.file.value_or("<source>") << ":" << diagnostic.line << ":" << diagnostic.column_span.first;
 
 		std::string line = std::format("{}", diagnostic.line + 1);
@@ -211,8 +241,12 @@ namespace cobra {
 	}
 
 	void server_config::parse_server_name(parse_session& session) {
+		//session.ignore_whitespace();
+
+		std::string word = session.get_word();
 		if (_server_name) {
-			//todo give warning about redefinition
+			config_diagnostic diag{diagnostic_level::warning, "redefinition of 'server_name'", session.file(), session.line(), std::make_pair(session.column(), word.length()), "", "", std::vector<config_diagnostic>()};
+			session.print_diagnostic(diag, std::cerr);
 		}
 
 		_server_name = session.get_word();

@@ -7,6 +7,62 @@
 #include <string>
 
 namespace cobra {
+	template <class T>
+	concept Stream = requires(T t) {
+		typename T::char_type;
+		typename T::traits_type;
+		typename T::int_type;
+		typename T::pos_type;
+		typename T::off_type;
+	};
+
+	template <class T, class CharT, class SizeT>
+	concept AsyncInput = requires(T& t, CharT* data, SizeT size) {
+		{ t.read(data, size) } -> std::convertible_to<task<SizeT>>;
+		{ t.get() } -> std::convertible_to<task<std::optional<CharT>>>;
+	};
+
+	template <class T, class CharT, class SizeT>
+	concept AsyncOutput = requires(T& t, const CharT* data, SizeT size) {
+		{ t.write(data, size) } -> std::convertible_to<task<SizeT>>;
+		{ t.flush() } -> std::convertible_to<task<void>>;
+		{ t.write_all(data, size) } -> std::convertible_to<task<SizeT>>;
+	};
+
+	template <class T, class CharT, class SizeT>
+	concept AsyncBufferedInput = requires(T& t, SizeT size) {
+		{ t.fill_buf() } -> std::convertible_to<task<std::pair<const CharT*, SizeT>>>;
+		{ t.consume(size) } -> std::convertible_to<void>;
+		{ t.peek() } -> std::convertible_to<task<std::optional<CharT>>>;
+	};
+
+	template <class T, class CharT, class SizeT>
+	concept AsyncBufferedOutput = true;
+
+	template <class T>
+	concept AsyncInputStream = requires(T t) {
+		requires Stream<T>;
+		requires AsyncInput<T, typename T::char_type, std::size_t>;
+	};
+
+	template <class T>
+	concept AsyncOutputStream = requires(T t) {
+		requires Stream<T>;
+		requires AsyncOutput<T, typename T::char_type, std::size_t>;
+	};
+
+	template <class T>
+	concept AsyncBufferedInputStream = requires(T t) {
+		requires AsyncInputStream<T>;
+		requires AsyncBufferedInput<T, typename T::char_type, std::size_t>;
+	};
+
+	template <class T>
+	concept AsyncBufferedOutputStream = requires(T t) {
+		requires AsyncOutputStream<T>;
+		requires AsyncBufferedOutput<T, typename T::char_type, std::size_t>;
+	};
+
 	template <class CharT, class Traits>
 	class basic_istream_tag;
 	template <class CharT, class Traits>

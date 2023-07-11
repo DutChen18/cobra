@@ -55,8 +55,8 @@ namespace cobra {
 			}
 		};
 
-		template <AsyncReadableStream Stream>
-		class unescape_stream : public istream {
+		template <AsyncInputStream Stream>
+		class unescape_stream : public istream_impl<unescape_stream<Stream>> {
 			Stream _stream;
 
 		public:

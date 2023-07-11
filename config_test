@@ -1,4 +1,7 @@
 {
+	server_name pgp.hyxo.nl
+	server_name a.hyxo.nl
+
 	ssl "a .txt" b c
 	listen 443
 	listen 50000000000

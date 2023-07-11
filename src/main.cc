@@ -56,6 +56,9 @@ cobra::future_task<void> run(cobra::executor* exec, cobra::event_loop* loop) {
 }
 
 int main() {
+	using namespace cobra::term;
+	cobra::println("{}Hello, World!{}", set_bold(), fg_reset());
+
 	// cobra::thread_pool_executor exec;
 	cobra::sequential_executor exec;
 	cobra::epoll_event_loop loop(exec);

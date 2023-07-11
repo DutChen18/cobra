@@ -22,7 +22,7 @@ namespace cobra {
 		}
 	}
 
-	template <AsyncReadableStream Stream>
+	template <AsyncInputStream Stream>
 	task<typename Stream::int_type> expect(Stream& stream) {
 		auto ch = co_await stream.get();
 		if (ch) {
@@ -32,7 +32,7 @@ namespace cobra {
 		}
 	}
 
-	template <AsyncPeekableStream  Stream>
+	template <AsyncBufferedInputStream Stream>
 	task<typename Stream::int_type> expect_peek(Stream& stream) {
 		auto ch = co_await stream.peek();
 		if (ch) {
@@ -42,7 +42,7 @@ namespace cobra {
 		}
 	}
 
-	template <AsyncReadableStream Stream, class UnaryPredicate>
+	template <AsyncInputStream Stream, class UnaryPredicate>
 	task<void> expect(Stream& stream,  UnaryPredicate p) requires std::predicate<UnaryPredicate, typename Stream::int_type> {
 		auto ch = co_await expect(stream);
 		if (!p(ch)) {
@@ -50,7 +50,7 @@ namespace cobra {
 		}
 	}
 
-	template <AsyncReadableStream Stream, class String>
+	template <AsyncInputStream Stream, class String>
 	task<void> expect(Stream& stream, const String& str) requires requires(String str, std::size_t idx) {
 		str[idx];
 	}
@@ -65,7 +65,7 @@ namespace cobra {
 		}
 	}
 
-	template <AsyncReadableStream Stream>
+	template <AsyncInputStream Stream>
 	task<void> expect(Stream& stream, typename Stream::int_type expected_ch) {
 		auto ch = co_await stream.get();
 		if (!ch) {

@@ -7,50 +7,7 @@
 
 namespace cobra {
 
-	template <class T>
-	concept Stream = requires(T t) {
-						 typename T::char_type;
-						 typename T::traits_type;
-						 typename T::int_type;
-						 typename T::pos_type;
-						 typename T::off_type;
-					 };
-
-	template <class T, class CharT, class SizeT>
-	concept AsyncReadable = requires(T& t, CharT* data, SizeT size) {
-								{ t.read(data, size) } -> std::convertible_to<task<SizeT>>;
-							};
-
-	template <class T, class CharT, class SizeT>
-	concept AsyncWritable = requires(T& t, const CharT* data, SizeT size) {
-								{ t.write(data, size) } -> std::convertible_to<task<SizeT>>;
-								{ t.flush() } -> std::convertible_to<task<void>>;
-							};
-
-	template <class T, class CharT>
-	concept AsyncPeekable = requires(T& t) {
-								{ t.peek() } -> std::convertible_to<task<std::optional<CharT>>>;
-							};
-
-	template <class T>
-	concept AsyncReadableStream = requires(T t) {
-									  requires Stream<T>;
-									  requires AsyncReadable<T, typename T::char_type, std::size_t>;
-								  };
-
-	template <class T>
-	concept AsyncWritableStream = requires(T t) {
-									  requires Stream<T>;
-									  requires AsyncWritable<T, typename T::char_type, std::size_t>;
-								  };
-
-	template <class T>
-	concept AsyncPeekableStream = requires(T t) {
-									  requires AsyncReadableStream<T>;
-									  requires AsyncPeekable<T, typename T::char_type>;
-	};
-
-	template <AsyncReadableStream Stream>
+	template <AsyncInputStream Stream>
 	class take_stream : public basic_istream<typename Stream::char_type, typename Stream::traits_type> {
 		Stream _stream;
 		std::size_t _n;
@@ -80,7 +37,7 @@ namespace cobra {
 		}
 
 		task<std::optional<char_type>> peek()
-			requires AsyncPeekableStream<Stream>
+			requires AsyncBufferedInputStream<Stream>
 		{
 			if (_n == 0) {
 				return std::nullopt;
@@ -90,7 +47,7 @@ namespace cobra {
 		}
 	};
 
-	template <AsyncPeekableStream PeekableStream, class UnaryPredicate>
+	template <AsyncBufferedInputStream PeekableStream, class UnaryPredicate>
 	class take_while_stream
 		: public basic_istream<typename PeekableStream::char_type, typename PeekableStream::traits_type> { //TODO make ideomatic
 		PeekableStream _stream;
@@ -140,7 +97,7 @@ namespace cobra {
 		}
 	};
 
-	template <AsyncReadableStream Stream>
+	template <AsyncInputStream Stream>
 	class stream_adapter {
 		using stream_type = Stream;
 
@@ -166,7 +123,7 @@ namespace cobra {
 		}
 
 		inline task<std::optional<char_type>> peek()
-			requires AsyncPeekableStream<Stream>
+			requires AsyncBufferedInputStream<Stream>
 		{
 			return _stream.peek();
 		}
@@ -197,12 +154,12 @@ namespace cobra {
 		}
 	};
 
-	template <AsyncReadableStream Stream>
+	template <AsyncInputStream Stream>
 	constexpr stream_adapter<Stream> make_adapter(Stream&& stream) noexcept {
 		return stream_adapter<Stream>(std::move(stream));
 	}
 
-	template <AsyncReadableStream Stream>
+	template <AsyncInputStream Stream>
 	constexpr stream_adapter<stream_reference<Stream>> wrap_adapter(Stream& stream) noexcept {
 		return make_adapter(wrap_stream(stream));
 	}
