@@ -1,11 +1,19 @@
 #ifndef COBRA_PRINT_HH
 #define COBRA_PRINT_HH
 
+#include "cobra/asyncio/stream.hh"
+
 #include <format>
 #include <iostream>
 #include <cstdint>
 
 namespace cobra {
+	template <class... Args>
+	task<void> print(ostream_reference os, std::format_string<Args...> fmt, Args&&... args) {
+		std::string str = std::format(fmt, std::forward<Args>(args)...);
+		co_await os.write_all(str.data(), str.size());
+	}
+
 	template <class... Args>
 	std::ostream& print(std::ostream& os, std::format_string<Args...> fmt, Args&&... args) {
 		return os << std::format(fmt, std::forward<Args>(args)...);

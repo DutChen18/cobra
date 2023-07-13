@@ -8,11 +8,13 @@
 #include <memory>
 #include <optional>
 #include <ostream>
+#include <stdexcept>
 #include <type_traits>
 #include <format>
 #include <memory>
 #include <utility>
 #include <vector>
+#include <cassert>
 
 namespace cobra {
 
@@ -26,9 +28,149 @@ namespace cobra {
 		file_part::file_part(std::size_t line, std::size_t col, std::size_t length) : file(), pos(line, col, length) {}
 
 		diagnostic::diagnostic(level lvl, file_part part, std::string message) : diagnostic(lvl, part, message, "") {}
-		diagnostic::diagnostic(level lvl, file_part part, std::string message, std::string primary_label) : diagnostic(lvl, part, message, primary_label, "") {}
-		diagnostic::diagnostic(level lvl, file_part part, std::string message, std::string primary_label, std::string secondary_label) : lvl(lvl), part(std::move(part)), message(std::move(message)), primary_label(std::move(primary_label)), secondary_label(std::move(secondary_label)) {}
 
+		diagnostic::diagnostic(level lvl, file_part part, std::string message, std::string primary_label)
+			: diagnostic(lvl, part, message, primary_label, "") {}
+
+		diagnostic::diagnostic(level lvl, file_part part, std::string message, std::string primary_label, std::string secondary_label)
+			: lvl(lvl), part(std::move(part)), message(std::move(message)), primary_label(std::move(primary_label)), secondary_label(std::move(secondary_label)) {}
+
+		std::ostream& operator<<(std::ostream& stream, diagnostic::level lvl) {
+			switch (lvl) {
+			case diagnostic::level::error:
+				return stream << "error";
+			case diagnostic::level::warning:
+				return stream << "warning";
+			case diagnostic::level::info:
+				return stream << "info";
+			}
+		}
+
+		error::error(diagnostic diag) : std::runtime_error(diag.message), _diag(diag) {}
+		
+		parse_session::parse_session(std::unique_ptr<std::istream> stream) : _stream(std::move(stream)) {
+			_stream->exceptions(std::ios::badbit | std::ios::failbit);
+		}
+
+		std::optional<int> parse_session::peek_line() {
+			fill_lines();
+
+			if (cur_line() && column() < cur_line()->length()) {
+				return (*cur_line())[column()];
+			}
+			return std::nullopt;
+		}
+
+		std::optional<int> parse_session::peek() {
+			const auto ch = peek_line();
+
+			if (!ch && next_line())
+				return (*next_line())[0];
+			return std::nullopt;
+		}
+
+		std::optional<int> parse_session::get() {
+			const auto res = peek();
+			if (res)
+				consume(1);
+			return res;
+		}
+
+		std::string parse_session::get_word() {
+			if (peek() == '"') {
+				return get_word_quoted();
+			} else {
+				return get_word_simple();
+			}
+		}
+
+		std::string parse_session::get_word_quoted() {
+			consume(1);
+
+			std::string res;
+
+			bool escaped = false;
+			while (true) {
+				const auto ch = get();
+
+				if (ch == '\\') {
+					escaped = true;
+				} else if (ch == '"') {
+					if (escaped)
+						res.push_back('"');
+					else
+						break;
+				} else {
+					if (escaped) {
+						res.push_back('\\');
+						escaped = false;
+					}
+
+					res.push_back(*ch);
+				}
+			}
+			return res;
+		}
+
+		std::string parse_session::get_word_simple() {
+			std::string res;
+
+			while (true) {
+				if (!cur_line() || column() + 1 >= (*cur_line()).length())
+					break;
+				
+				const auto ch = peek();
+				
+				if (!ch)
+					break;
+			}
+		}
+
+		void parse_session::fill_lines() {
+			while (line() + 1 >= _lines.size()) {
+				const auto next_line = get_line();
+
+				if (next_line)
+					_lines.push_back(std::move(*next_line));
+				else
+					break;
+			}
+		}
+
+		void parse_session::consume(std::size_t count) {
+			if (cur_line()) {
+				if (cur_line()->length() < count) {
+					_col_num += count;
+				} else {
+					const std::size_t left = count - cur_line()->length();
+					_line_num += 1;
+					consume(left);
+				}
+			} else {
+				assert(0 && "tried to consume more than available");
+			}
+		}
+
+		std::optional<std::string_view> parse_session::cur_line() const {
+			if (line() < _lines.size())
+				return _lines[line()];
+			return std::nullopt;
+		}
+
+		std::optional<std::string_view> parse_session::next_line() const {
+			if (line() + 1 < _lines.size())
+				return _lines[line() + 1];
+			return std::nullopt;
+		}
+
+		std::optional<std::string> parse_session::get_line() {
+			std::string line;
+
+			std::getline(*_stream, line);
+			if (line.empty())
+				return std::nullopt;
+			return line;
+		}
 	}
 
 	std::ostream& operator<<(std::ostream& stream, const diagnostic_level& level) {

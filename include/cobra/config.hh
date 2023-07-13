@@ -19,6 +19,7 @@
 #include <utility>
 #include <vector>
 #include <charconv>
+#include <string_view>
 
 #define COBRA_SERVER_KEYWORDS                                                                                          \
 	X(listen)                                                                                                          \
@@ -100,13 +101,15 @@ namespace cobra {
 				throw std::logic_error("failed to match pattern");
 			if (result.ec == std::errc::result_out_of_range || value > max_value)
 				throw error(diagnostic::error(file_part(0, last - first), "number too large", std::format("maximum accepted value is {}", max_value)));
+			if (result.ptr == first)
+				throw error(diagnostic::error(file_part(0, 1), "not a number", "a number must contain at least one digit"));
 
 			return value;
 		}
 
 		class parse_session {
 			std::vector<std::string> _lines;
-			std::istream& _stream;
+			std::unique_ptr<std::istream> _stream;
 
 			std::optional<fs::path> _file;
 			std::size_t _col_num;
@@ -114,12 +117,9 @@ namespace cobra {
 
 		public:
 			parse_session() = delete;
-			parse_session(std::istream& stream);
+			parse_session(std::unique_ptr<std::istream> stream);
 
-			std::optional<int> peek();
-			std::optional<int> get();
-
-			const std::string_view& get_word();
+			std::string get_word();
 			std::size_t ignore_ws();
 
 			inline std::size_t column() const { return _line_num; }
@@ -127,7 +127,19 @@ namespace cobra {
 			inline const std::optional<fs::path>& file() const { return _file; }
 
 		private:
-			void fill_buf();
+			std::optional<int> peek_line();
+			std::optional<int> peek();
+			std::optional<int> get();
+
+			std::string get_word_quoted();
+			std::string get_word_simple();
+
+			std::optional<std::string_view> cur_line() const;
+			std::optional<std::string_view> next_line() const;
+
+			std::optional<std::string> get_line();
+
+			void fill_lines();
 			void consume(std::size_t count);
 		};
 	};

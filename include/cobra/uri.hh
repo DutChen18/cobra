@@ -42,7 +42,7 @@ namespace cobra {
 		class uri_scheme {
 			std::string _uri_scheme;
 
-			explicit uri_scheme(std::string uri_scheme);
+			uri_scheme(std::string uri_scheme);
 
 		public:
 			static constexpr std::size_t max_length = 128;

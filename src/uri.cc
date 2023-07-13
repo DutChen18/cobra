@@ -21,15 +21,44 @@ namespace cobra {
 		}
 
 		uri_scheme::uri_scheme(std::string scheme) : _uri_scheme(std::move(scheme)) {}
-
+		
 		task<uri_scheme> uri_scheme::parse(buffered_istream_reference stream) {
 			co_await expect(stream, is_alpha);
-			co_return uri_scheme(co_await make_adapter(std::move(stream))
-									 .take_while([](int ch) {
-										 return is_alpha(ch) || is_digit(ch) || ch == '+' || ch == '-' || ch == '.';
-									 })
-									 .take(uri_scheme::max_length)
-									 .collect());
+			
+			std::string tmp;
+
+			while (true) {
+				if (tmp.length() > uri_scheme::max_length)
+					break;
+
+				auto ch = co_await stream.peek();
+				if (!ch)
+					break;
+
+				if (is_alpha(*ch) || is_digit(*ch) || *ch == '+' || *ch == '-' || *ch == '.') {
+					tmp.push_back(*ch);
+				}
+			}
+			co_return uri_scheme(std::move(tmp));
+		}
+		
+		task<uri_scheme> uri_scheme::parse(buffered_istream_reference stream) {
+			co_await expect(stream, is_alpha);
+			while (true) {
+				auto ch = stream.get();
+				
+				if (is_alpha(ch)) {
+
+				} else {
+					break;
+				}
+			}
+			co_return co_await make_adapter(std::move(stream))
+				.take_while([](int ch) {
+					return is_alpha(ch) || is_digit(ch) || ch == '+' || ch == '-' || ch == '.';
+				})
+				.take(uri_scheme::max_length)
+				.collect();
 		}
 
 		path_word::path_word(std::string uri_scheme) : _word(std::move(uri_scheme)) {}

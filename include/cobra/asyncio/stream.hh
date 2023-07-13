@@ -5,6 +5,7 @@
 
 #include <optional>
 #include <string>
+#include <variant>
 
 namespace cobra {
 	template <class T>
@@ -40,28 +41,16 @@ namespace cobra {
 	concept AsyncBufferedOutput = true;
 
 	template <class T>
-	concept AsyncInputStream = requires(T t) {
-		requires Stream<T>;
-		requires AsyncInput<T, typename T::char_type, std::size_t>;
-	};
+	concept AsyncInputStream = Stream<T> && AsyncInput<T, typename T::char_type, std::size_t>;
 
 	template <class T>
-	concept AsyncOutputStream = requires(T t) {
-		requires Stream<T>;
-		requires AsyncOutput<T, typename T::char_type, std::size_t>;
-	};
+	concept AsyncOutputStream = Stream<T> && AsyncOutput<T, typename T::char_type, std::size_t>;
 
 	template <class T>
-	concept AsyncBufferedInputStream = requires(T t) {
-		requires AsyncInputStream<T>;
-		requires AsyncBufferedInput<T, typename T::char_type, std::size_t>;
-	};
+	concept AsyncBufferedInputStream = AsyncInputStream<T> && AsyncBufferedInput<T, typename T::char_type, std::size_t>;
 
 	template <class T>
-	concept AsyncBufferedOutputStream = requires(T t) {
-		requires AsyncOutputStream<T>;
-		requires AsyncBufferedOutput<T, typename T::char_type, std::size_t>;
-	};
+	concept AsyncBufferedOutputStream = AsyncOutputStream<T> && AsyncBufferedOutput<T, typename T::char_type, std::size_t>;
 
 	template <class CharT, class Traits>
 	class basic_istream_tag;
@@ -260,6 +249,7 @@ namespace cobra {
 	public:
 		using typename Base::char_type;
 
+		// TODO: throw if return value less than size
 		task<std::size_t> write_all(const char_type* data, std::size_t size) {
 			Stream* self = static_cast<Stream*>(this);
 			std::size_t index = 0;
@@ -444,6 +434,25 @@ namespace cobra {
 		}
 	};
 
+	template <class Base, class... Streams>
+	class stream_variant : public stream_wrapper<stream_variant<Base, Streams...>, Base> {
+		std::variant<Streams...> _streams;
+
+	public:
+		template <class Stream>
+		stream_variant(Stream&& stream) {
+			_streams.emplace(std::move(stream));
+		}
+
+		Base* ptr() const {
+			return std::visit([](auto& stream) { return &stream; }, _streams);
+		}
+
+		const typename Base::tag_type* tag() const {
+			return std::visit([](auto& stream) { return detail::tag<Base, decltype(stream)>(); }, _streams);
+		}
+	};
+
 	using istream = basic_istream<char>;
 	using ostream = basic_ostream<char>;
 	using buffered_istream = basic_buffered_istream<char>;
@@ -475,6 +484,24 @@ namespace cobra {
 	using basic_buffered_istream_reference = stream_reference<basic_buffered_istream<CharT, Traits>>;
 	template <class CharT, class Traits = std::char_traits<CharT>>
 	using basic_buffered_ostream_reference = stream_reference<basic_buffered_ostream<CharT, Traits>>;
+
+	template <class CharT, class Traits = std::char_traits<CharT>, class... Streams>
+	using basic_istream_variant = stream_variant<basic_istream<CharT, Traits>, Streams...>;
+	template <class CharT, class Traits = std::char_traits<CharT>, class... Streams>
+	using basic_ostream_variant = stream_variant<basic_ostream<CharT, Traits>, Streams...>;
+	template <class CharT, class Traits = std::char_traits<CharT>, class... Streams>
+	using basic_buffered_istream_variant = stream_variant<basic_buffered_istream<CharT, Traits>, Streams...>;
+	template <class CharT, class Traits = std::char_traits<CharT>, class... Streams>
+	using basic_buffered_ostream_variant = stream_variant<basic_buffered_ostream<CharT, Traits>, Streams...>;
+
+	template <class... Streams>
+	using istream_variant = basic_istream_variant<char, std::char_traits<char>, Streams...>;
+	template <class... Streams>
+	using ostream_variant = basic_ostream_variant<char, std::char_traits<char>, Streams...>;
+	template <class... Streams>
+	using buffered_istream_variant = basic_buffered_istream_variant<char, std::char_traits<char>, Streams...>;
+	template <class... Streams>
+	using buffered_ostream_variant = basic_buffered_ostream_variant<char, std::char_traits<char>, Streams...>;
 
 	template <class Stream>
 	using istream_ref = basic_istream_ref<Stream, char>;
