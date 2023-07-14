@@ -1,14 +1,14 @@
 #include "cobra/http/message.hh"
 
 namespace cobra {
-	http_version::http_version(unsigned short major, unsigned short minor) : _major(major), _minor(minor) {
+	http_version::http_version(http_version_type major, http_version_type minor) : _major(major), _minor(minor) {
 	}
 
-	unsigned short http_version::major() const {
+	http_version_type http_version::major() const {
 		return _major;
 	}
 
-	unsigned short http_version::minor() const {
+	http_version_type http_version::minor() const {
 		return _minor;
 	}
 
@@ -31,14 +31,17 @@ namespace cobra {
 		_header_map = std::move(header_map);
 	}
 
+	// TODO: handle key case
 	const http_header_value& http_message::header(const http_header_key& key) const {
 		return _header_map.at(key);
 	}
 	
+	// TODO: handle key case
 	bool http_message::has_header(const http_header_key& key) const {
 		return _header_map.contains(key);
 	}
 
+	// TODO: handle key case
 	void http_message::set_header(http_header_key key, http_header_value value) {
 		_header_map.insert_or_assign(std::move(key), std::move(value));
 	}

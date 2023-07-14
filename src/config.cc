@@ -1,6 +1,7 @@
 #include "cobra/config.hh"
 
 #include "cobra/exception.hh"
+#include "cobra/print.hh"
 
 #include <any>
 #include <cctype>
@@ -9,6 +10,7 @@
 #include <optional>
 #include <ostream>
 #include <stdexcept>
+#include <string_view>
 #include <type_traits>
 #include <format>
 #include <memory>
@@ -20,20 +22,83 @@ namespace cobra {
 
 	namespace config {
 		constexpr buf_pos::buf_pos(std::size_t line, std::size_t col) noexcept : buf_pos(line, col, 1) {}
-		constexpr buf_pos::buf_pos(std::size_t line, std::size_t col, std::size_t length) noexcept : line(line), col(col), length(length) {}
+		constexpr buf_pos::buf_pos(std::size_t line, std::size_t col, std::size_t length) noexcept
+			: line(line), col(col), length(length) {}
 
+		file_part::file_part(std::optional<fs::path> file, std::size_t line, std::size_t col)
+			: file_part(std::move(file), line, col, 1) {}
+		file_part::file_part(std::optional<fs::path> file, std::size_t line, std::size_t col, std::size_t length)
+			: buf_pos(line, col, length), file(std::move(file)) {}
 		file_part::file_part(fs::path file, std::size_t line, std::size_t col) : file_part(file, line, col, 1) {}
-		file_part::file_part(fs::path file, std::size_t line, std::size_t col, std::size_t length) : file(std::move(file)), pos(line, col, length) {}
-		file_part::file_part(std::size_t line, std::size_t col): file_part(line, col, 1) {}
-		file_part::file_part(std::size_t line, std::size_t col, std::size_t length) : file(), pos(line, col, length) {}
+		file_part::file_part(fs::path file, std::size_t line, std::size_t col, std::size_t length)
+			: buf_pos(line, col, length), file(std::move(file)) {}
+		file_part::file_part(std::size_t line, std::size_t col) : file_part(line, col, 1) {}
+		file_part::file_part(std::size_t line, std::size_t col, std::size_t length)
+			: buf_pos(line, col, length), file() {}
 
 		diagnostic::diagnostic(level lvl, file_part part, std::string message) : diagnostic(lvl, part, message, "") {}
 
 		diagnostic::diagnostic(level lvl, file_part part, std::string message, std::string primary_label)
 			: diagnostic(lvl, part, message, primary_label, "") {}
 
-		diagnostic::diagnostic(level lvl, file_part part, std::string message, std::string primary_label, std::string secondary_label)
-			: lvl(lvl), part(std::move(part)), message(std::move(message)), primary_label(std::move(primary_label)), secondary_label(std::move(secondary_label)) {}
+		diagnostic::diagnostic(level lvl, file_part part, std::string message, std::string primary_label,
+							   std::string secondary_label)
+			: lvl(lvl), part(std::move(part)), message(std::move(message)), primary_label(std::move(primary_label)),
+			  secondary_label(std::move(secondary_label)) {}
+
+		std::ostream& diagnostic::print(std::ostream& out, const std::vector<std::string>& lines) const {
+			cobra::println(out, "{}{}{}{}: {}{}", get_control(lvl) | term::set_bold(), lvl, term::reset(), term::set_bold(), message,
+						   term::reset());
+
+			std::string file("<source>");
+			if (part.file) {
+				file = part.file->string();
+			}
+			cobra::println(out, " {}-->{} {}:{}:{}", term::fg_blue() | term::set_bold(), term::reset(), file,
+						   part.line + 1, part.col + 1);
+
+			const std::string line = std::format("{}", part.line + 1);
+			cobra::println(out, "{}{} |{} ", term::fg_blue() | term::set_bold(), std::string(line.length(), ' '),
+						   term::reset());
+			cobra::print(out, "{}{} |{} ", term::fg_blue() | term::set_bold(), line, term::reset());
+
+			for (auto&& ch : lines.at(part.line)) {
+				if (ch == '\t') {
+					out << ' ';
+				} else {
+					out << ch;
+				}
+			}
+			out << std::endl;
+			cobra::println(out, "{}{} |{} {}{}{}{}{}", term::fg_blue() | term::set_bold(),
+						   std::string(line.length(), ' '), term::reset(), std::string(part.col, ' '),
+						   get_control(lvl) | term::set_bold(), std::string(part.length, '^'), term::reset(),
+						   secondary_label);
+			if (!primary_label.empty()) {
+				cobra::println(out, "{}{} |{} {}{}|{}", term::fg_blue() | term::set_bold(),
+							   std::string(line.length(), ' '), term::reset(), std::string(part.col, ' '),
+							   get_control(lvl) | term::set_bold(), term::reset());
+				cobra::println(out, "{}{} |{} {}{}{}{}", term::fg_blue() | term::set_bold(),
+							   std::string(line.length(), ' '), term::reset(), std::string(part.col, ' '),
+							   get_control(lvl) | term::set_bold(), primary_label, term::reset());
+			}
+
+			for (auto&& diag : sub_diags) {
+				diag.print(out, lines);
+			}
+			return out;
+		}
+
+		term::control diagnostic::get_control(level lvl) {
+			switch (lvl) {
+			case diagnostic::level::error:
+				return term::fg_red();
+			case diagnostic::level::warning:
+				return term::fg_yellow();
+			case diagnostic::level::note:
+				return term::fg_white() | term::set_faint();
+			}
+		}
 
 		std::ostream& operator<<(std::ostream& stream, diagnostic::level lvl) {
 			switch (lvl) {
@@ -41,31 +106,21 @@ namespace cobra {
 				return stream << "error";
 			case diagnostic::level::warning:
 				return stream << "warning";
-			case diagnostic::level::info:
-				return stream << "info";
+			case diagnostic::level::note:
+				return stream << "note";
 			}
 		}
 
 		error::error(diagnostic diag) : std::runtime_error(diag.message), _diag(diag) {}
 		
-		parse_session::parse_session(std::unique_ptr<std::istream> stream) : _stream(std::move(stream)) {
-			_stream->exceptions(std::ios::badbit | std::ios::failbit);
-		}
-
-		std::optional<int> parse_session::peek_line() {
-			fill_lines();
-
-			if (cur_line() && column() < cur_line()->length()) {
-				return (*cur_line())[column()];
-			}
-			return std::nullopt;
+		parse_session::parse_session(std::istream& stream) : _stream(stream), _lines(), _file(), _col_num(0)/*, _line_num(0)*/ {
+			_stream.exceptions(std::ios::badbit | std::ios::failbit);
 		}
 
 		std::optional<int> parse_session::peek() {
-			const auto ch = peek_line();
-
-			if (!ch && next_line())
-				return (*next_line())[0];
+			const std::string_view buf = fill_buf();
+			if (!buf.empty())
+				return buf[0];
 			return std::nullopt;
 		}
 
@@ -76,15 +131,38 @@ namespace cobra {
 			return res;
 		}
 
+		void parse_session::expect(int ch) {
+			const std::size_t col = column();
+			const auto got = get();
+
+			if (!got)
+				throw error(make_error(line(), col, "unexpected EOF", std::format("expected `{}`", static_cast<char>(ch))));
+			else if (got != ch)
+				throw error(make_error(line(), col, std::format("unexpected `{}`", static_cast<char>(*got)), std::format("expected `{}`", static_cast<char>(ch))));
+		}
+
 		std::string parse_session::get_word() {
-			if (peek() == '"') {
+			if (peek() == '"')
 				return get_word_quoted();
-			} else {
-				return get_word_simple();
+			return get_word_simple();
+		}
+
+		std::size_t parse_session::ignore_ws() {
+			std::size_t nignored = 0;
+
+			while (true) {
+				const auto ch = peek();
+
+				if (!ch || !std::isspace(*ch))
+					break;
+				consume(1);
 			}
+			return nignored;
 		}
 
 		std::string parse_session::get_word_quoted() {
+			const std::size_t start_col = column();
+			const std::size_t start_line = line();
 			consume(1);
 
 			std::string res;
@@ -95,20 +173,22 @@ namespace cobra {
 
 				if (ch == '\\') {
 					escaped = true;
-				} else if (ch == '"') {
-					if (escaped)
-						res.push_back('"');
-					else
-						break;
-				} else {
-					if (escaped) {
+				} else if (ch == '"' && !escaped) {
+					break;
+				} else if (ch) {
+					if (escaped && ch != '"') {
 						res.push_back('\\');
 						escaped = false;
 					}
 
 					res.push_back(*ch);
+				} else {
+					throw error(make_error(start_line, start_col, "unclosed quote"));
 				}
 			}
+
+			if (res.empty())
+				throw error(make_error(start_line, start_col, 2, "invalid word", "expected at least one character"));
 			return res;
 		}
 
@@ -116,291 +196,251 @@ namespace cobra {
 			std::string res;
 
 			while (true) {
-				if (!cur_line() || column() + 1 >= (*cur_line()).length())
-					break;
-				
 				const auto ch = peek();
-				
-				if (!ch)
+
+				if (!ch || !std::isgraph(*ch))
 					break;
+				res.push_back(*ch);
+				consume(1);
 			}
+
+			if (res.empty())
+				throw error(make_error("invalid word", "expected at least one graphical character"));
+			return res;
 		}
 
-		void parse_session::fill_lines() {
-			while (line() + 1 >= _lines.size()) {
-				const auto next_line = get_line();
+		std::optional<std::string> parse_session::read_line() {
+			std::string line;
 
-				if (next_line)
-					_lines.push_back(std::move(*next_line));
-				else
-					break;
+			std::getline(_stream, line);
+			if (line.empty() && _stream.eof())
+				return std::nullopt;
+			return line;
+		}
+
+		std::string_view parse_session::fill_buf() {
+			if (_lines.size() == 0) {
+				auto line = read_line();
+
+				if (line)
+					_lines.push_back(std::move(*line));
+				return fill_buf();
+			} else if (!remaining().empty()) {
+				return remaining();
+			} else {
+				auto line = read_line();
+
+				if (!line)
+					return std::string_view();
+
+				_col_num = 0;
+				//_line_num += 1;
+
+				_lines.push_back(std::move(*line));
+				return fill_buf();
 			}
 		}
 
 		void parse_session::consume(std::size_t count) {
-			if (cur_line()) {
-				if (cur_line()->length() < count) {
-					_col_num += count;
-				} else {
-					const std::size_t left = count - cur_line()->length();
-					_line_num += 1;
-					consume(left);
-				}
-			} else {
-				assert(0 && "tried to consume more than available");
-			}
+			assert(remaining().length() >= count && "tried to consume more than available");
+			_col_num += count;
 		}
 
-		std::optional<std::string_view> parse_session::cur_line() const {
-			if (line() < _lines.size())
-				return _lines[line()];
-			return std::nullopt;
+		std::string_view parse_session::get_line(std::size_t idx) const {
+			return _lines.at(idx);
 		}
 
-		std::optional<std::string_view> parse_session::next_line() const {
-			if (line() + 1 < _lines.size())
-				return _lines[line() + 1];
-			return std::nullopt;
-		}
+		constexpr listen_address::listen_address(std::string node, port service) noexcept : _node(std::move(node)), _service(service) {}
+		constexpr listen_address::listen_address(port service) noexcept : _node(), _service(service) {}
 
-		std::optional<std::string> parse_session::get_line() {
-			std::string line;
+		server_config server_config::parse(parse_session& session) {
+			session.ignore_ws();
+			session.expect('{');
 
-			std::getline(*_stream, line);
-			if (line.empty())
-				return std::nullopt;
-			return line;
-		}
-	}
+			server_config config;
 
-	std::ostream& operator<<(std::ostream& stream, const diagnostic_level& level) {
-		switch (level) {
-		case diagnostic_level::error:
-			return stream << "error";
-		case diagnostic_level::warning:
-			return stream << "warning";
-		case diagnostic_level::info:
-			return stream << "info";
-		}
-	}
+			while (true) {
+				session.ignore_ws();
 
-	config_error::config_error(config_diagnostic diagnostic) : _diagnostic(std::move(diagnostic)) {}
-
-	parse_session::parse_session(std::istream& stream) : _stream(stream), _column_num(0), _line_num(0) {
-
-	}
-
-	std::size_t parse_session::ignore_whitespace() {
-		std::size_t nignored = 0;
-
-		while (true) {
-			int ch = peek();
-
-			if (!std::isspace(ch))
-				break;
-
-			consume(1);
-			nignored += 1;
-		}
-		return nignored;
-	}
-
-	std::string parse_session::get_word() {
-		std::string word;
-
-		while (true) {
-			int ch = peek();
-
-			if (!std::isprint(ch) || std::isspace(ch)) {
-				break;
-			}
-
-			word.push_back(ch);
-			consume(1);
-		}
-
-		if (word.empty())
-			throw config_error(make_diagnostic("expected at least one printable character (isprint(3))"));
-		return word;
-	}
-
-	void parse_session::expect(int ch) {
-		const std::size_t pos = column();
-		const int got = get();
-
-		if (ch != got)
-			throw config_error(make_diagnostic("unexpected character", std::format("expected \"{}\"", ch), pos));
-	}
-
-	int parse_session::peek() {
-		return _stream.peek();
-	}
-
-	int parse_session::get() {
-		int ch = peek();
-		consume(1);
-		return ch;
-	}
-
-	void parse_session::consume(std::size_t count) {
-		while (count--) {
-			const int ch = _stream.get();
-
-			if (ch == '\n') {
-				_column_num = 0;
-				_line_num += 1;
-			} else {
-				while (_line_num >= _lines.size())
-					_lines.push_back(std::string());
-				if (ch == '\t') {
-					_lines[_line_num].push_back(' ');
-				} else {
-					_lines[_line_num].push_back(ch);
+				if (session.peek() == '}') {
+					session.get();
+					break;
 				}
 
-				_column_num += 1;
-			}
-		}
-	}
-
-	fs::path parse_session::get_path() {
-		std::string part;
-
-		if (peek() == '"') {
-			const std::size_t start_column = column();
-			const std::size_t start_line = line();
-			consume(1);
-			part = take_while([](int ch) { return ch != '"'; });
-
-			if (peek() != '"')
-				throw config_error(config_diagnostic { diagnostic_level::error, "unclosed \"", file(), start_line, std::make_pair(start_column, 1), "", "", std::vector<config_diagnostic>() });
-
-			consume(1);
-		} else {
-			part = take_while([](int ch) { return !std::isspace(ch); });
-		}
-
-		return fs::path(std::move(part));
-	}
-
-	void parse_session::print_diagnostic(const config_diagnostic& diagnostic, std::ostream& out) const {
-		out << diagnostic.level << ": " << diagnostic.message << std::endl;
-		out << "  --> " << diagnostic.file.value_or("<source>") << ":" << diagnostic.line << ":" << diagnostic.column_span.first;
-
-		std::string line = std::format("{}", diagnostic.line + 1);
-
-		out << std::endl;
-		out << std::string(line.length(), ' ') << " | " << std::endl;
-		out << line << " | " << _lines[diagnostic.line] << std::endl;
-
-		out << std::string(line.length(), ' ') << " | " << std::string(diagnostic.column_span.first, ' ');
-		out << std::string(diagnostic.column_span.second, '^') << " " << diagnostic.secondary_label;
-		if (!diagnostic.primary_label.empty()) {
-			out << std::endl;
-			out << std::string(line.length(), ' ') << " | " << std::string(diagnostic.column_span.first, ' ') << '|' << std::endl;
-			out << std::string(line.length(), ' ') << " | " << std::string(diagnostic.column_span.first, ' ') << diagnostic.primary_label;
-		}
-
-		/*
-		for (const config_diagnostic& sub_diagnostic : diagnostic.sub_diagnostics) {
-			out << std::endl;
-			print_subdiagnostic(sub_diagnostic, out);
-		}*/
-
-		out << std::endl;
-	}
-
-	listen_address::listen_address(std::string node, port service) : _node(std::move(node)), _service(service) {}
-	listen_address::listen_address(port service) : _node(std::nullopt), _service(service) {}
-
-	listen_address listen_address::parse(parse_session& session) {
-		const std::size_t word_start = session.column();
-		std::string word = session.get_word();
-
-		auto pos = word.find(':');
-		listen_address address;
-
-		if (pos != std::string::npos) {
-			address._node = word.substr(0, pos);
-			word = word.substr(pos);
-		}
-
-		try {
-			return listen_address(parse_unsigned<port>(word));
-		} catch (const config_error& error) {
-			const config_diagnostic& sub_diag = error.diagnostic();
-
-			throw config_error(session.make_diagnostic("invalid port", sub_diag.primary_label, sub_diag.message, word_start + sub_diag.column_span.first, sub_diag.column_span.second));
-		}
-		return address;
-	}
-
-	server_config server_config::parse(parse_session& session) {
-		session.ignore_whitespace();
-		session.expect('{');
-
-		server_config config;
-
-		while (true) {
-			session.ignore_whitespace();
-
-			if (session.peek() == '}') {
-				session.consume(1);
-				break;
-			}
-
-			const std::size_t word_start = session.column();
-			const std::string word = session.get_word();
+				const std::size_t word_start = session.column();
+				const std::size_t word_line = session.line();
+				const std::string word = session.get_word_simple();
 
 #define X(name) \
-			if (word == #name) {\
-				config.parse_##name(session); \
-				continue; \
-			}
-			COBRA_SERVER_KEYWORDS
+				if (word == #name) {\
+					config.parse_##name(session);\
+					continue;\
+				}
+				COBRA_SERVER_KEYWORDS
 #undef X
+				throw error(session.make_error(word_line, word_start, word.length(), std::format("unknown directive `{}`", word)));
+			}
 
-			throw config_error(session.make_diagnostic(std::format("unknown directive '{}'", word), word_start, word.length()));
-		}
-		return config;
-	}
-
-	void server_config::parse_listen(parse_session& session) {
-		session.ignore_whitespace();
-
-		listen_address address = listen_address::parse(session);
-		_listen.push_back(address);
-	}
-
-	void server_config::parse_ssl(parse_session& session) {
-		session.ignore_whitespace();
-
-		fs::path cert = session.get_path();
-		session.ignore_whitespace();
-		fs::path key = session.get_path();
-
-		_ssl = ssl_settings { cert, key };
-	}
-
-	void server_config::parse_server_name(parse_session& session) {
-		//session.ignore_whitespace();
-
-		std::string word = session.get_word();
-		if (_server_name) {
-			config_diagnostic diag{diagnostic_level::warning, "redefinition of 'server_name'", session.file(), session.line(), std::make_pair(session.column(), word.length()), "", "", std::vector<config_diagnostic>()};
-			session.print_diagnostic(diag, std::cerr);
+			return config;
 		}
 
-		_server_name = session.get_word();
+		listen_address listen_address::parse(parse_session& session) {
+			session.ignore_ws();
+
+			std::size_t port_start = session.column();
+			std::size_t line = session.line();
+			std::string word = session.get_word_simple();
+
+			auto pos = word.find(':');
+
+			std::string node;
+
+			if (pos != std::string::npos) {
+				node = word.substr(0, pos);
+				port_start += pos;
+				pos += 1;
+			} else {
+				pos = 0;
+			}
+
+			try {
+				return listen_address(std::move(node), parse_unsigned<port>(word.substr(pos)));
+			} catch (error err) {
+				err.diag().message = "invalid port";
+				err.diag().part.line = line;
+				err.diag().part.col = port_start;
+				err.diag().part.length = word.length();
+				throw err;
+				/*throw error(session.make_error(line, port_start, word.length(), "invalid port",
+											   err.diag().primary_label, err.diag().secondary_label));*/
+			}
+		}
+
+		block_config block_config::parse(parse_session& session) {
+			session.ignore_ws();
+			session.expect('{');
+
+			block_config config;
+
+			while (true) {
+				session.ignore_ws();
+
+				if (session.peek() == '}') {
+					session.get();
+					break;
+				}
+
+				const std::size_t word_start = session.column();
+				const std::size_t word_line = session.line();
+				const std::string word = session.get_word_simple();
+
+#define X(name) \
+				if (word == #name) {\
+					config.parse_##name(session);\
+					continue;\
+				}
+				COBRA_BLOCK_KEYWORDS
+#undef X
+				throw error(session.make_error(word_line, word_start, word.length(), std::format("unknown directive `{}`", word)));
+			}
+			return config;
+		}
+
+		void block_config::parse_max_body_size(parse_session& session) {
+			const std::size_t define_start = session.column() - std::string("max_body_size").length();
+			session.ignore_ws();
+
+			const std::size_t col = session.column();
+			const std::size_t line = session.line();
+
+			std::string word;
+			try {
+				word  = session.get_word_simple();
+			} catch (error err) {
+				err.diag().message = "invalid number";
+				throw err;
+			}
+
+			try {
+				const std::size_t len = col + word.length() - define_start;
+				const std::size_t limit = parse_unsigned<std::size_t>(word);
+
+				if (_max_body_size) {
+					diagnostic diag = session.make_warn(line, define_start, len, "redefinition of max_body_size");
+					diag.sub_diags.push_back(diagnostic::note(_max_body_size->second, "previously defined here"));
+					diag.print(std::cerr, session.lines());
+				}
+
+				_max_body_size = std::make_pair(limit, file_part(session.file(), line, define_start, len));
+			} catch (error err) {
+				err.diag().message = "invalid max_body_size";
+				err.diag().part.line = line;
+				err.diag().part.col = col;
+				err.diag().part.length = word.length();
+				throw err;
+			}
+		}
+
+		void block_config::parse_location(parse_session& session) {
+			const std::size_t define_start = session.column() - std::string("location").length();
+			session.ignore_ws();
+
+			const std::size_t col = session.column();
+			const std::size_t line = session.line();
+
+			const filter filt{filter::type::location, session.get_word()};
+			block_config block = block_config::parse(session);
+
+			const std::size_t len = col + filt.match.length() - define_start;
+			if (_filters.contains(filt)) {
+				const file_part def = _filters[filt].second;
+
+				diagnostic diag = session.make_warn(line, define_start, len, "redefinition of location filter");
+				diag.sub_diags.push_back(diagnostic::note(def, "previously defined here"));
+				diag.print(std::cerr, session.lines());
+			}
+
+			_filters[filt] = std::make_pair(std::move(block), file_part(session.file(), line, define_start, len));
+		}
+
+		void server_config::parse_listen(parse_session& session) {
+			listen_address addr = listen_address::parse(session);
+			_listen.push_back(std::move(addr));
+		}
+
+		void server_config::parse_server_name(parse_session& session) {
+			const std::size_t define_start = session.column() - std::string("server_name").length();
+			session.ignore_ws();
+
+			const std::size_t col = session.column();
+			const std::size_t line = session.line();
+			std::string name;
+			try {
+				name = session.get_word_simple();
+			} catch (error err) {
+				err.diag().message = "invalid server name";
+			}
+			const std::size_t len = col + name.length() - define_start;
+
+			if (_server_name) {
+				diagnostic diag = session.make_warn(line, define_start, len, "redefinition of server_name");
+				diag.sub_diags.push_back(diagnostic::note(_server_name->second, "previously defined here"));
+				diag.print(std::cerr, session.lines());
+			} 
+
+			_server_name = std::make_pair(std::move(name), file_part(session.file(), line, define_start, len));
+		}
+
+		void server_config::parse_ssl(parse_session& session) { (void) session; }
 	}
 }
 
 int main() {
-	cobra::parse_session session(std::cin);
+	cobra::config::parse_session session(std::cin);
 
 	try {
-		cobra::server_config::parse(session);
-	} catch (const cobra::config_error& error) {
-		session.print_diagnostic(error.diagnostic(), std::cerr);
+		cobra::config::server_config::parse(session);
+	} catch (const cobra::config::error& err) {
+		err.diag().print(std::cerr, session.lines());
 	}
 }

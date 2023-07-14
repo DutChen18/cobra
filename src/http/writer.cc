@@ -7,7 +7,7 @@ namespace cobra {
 			std::size_t size = std::stoull(message.header("Content-Length"));
 			return ostream_limit(std::move(stream), size);
 		} else {
-			return std::move(stream);
+			return stream;
 		}
 	}
 
@@ -38,10 +38,12 @@ namespace cobra {
 	task<void> write_http_request(ostream_reference stream, const http_request& request) {
 		co_await print(stream, "{} {} HTTP/{}.{}\r\n", request.method(), request.uri(), request.version().major(), request.version().minor());
 		co_await write_http_header_map(stream, request);
+		co_await stream.flush();
 	}
 
 	task<void> write_http_response(ostream_reference stream, const http_response& response) {
 		co_await print(stream, "HTTP/{}.{} {} {}\r\n", response.version().major(), response.version().minor(), response.code(), response.reason());
 		co_await write_http_header_map(stream, response);
+		co_await stream.flush();
 	}
 }

@@ -18,6 +18,10 @@ namespace cobra {
 		task<std::size_t> write(const char_type* data, std::size_t size);
 		task<void> flush();
 		void shutdown(int how);
+
+		inline void set_event_loop(event_loop* loop) {
+			_loop = loop;
+		}
 	};
 
 	task<socket_stream> open_connection(event_loop* loop, const char* node, const char* service);

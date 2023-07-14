@@ -45,7 +45,7 @@ namespace cobra {
 		return *this;
 	}
 	
-	cobra::task<int> process::wait() {
+	task<int> process::wait() {
 		co_return co_await _loop->wait_pid(std::exchange(_pid, -1));
 	}
 	

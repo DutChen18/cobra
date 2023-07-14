@@ -139,7 +139,7 @@ namespace cobra {
 			}
 
 			auto count = std::min(size, _buffer_size - _buffer_end);
-			std::copy(data, data + count, _buffer.get());
+			std::copy(data, data + count, _buffer.get() + _buffer_end);
 			_buffer_end += count;
 
 			if (_buffer_end >= _buffer_size) {

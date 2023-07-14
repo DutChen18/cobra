@@ -6,7 +6,6 @@
 #include <chrono>
 #include <exception>
 #include <functional>
-#include <iostream>
 #include <memory>
 #include <optional>
 #include <ranges>
@@ -51,6 +50,7 @@ namespace cobra {
 			}
 		}
 
+		(void) timeout;
 		co_return WEXITSTATUS(result);
 	}
 

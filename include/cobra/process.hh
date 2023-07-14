@@ -4,9 +4,6 @@
 #include "cobra/asyncio/event_loop.hh"
 #include "cobra/asyncio/stream.hh"
 
-
-#include <iostream>
-
 namespace cobra {
 	enum class process_stream_type {
 		in,
@@ -54,7 +51,7 @@ namespace cobra {
 		process_istream<process_stream_type::out>& out();
 		process_istream<process_stream_type::err>& err();
 
-		cobra::task<int> wait();
+		task<int> wait();
 	};
 
 	class command {

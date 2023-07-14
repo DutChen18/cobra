@@ -58,6 +58,7 @@ namespace cobra {
 						lock.unlock();
 						func();
 						lock.lock();
+						continue;
 					}
 
 					_condition_variable.wait(lock);

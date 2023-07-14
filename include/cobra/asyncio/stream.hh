@@ -5,7 +5,9 @@
 
 #include <optional>
 #include <string>
+#include <type_traits>
 #include <variant>
+#include <concepts>
 
 namespace cobra {
 	template <class T>
@@ -168,8 +170,9 @@ namespace cobra {
 	template <class Stream, class Tag>
 	class istream_tag_impl : public Tag {
 	public:
-		using typename Tag::char_type;
-		using typename Tag::stream_type;
+		using tag_type = basic_istream_tag<typename Stream::char_type, typename Stream::traits_type>;
+		using typename tag_type::char_type;
+		using typename tag_type::stream_type;
 
 		task<std::size_t> read(stream_type* stream, char_type* data, std::size_t size) const override {
 			return static_cast<Stream*>(stream)->read(data, size);
@@ -183,8 +186,9 @@ namespace cobra {
 	template <class Stream, class Tag>
 	class ostream_tag_impl : public Tag {
 	public:
-		using typename Tag::char_type;
-		using typename Tag::stream_type;
+		using tag_type = basic_ostream_tag<typename Stream::char_type, typename Stream::traits_type>;
+		using typename tag_type::char_type;
+		using typename tag_type::stream_type;
 
 		task<std::size_t> write(stream_type* stream, const char_type* data,
 											  std::size_t size) const override {
@@ -204,8 +208,9 @@ namespace cobra {
 	template <class Stream, class Tag>
 	class buffered_istream_tag_impl : public istream_tag_impl<Stream, Tag> {
 	public:
-		using typename Tag::char_type;
-		using typename Tag::stream_type;
+		using tag_type = basic_buffered_istream_tag<typename Stream::char_type, typename Stream::traits_type>;
+		using typename tag_type::char_type;
+		using typename tag_type::stream_type;
 
 		task<std::pair<const char_type*, std::size_t>> fill_buf(stream_type* stream) const override {
 			return static_cast<Stream*>(stream)->fill_buf();
@@ -216,15 +221,16 @@ namespace cobra {
 		}
 
 		task<std::optional<char_type>> peek(stream_type* stream) const override {
-			return static_cast<Stream*>(stream)->get();
+			return static_cast<Stream*>(stream)->peek();
 		}
 	};
 
 	template <class Stream, class Tag>
 	class buffered_ostream_tag_impl : public ostream_tag_impl<Stream, Tag> {
 	public:
-		using typename Tag::char_type;
-		using typename Tag::stream_type;
+		using tag_type = basic_buffered_ostream_tag<typename Stream::char_type, typename Stream::traits_type>;
+		using typename tag_type::char_type;
+		using typename tag_type::stream_type;
 	};
 
 	template <class Stream, class CharT, class Traits = std::char_traits<CharT>, class Base = basic_istream<CharT, Traits>>
@@ -361,15 +367,27 @@ namespace cobra {
 		}
 	};
 
+	template <class Base>
+	class stream_reference;
+
 	namespace detail {
 		template <class Base, class Stream>
 		const typename Base::tag_type* tag() {
 			static typename Base::template tag_impl_type<Stream> tag;
 			return &tag;
 		}
+
+		template <class T>
+		struct is_stream_reference : std::false_type {};
+
+		template <class T>
+		struct is_stream_reference<stream_reference<T>> : std::true_type {};
+
+		template <class T>
+		constexpr bool is_stream_reference_v = is_stream_reference<T>::value;
 	}
 
-	template <class Base, class Stream>
+	template <class Base, std::derived_from<Base> Stream>
 	class stream_ref : public stream_wrapper<stream_ref<Base, Stream>, Base> {
 		Stream* _stream;
 
@@ -378,7 +396,7 @@ namespace cobra {
 			_stream = &stream;
 		}
 
-		template <class Base2>
+		template <std::derived_from<Base> Base2>
 		stream_ref(const stream_ref<Base2, Stream>& other) {
 			_stream = other.ptr();
 		}
@@ -403,19 +421,19 @@ namespace cobra {
 		const typename Base::tag_type* _tag;
 
 	public:
-		template <class Stream>
-		stream_reference(Stream& stream) {
+		template <std::derived_from<Base> Stream>
+		stream_reference(Stream& stream) requires (!detail::is_stream_reference_v<Stream>) {
 			_ptr = &stream;
 			_tag = detail::tag<Base, Stream>();
 		}
 
-		template <class Base2, class Stream>
+		template <std::derived_from<Base> Base2, std::derived_from<Base2> Stream>
 		stream_reference(const stream_ref<Base2, Stream>& other) {
 			_ptr = other.ptr();
 			_tag = other.tag();
 		}
 
-		template <class Base2>
+		template <std::derived_from<Base> Base2>
 		stream_reference(const stream_reference<Base2>& other) {
 			_ptr = other.ptr();
 			_tag = other.tag();
@@ -434,22 +452,21 @@ namespace cobra {
 		}
 	};
 
-	template <class Base, class... Streams>
+	template <class Base, std::derived_from<Base>... Streams>
 	class stream_variant : public stream_wrapper<stream_variant<Base, Streams...>, Base> {
-		std::variant<Streams...> _streams;
+		std::variant<Streams...> _stream;
 
 	public:
-		template <class Stream>
-		stream_variant(Stream&& stream) {
-			_streams.emplace(std::move(stream));
+		template <std::derived_from<Base> Stream>
+		stream_variant(Stream&& stream) : _stream(std::move(stream)) {
 		}
 
 		Base* ptr() const {
-			return std::visit([](auto& stream) { return &stream; }, _streams);
+			return std::visit([](auto& stream) { return &stream; }, _stream);
 		}
 
 		const typename Base::tag_type* tag() const {
-			return std::visit([](auto& stream) { return detail::tag<Base, decltype(stream)>(); }, _streams);
+			return std::visit([](auto& stream) { return detail::tag<Base, decltype(stream)>(); }, _stream);
 		}
 	};
 

@@ -175,10 +175,6 @@ namespace cobra {
 			return control(attr, 0);
 		}
 
-		constexpr control clear(attr_t attr) {
-			return control(0, attr);
-		}
-
 		constexpr control set_bold() {
 			return control(attr_bold, 0);
 		}
@@ -213,6 +209,10 @@ namespace cobra {
 
 		constexpr control set_strike() {
 			return control(attr_strike, 0);
+		}
+
+		constexpr control clear(attr_t attr) {
+			return control(0, attr);
 		}
 		
 		constexpr control clear_bold() {
@@ -252,7 +252,7 @@ namespace cobra {
 		}
 
 		constexpr control reset() {
-			return control(0, attr_reset);
+			return control(attr_reset, 0);
 		}
 
 		constexpr control fg_3(channel_t val) {

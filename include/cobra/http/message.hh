@@ -5,6 +5,7 @@
 #include <unordered_map>
 
 namespace cobra {
+	using http_version_type = unsigned short;
 	using http_header_key = std::string;
 	using http_header_value = std::string;
 	using http_header_map = std::unordered_map<http_header_key, http_header_value>;
@@ -14,14 +15,14 @@ namespace cobra {
 	using http_response_reason = std::string;
 
 	class http_version {
-		unsigned short _major;
-		unsigned short _minor;
+		http_version_type _major;
+		http_version_type _minor;
 
 	public:
-		http_version(unsigned short major, unsigned short minor);
+		http_version(http_version_type major, http_version_type minor);
 
-		unsigned short major() const;
-		unsigned short minor() const;
+		http_version_type major() const;
+		http_version_type minor() const;
 	};
 
 	class http_message {
