@@ -26,7 +26,9 @@
 
 #define COBRA_BLOCK_KEYWORDS                                                                                           \
 	X(max_body_size)                                                                                                   \
-	X(location)
+	X(location)                                                                                                        \
+	X(index)                                                                                                           \
+	X(root)
 
 #define COBRA_SERVER_KEYWORDS                                                                                          \
 	X(listen)                                                                                                          \
@@ -230,25 +232,54 @@ namespace cobra {
 			type type;
 			std::string match;
 
-			std::strong_ordering operator<=>(const filter& other);
+			std::strong_ordering operator<=>(const filter& other) const;
+		};
+
+		template <class T>
+		struct define {
+			T def;
+			file_part part;
+
+			constexpr operator T() const noexcept { return def; };
+		};
+
+		struct config_path {
+			fs::path path;
+
+			inline static config_path parse(parse_session& session) {
+				return config_path{session.get_word()};
+			}
 		};
 
 		class block_config {
 			std::optional<std::pair<std::size_t, file_part>> _max_body_size;
 			std::unordered_map<std::string, std::string> _headers;
-			std::optional<fs::path> _index;
+			std::optional<define<config_path>> _index;
+			std::optional<define<config_path>> _root;
 			std::optional<std::pair<unsigned short, std::string>> _redirect;//TODO use http_response_code
-			std::map<filter, std::pair<block_config, file_part>> _filters;
+			std::map<filter, define<block_config>> _filters;
 
 		public:
 			static block_config parse(parse_session& session);
 
+			inline std::optional<std::size_t> max_body_size() const { if (_max_body_size) { return _max_body_size->first; } else { return std::nullopt; } }
+			inline const auto& filters() const { return _filters; }
+
 		protected:
 			void parse_max_body_size(parse_session& session);
 			void parse_location(parse_session& session);
+			void parse_root(parse_session& session);
+			void parse_index(parse_session& session);
+
+			template <class T>
+			define<T> parse_define(parse_session& session, const std::string& directive) {
+				file_part part(session.file(), session.line(), session.column() - directive.length(), directive.length());
+				session.ignore_ws();
+				return {T::parse(session), std::move(part)};
+			}
 		};
 
-		class server_config : block_config {
+		class server_config : public block_config {
 			std::optional<std::pair<std::string, file_part>> _server_name;
 			std::vector<listen_address> _listen;
 
@@ -256,6 +287,9 @@ namespace cobra {
 
 		public:
 			static server_config parse(parse_session& session);
+
+			std::string_view server_name() const;
+			const std::vector<listen_address>& addresses() const;
 
 		private:
 			void parse_listen(parse_session& session);

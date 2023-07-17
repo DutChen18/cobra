@@ -12,3 +12,4 @@
 /flag.php
 *.d
 /a.out
+/gmon.out

@@ -1,14 +1,11 @@
 {
 	listen 443
 	server_name pgp.hyxo.nl
-	server_name a.hyxo.nl
-	ssl "a .txt" b c
-	listen 50000000000
-	listen 443 ssl;
 
-	#server_name pgp.hyxo.nl;
-	ssl_certificate pgp.hyxo.nl.crt;
-	max_body_size 100000
+	location / {
+		root /var/www
+		root /var/www/html
+	}
 
 	location / {
 		set_header server "cobra";
@@ -29,4 +26,11 @@
 
 		error 405
 	}
+
+	#server_name pgp.hyxo.nl;
+	ssl_certificate pgp.hyxo.nl.crt;
+	max_body_size 100000
+
+	server_name a.hyxo.nl
+	ssl "a .txt" b c
 }

@@ -5,6 +5,7 @@
 
 #include <any>
 #include <cctype>
+#include <compare>
 #include <cstddef>
 #include <memory>
 #include <optional>
@@ -195,17 +196,15 @@ namespace cobra {
 		std::string parse_session::get_word_simple() {
 			std::string res;
 
-			while (true) {
-				const auto ch = peek();
-
-				if (!ch || !std::isgraph(*ch))
+			for (auto ch : remaining()) {
+				if (!std::isgraph(ch))
 					break;
-				res.push_back(*ch);
-				consume(1);
+				res.push_back(ch);
 			}
 
 			if (res.empty())
 				throw error(make_error("invalid word", "expected at least one graphical character"));
+			consume(res.length());
 			return res;
 		}
 
@@ -311,9 +310,13 @@ namespace cobra {
 				err.diag().part.col = port_start;
 				err.diag().part.length = word.length();
 				throw err;
-				/*throw error(session.make_error(line, port_start, word.length(), "invalid port",
-											   err.diag().primary_label, err.diag().secondary_label));*/
 			}
+		}
+
+		std::strong_ordering filter::operator<=>(const filter& other) const {
+			if (type == other.type)
+				return match <=> other.match;
+			return type <=> other.type;
 		}
 
 		block_config block_config::parse(parse_session& session) {
@@ -382,25 +385,39 @@ namespace cobra {
 		}
 
 		void block_config::parse_location(parse_session& session) {
-			const std::size_t define_start = session.column() - std::string("location").length();
+			constexpr std::size_t dir_len = std::string("location").length();
+			const file_part part(session.file(), session.line(), session.column() - dir_len, dir_len); 
 			session.ignore_ws();
 
-			const std::size_t col = session.column();
-			const std::size_t line = session.line();
+			filter filt{filter::type::location, session.get_word()};
+			define<block_config> block = define<block_config>{block_config::parse(session), part};
 
-			const filter filt{filter::type::location, session.get_word()};
-			block_config block = block_config::parse(session);
-
-			const std::size_t len = col + filt.match.length() - define_start;
-			if (_filters.contains(filt)) {
-				const file_part def = _filters[filt].second;
-
-				diagnostic diag = session.make_warn(line, define_start, len, "redefinition of location filter");
-				diag.sub_diags.push_back(diagnostic::note(def, "previously defined here"));
+			auto [it, inserted] = _filters.insert({std::move(filt), std::move(block)});
+			if (!inserted) {
+				diagnostic diag = diagnostic::warn(part, "unreachable filter");
+				diag.sub_diags.push_back(diagnostic::note(it->second.part, "because of an earlier definition here"));
 				diag.print(std::cerr, session.lines());
 			}
+		}
 
-			_filters[filt] = std::make_pair(std::move(block), file_part(session.file(), line, define_start, len));
+		void block_config::parse_root(parse_session& session) {
+			define<config_path> def = parse_define<config_path>(session, "root");
+			if (_root) {
+				diagnostic diag = diagnostic::warn(def.part, "redefinition of root");
+				diag.sub_diags.push_back(diagnostic::note(_root->part, "previously defined here"));
+				diag.print(std::cerr, session.lines());
+			}
+			_root = std::move(def);
+		}
+
+		void block_config::parse_index(parse_session& session) {
+			define<config_path> def = parse_define<config_path>(session, "index");
+			if (_index) {
+				diagnostic diag = diagnostic::warn(def.part, "redefinition of index");
+				diag.sub_diags.push_back(diagnostic::note(_index->part, "previously defined here"));
+				diag.print(std::cerr, session.lines());
+			}
+			_index = std::move(def);
 		}
 
 		void server_config::parse_listen(parse_session& session) {

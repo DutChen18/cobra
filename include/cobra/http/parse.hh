@@ -12,6 +12,10 @@ namespace cobra {
 	constexpr std::size_t http_request_method_max_length = 256;
 	constexpr std::size_t http_request_uri_max_length = 4096;
 	constexpr std::size_t http_response_reason_max_length = 256;
+	constexpr std::size_t cgi_header_key_max_length = 256;
+	constexpr std::size_t cgi_header_value_max_length = 4096;
+	constexpr std::size_t cgi_header_map_max_length = 256;
+	constexpr std::size_t cgi_header_map_max_size = 65536;
 
 	enum class http_parse_error {
 		unexpected_eof,
@@ -37,6 +41,7 @@ namespace cobra {
 
 	task<http_request> parse_http_request(buffered_istream_reference stream);
 	task<http_response> parse_http_response(buffered_istream_reference stream);
+	task<http_header_map> parse_cgi(buffered_istream_reference stream);
 }
 
 #endif

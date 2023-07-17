@@ -72,10 +72,20 @@ namespace cobra {
 		return is_http_ws(ch) || !is_http_ctl(ch);
 	}
 
+	static bool is_cgi_value(char ch) {
+		return (!is_http_ctl(ch) && ch >= 0 && ch <= 127) || ch == '\t';
+	}
+
 	static task<bool> parse_http_eol(buffered_istream_reference stream) {
 		bool cr = co_await take(stream, '\r');
 		assert(co_await take(stream, '\n') == cr, http_parse_error::bad_eol);
 		co_return cr;
+	}
+
+	static task<bool> parse_cgi_eol(buffered_istream_reference stream) {
+		bool cr = co_await take(stream, '\r');
+		bool lf = co_await take(stream, '\n');
+		co_return cr || lf;
 	}
 
 	template <std::predicate<char> UnaryPredicate>
@@ -151,6 +161,48 @@ namespace cobra {
 		assert(co_await parse_http_eol(stream), http_parse_error::bad_header);
 	}
 
+	static task<http_header_key> parse_cgi_header_key(buffered_istream_reference stream) {
+		http_header_key key = co_await parse_http_string(stream, is_http_token, cgi_header_key_max_length, http_parse_error::header_key_too_long);
+		assert(co_await take(stream, ':'), http_parse_error::bad_header_key);
+		assert(!key.empty(), http_parse_error::empty_header_key);
+		co_return key;
+	}
+
+	static task<http_header_value> parse_cgi_header_value(buffered_istream_reference stream) {
+		http_header_value value = co_await parse_http_string(stream, is_cgi_value, cgi_header_value_max_length, http_parse_error::header_value_too_long);
+		assert(co_await parse_cgi_eol(stream), http_parse_error::bad_header_value);
+		co_return value;
+	}
+
+	static task<http_header_map> parse_cgi_header_map(buffered_istream_reference stream) {
+		http_header_map map;
+		std::size_t length = 0;
+		std::size_t size = 0;
+
+		while (is_http_token(co_await peek(stream))) {
+			http_header_key key = co_await parse_cgi_header_key(stream);
+			http_header_value value = co_await parse_cgi_header_value(stream);
+			length += 1;
+			size += value.size();
+
+			if (map.contains(key)) {
+				value = std::format("{}, {}", map.at(key), std::move(value));
+			} else {
+				size += key.size();
+			}
+
+			assert(length <= cgi_header_map_max_length, http_parse_error::header_map_too_long);
+			assert(size <= cgi_header_map_max_size, http_parse_error::header_map_too_large);
+			// TODO: check if already exists
+			// TODO: case sensitivity
+			// TODO: ignore white space at start of value
+			map.emplace(std::move(key), std::move(value));
+		}
+
+		assert(co_await parse_cgi_eol(stream), http_parse_error::bad_header);
+		co_return map;
+	}
+
 	static task<http_version> parse_http_version(buffered_istream_reference stream) {
 		assert(co_await take(stream, "HTTP/"), http_parse_error::bad_version);
 		http_version_type major = co_await parse_http_digit(stream, http_parse_error::bad_version);
@@ -191,5 +243,9 @@ namespace cobra {
 		http_response response(version, code, reason);
 		co_await parse_http_header_map(stream, response);
 		co_return response;
+	}
+
+	task<http_header_map> parse_cgi(buffered_istream_reference stream) {
+		return parse_cgi_header_map(stream);
 	}
 }

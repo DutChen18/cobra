@@ -27,6 +27,9 @@ ifeq ($(config), debug)
 else ifeq ($(config), release)
 	CXXFLAGS += -g3 -O2 -DCOBRA_DEBUG
 	LDFLAGS += -g3 -O2 -DCOBRA_DEBUG
+else ifeq ($(config), profile)
+	CXXFLAGS += -g3 -Ofast -flto -march=native -pg
+	LDFLAGS += -g3 -Ofast -flto -march=native -pg
 else ifeq ($(config), distr)
 	CXXFLAGS += -Ofast -flto -march=native
 	LDFLAGS += -Ofast -flto -march=native
