@@ -37,6 +37,8 @@ namespace cobra {
 
 	class sequential_executor : public executor {
 	public:
+		using executor::schedule;
+
 		virtual void schedule(std::function<void()> func) override;
 	};
 
@@ -49,6 +51,8 @@ namespace cobra {
 		void create_threads(std::size_t count);
 
 	public:
+		using executor::schedule;
+
 		thread_pool_executor();
 		thread_pool_executor(std::size_t count);
 		~thread_pool_executor();

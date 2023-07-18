@@ -72,7 +72,7 @@ namespace cobra {
 			rethrow_exception();
 		}
 
-		void get_value_move() noexcept {
+		void get_value_move() {
 			rethrow_exception();
 		}
 	};

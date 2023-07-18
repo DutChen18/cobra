@@ -9,9 +9,12 @@
 #include "cobra/net/stream.hh"
 #include "cobra/process.hh"
 #include "cobra/print.hh"
+#include "cobra/config.hh"
+#include "cobra/http/server.hh"
 
 #include <cstdlib>
 #include <iostream>
+#include <fstream>
 
 extern "C" {
 #include <sys/socket.h>
@@ -123,16 +126,48 @@ cobra::future_task<void> run(cobra::executor* exec, cobra::event_loop* loop) {
 	});
 }
 
-int main() {
-	cobra::thread_pool_executor exec;
-	cobra::epoll_event_loop loop(exec);
-	auto task = run(&exec, &loop);
+int main(int argc, char **argv) {
+	if (argc == 1) {
+		cobra::thread_pool_executor exec;
+		cobra::epoll_event_loop loop(exec);
+		auto task = run(&exec, &loop);
 
-	while (true) {
-		loop.poll();
+		while (true) {
+			loop.poll();
+		}
+
+		task.get_future().wait();
+		return EXIT_SUCCESS;
+	} else {
+		using namespace cobra;
+		std::fstream stream(argv[1], std::ios::in);
+		config::parse_session session(stream);
+
+		try {
+			config::server_config config = config::server_config::parse(session);
+			std::vector<server> servers = server::convert(config);
+
+			cobra::thread_pool_executor exec;
+			cobra::epoll_event_loop loop(exec);
+
+			std::vector<future_task<void>> jobs;
+
+			for (auto&& server : servers) {
+				jobs.push_back(make_future_task(server.start(&exec, &loop)));
+			}
+
+			while (true) {
+				std::cout << "here" << std::endl;
+				loop.poll();
+			}
+
+			for (auto&& job : jobs) {
+				job.get_future().wait();
+			}
+		} catch (const config::error& err) {
+			err.diag().print(std::cerr, session.lines());
+		}
+
 	}
-
-	task.get_future().wait();
-	return EXIT_SUCCESS;
 }
 #endif

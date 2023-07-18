@@ -65,12 +65,12 @@ namespace cobra {
 	};
 
 	template<class Awaitable>
-	auto make_future_task(Awaitable&& awaitable) -> future_task<decltype(awaitable.await_resume())> {
+	auto make_future_task(Awaitable awaitable) -> future_task<decltype(awaitable.await_resume())> {
 		co_return co_await awaitable;
 	}
 
 	template<class Awaitable>
-	auto block_task(Awaitable&& awaitable) -> decltype(awaitable.await_resume()) {
+	auto block_task(Awaitable awaitable) -> decltype(awaitable.await_resume()) {
 		return make_future_task(awaitable).get_future().get();
 	}
 } // namespace cobra

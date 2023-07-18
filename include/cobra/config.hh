@@ -221,6 +221,12 @@ namespace cobra {
 			inline std::string_view node() const { return _node; }
 			inline port service() const { return _service; }
 
+			inline constexpr auto operator<=>(const listen_address& other) const {
+				if (node() == other.node())
+					return service() <=> other.service();
+				return node() <=> other.node();
+			}
+
 			static listen_address parse(parse_session& session);
 		};
 
@@ -242,6 +248,11 @@ namespace cobra {
 
 			constexpr operator T() const noexcept { return def; };
 		};
+
+		template <class T>
+		define<T> make_define(T def, file_part part) {
+			return define<T>{std::move(def), std::move(part)};
+		}
 
 		struct config_path {
 			fs::path path;
@@ -280,7 +291,7 @@ namespace cobra {
 		};
 
 		class server_config : public block_config {
-			std::optional<std::pair<std::string, file_part>> _server_name;
+			std::optional<define<std::string>> _server_name;
 			std::vector<listen_address> _listen;
 
 			server_config() = default;
@@ -289,7 +300,7 @@ namespace cobra {
 			static server_config parse(parse_session& session);
 
 			std::string_view server_name() const;
-			const std::vector<listen_address>& addresses() const;
+			inline const std::vector<listen_address>& addresses() const { return _listen; }
 
 		private:
 			void parse_listen(parse_session& session);

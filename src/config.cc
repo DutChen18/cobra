@@ -441,17 +441,24 @@ namespace cobra {
 
 			if (_server_name) {
 				diagnostic diag = session.make_warn(line, define_start, len, "redefinition of server_name");
-				diag.sub_diags.push_back(diagnostic::note(_server_name->second, "previously defined here"));
+				diag.sub_diags.push_back(diagnostic::note(_server_name->part, "previously defined here"));
 				diag.print(std::cerr, session.lines());
 			} 
 
-			_server_name = std::make_pair(std::move(name), file_part(session.file(), line, define_start, len));
+			_server_name = make_define(std::move(name), file_part(session.file(), line, define_start, len));
 		}
 
 		void server_config::parse_ssl(parse_session& session) { (void) session; }
+		std::string_view server_config::server_name() const {
+			if (_server_name)
+				return _server_name->def;
+			return std::string_view();
+		}
 	}
+
 }
 
+/*
 int main() {
 	cobra::config::parse_session session(std::cin);
 
@@ -460,4 +467,4 @@ int main() {
 	} catch (const cobra::config::error& err) {
 		err.diag().print(std::cerr, session.lines());
 	}
-}
+}*/

@@ -3,6 +3,7 @@
 
 #include "cobra/asyncio/stream.hh"
 #include "cobra/http/message.hh"
+#include "cobra/http/uri.hh"
 
 namespace cobra {
 	constexpr std::size_t http_header_key_max_length = 256;
@@ -39,6 +40,14 @@ namespace cobra {
 		response_reason_too_long,
 	};
 
+	enum class uri_parse_error {
+		bad_uri,
+		bad_escape,
+		bad_segment,
+		bad_query,
+	};
+
+	uri_origin parse_uri_origin(std::string_view string);
 	task<http_request> parse_http_request(buffered_istream_reference stream);
 	task<http_response> parse_http_response(buffered_istream_reference stream);
 	task<http_header_map> parse_cgi(buffered_istream_reference stream);

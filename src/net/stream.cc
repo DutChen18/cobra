@@ -1,6 +1,7 @@
 #include "cobra/net/stream.hh"
 
 #include "cobra/exception.hh"
+#include "cobra/print.hh"
 #include "cobra/net/address.hh"
 
 extern "C" {
@@ -56,12 +57,18 @@ namespace cobra {
 							std::function<task<void>(socket_stream)> cb) {
 		static const int val = 1;
 
+		// TODO: should listen to all results from get_address_info
 		for (const address_info& info : get_address_info(node, service)) {
 			file server_sock = check_return(socket(info.family(), info.socktype(), info.protocol()));
 			check_return(fcntl(server_sock.fd(), F_SETFL, O_NONBLOCK));
 			check_return(setsockopt(server_sock.fd(), SOL_SOCKET, SO_REUSEADDR, &val, sizeof val));
 			check_return(bind(server_sock.fd(), info.addr().addr(), info.addr().len()));
 			check_return(listen(server_sock.fd(), 5));
+
+			char host[1024];
+			char serv[1024];
+			getnameinfo(info.addr().addr(), info.addr().len(), host, sizeof host, serv, sizeof serv, 0);
+			cobra::println("{}:{}", host, serv);
 
 			while (true) {
 				co_await loop->wait_read(server_sock);
