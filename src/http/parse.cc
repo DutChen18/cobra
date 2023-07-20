@@ -1,4 +1,5 @@
 #include "cobra/http/parse.hh"
+#include "cobra/http/util.hh"
 
 #include <concepts>
 #include <functional>
@@ -41,62 +42,6 @@ namespace cobra {
 		if (!condition) {
 			throw error;
 		}
-	}
-
-	static std::optional<int> unhex(char ch) {
-		if (ch >= '0' && ch <= '9') {
-			return ch - '0';
-		} else if (ch >= 'a' && ch <= 'f') {
-			return ch - 'a' + 10;
-		} else if (ch >= 'A' && ch <= 'F') {
-			return ch - 'A' + 10;
-		} else {
-			return std::nullopt;
-		}
-	}
-
-	static bool is_alnum(char ch) {
-		return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z');
-	}
-
-	static bool is_unreserved(char ch) {
-		return is_alnum(ch) || ch == '-' || ch == '.' || ch == '_' || ch == '~';
-	}
-
-	static bool is_delim(char ch) {
-		return ch == '!' || ch == '$' || ch == '&' || ch == '\'' || ch == '*' || ch == '+';
-	}
-
-	static bool is_uri_segment(char ch) {
-		return is_unreserved(ch) || is_delim(ch) || ch == '@' || ch == ',' || ch == '(' || ch == ')' || ch == ':' || ch == ';';
-	}
-
-	static bool is_uri_query(char ch) {
-		return is_uri_segment(ch) || ch == '/' || ch == '?';
-	}
-
-	static bool is_http_token(char ch) {
-		return is_unreserved(ch) || is_delim(ch) || ch == '#' || ch == '%' || ch == '^' || ch == '`' || ch == '|';
-	}
-
-	static bool is_http_ws(char ch) {
-		return ch == ' ' || ch == '\t';
-	}
-
-	static bool is_http_ctl(char ch) {
-		return (ch >= 0 && ch < 32) || ch == 127;
-	}
-
-	static bool is_http_uri(char ch) {
-		return is_uri_query(ch) || ch == '%';
-	}
-
-	static bool is_http_reason(char ch) {
-		return is_http_ws(ch) || !is_http_ctl(ch);
-	}
-
-	static bool is_cgi_value(char ch) {
-		return (!is_http_ctl(ch) && ch >= 0 && ch <= 127) || ch == '\t';
 	}
 
 	static task<bool> parse_http_eol(buffered_istream_reference stream) {
@@ -216,10 +161,19 @@ namespace cobra {
 
 			assert(length <= cgi_header_map_max_length, http_parse_error::header_map_too_long);
 			assert(size <= cgi_header_map_max_size, http_parse_error::header_map_too_large);
-			// TODO: check if already exists
-			// TODO: case sensitivity
-			// TODO: ignore white space at start of value
-			map.emplace(std::move(key), std::move(value));
+
+			std::size_t begin = value.find_first_not_of(" \t");
+
+			if (begin == std::string::npos) {
+				value.clear();
+			} else {
+				std::size_t end = value.find_last_not_of(" \t") + 1;
+				value = value.substr(begin, end - begin);
+			}
+
+			if (!map.insert(std::move(key), std::move(value))) {
+				throw http_parse_error::header_map_duplicate;
+			}
 		}
 
 		assert(co_await parse_cgi_eol(stream), http_parse_error::bad_header);
@@ -238,6 +192,10 @@ namespace cobra {
 		std::vector<std::string> segments;
 		std::string segment;
 
+		if (!string.starts_with("/")) {
+			throw uri_parse_error::bad_uri;
+		}
+
 		for (std::size_t i = 0; i < string.size(); i++) {
 			if (string[i] == '/') {
 				if (!segment.empty()) {
@@ -251,8 +209,8 @@ namespace cobra {
 					throw uri_parse_error::bad_escape;
 				}
 
-				if (auto hi = unhex(string[++i])) {
-					if (auto lo = unhex(string[++i])) {
+				if (auto hi = unhexify(string[++i])) {
+					if (auto lo = unhexify(string[++i])) {
 						segment.push_back(*hi << 4 | *lo);
 					} else {
 						throw uri_parse_error::bad_escape;
@@ -265,6 +223,10 @@ namespace cobra {
 			} else {
 				throw uri_parse_error::bad_segment;
 			}
+		}
+
+		if (!segment.empty()) {
+			segments.emplace_back(std::move(segment));
 		}
 
 		return uri_abs_path(std::move(segments));
@@ -291,19 +253,47 @@ namespace cobra {
 			return uri_origin(parse_uri_abs_path(string), std::nullopt);
 		}
 	}
+	
+	uri_absolute parse_uri_absolute(std::string_view string) {
+		return uri_absolute(std::string(string)); // TODO: not checked
+	}
+
+	uri_authority parse_uri_authority(std::string_view string) {
+		return uri_authority(std::string(string)); // TODO: not checked
+	}
+
+	uri_asterisk parse_uri_asterisk(std::string_view string) {
+		if (string != "*") {
+			throw uri_parse_error::bad_asterisk;
+		}
+
+		return uri_asterisk();
+	}
+
+	uri parse_uri(std::string_view string, const http_request_method& method) {
+		if (method == "CONNECT") {
+			return parse_uri_authority(string);
+		} else if (string.starts_with("*") && method == "OPTIONS") {
+			return parse_uri_asterisk(string);
+		} else if (string.starts_with("/")) {
+			return parse_uri_origin(string);
+		} else {
+			return parse_uri_absolute(string);
+		}
+	}
 
 	task<http_request> parse_http_request(buffered_istream_reference stream) {
 		http_request_method method = co_await parse_http_string(stream, is_http_token, http_request_method_max_length, http_parse_error::request_method_too_long);
 		assert(co_await take(stream, ' '), http_parse_error::bad_request_method);
 		assert(!method.empty(), http_parse_error::empty_request_method);
 
-		http_request_uri uri = co_await parse_http_string(stream, is_http_uri, http_request_uri_max_length, http_parse_error::request_uri_too_long);
+		std::string uri = co_await parse_http_string(stream, is_http_uri, http_request_uri_max_length, http_parse_error::request_uri_too_long);
 		assert(co_await take(stream, ' '), http_parse_error::bad_request_uri);
 
 		http_version version = co_await parse_http_version(stream);
 		assert(co_await parse_http_eol(stream), http_parse_error::bad_version);
 
-		http_request request(version, method, uri);
+		http_request request(version, method, parse_uri(uri, method));
 		co_await parse_http_header_map(stream, request);
 		co_return request;
 	}

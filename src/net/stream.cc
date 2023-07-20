@@ -65,11 +65,6 @@ namespace cobra {
 			check_return(bind(server_sock.fd(), info.addr().addr(), info.addr().len()));
 			check_return(listen(server_sock.fd(), 5));
 
-			char host[1024];
-			char serv[1024];
-			getnameinfo(info.addr().addr(), info.addr().len(), host, sizeof host, serv, sizeof serv, 0);
-			cobra::println("{}:{}", host, serv);
-
 			while (true) {
 				co_await loop->wait_read(server_sock);
 				sockaddr_storage addr;

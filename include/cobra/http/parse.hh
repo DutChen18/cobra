@@ -28,6 +28,7 @@ namespace cobra {
 		header_value_too_long,
 		header_map_too_long,
 		header_map_too_large,
+		header_map_duplicate,
 		bad_request_method,
 		bad_request_uri,
 		bad_version,
@@ -45,9 +46,14 @@ namespace cobra {
 		bad_escape,
 		bad_segment,
 		bad_query,
+		bad_asterisk,
 	};
 
 	uri_origin parse_uri_origin(std::string_view string);
+	uri_absolute parse_uri_absolute(std::string_view string);
+	uri_authority parse_uri_authority(std::string_view string);
+	uri_asterisk parse_uri_asterisk(std::string_view string);
+	uri parse_uri(std::string_view string, const http_request_method& method);
 	task<http_request> parse_http_request(buffered_istream_reference stream);
 	task<http_response> parse_http_response(buffered_istream_reference stream);
 	task<http_header_map> parse_cgi(buffered_istream_reference stream);

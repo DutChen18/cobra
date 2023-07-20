@@ -15,6 +15,7 @@
 #include <type_traits>
 #include <format>
 #include <memory>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 #include <cassert>
@@ -370,11 +371,11 @@ namespace cobra {
 
 				if (_max_body_size) {
 					diagnostic diag = session.make_warn(line, define_start, len, "redefinition of max_body_size");
-					diag.sub_diags.push_back(diagnostic::note(_max_body_size->second, "previously defined here"));
+					diag.sub_diags.push_back(diagnostic::note(_max_body_size->part, "previously defined here"));
 					diag.print(std::cerr, session.lines());
 				}
 
-				_max_body_size = std::make_pair(limit, file_part(session.file(), line, define_start, len));
+				_max_body_size = define<std::size_t>(limit, file_part(session.file(), line, define_start, len));//TODO use parse_define
 			} catch (error err) {
 				err.diag().message = "invalid max_body_size";
 				err.diag().part.line = line;
@@ -401,13 +402,13 @@ namespace cobra {
 		}
 
 		void block_config::parse_root(parse_session& session) {
-			define<config_path> def = parse_define<config_path>(session, "root");
-			if (_root) {
-				diagnostic diag = diagnostic::warn(def.part, "redefinition of root");
-				diag.sub_diags.push_back(diagnostic::note(_root->part, "previously defined here"));
+			define<static_file_config> def = parse_define<static_file_config>(session, "root");
+			if (_handler) {
+				diagnostic diag = diagnostic::warn(def.part, "redefinition of request handler");
+				diag.sub_diags.push_back(diagnostic::note(_handler->part, "previously defined here"));
 				diag.print(std::cerr, session.lines());
 			}
-			_root = std::move(def);
+			_handler = std::move(def);
 		}
 
 		void block_config::parse_index(parse_session& session) {
@@ -420,40 +421,88 @@ namespace cobra {
 			_index = std::move(def);
 		}
 
-		void server_config::parse_listen(parse_session& session) {
-			listen_address addr = listen_address::parse(session);
-			_listen.push_back(std::move(addr));
+		config block_config::commit(const config& parent, std::optional<filter> filt) && {
+			std::optional<std::size_t> max_body_size = _max_body_size;
+			std::optional<fs::path> index;
+			if (_index)
+				index = std::move(_index->def.path);
+			std::optional<std::variant<static_file_config, cgi_config>> handler = _handler;
+			std::unordered_set<std::string> server_names;
+
+			for (auto&& [name,_] : _server_names){
+				server_names.insert(name);
+			}
+
+			if (!max_body_size)
+				max_body_size = parent.max_body_size;
+			if (!index)
+				index = parent.index;
+			if (!handler)
+				handler = parent.handler;
+			if (server_names.empty())
+				server_names = parent.server_names;
+
+			config cfg = {std::move(filt), max_body_size, std::move(_headers), std::move(index), std::move(handler), std::move(server_names), std::vector<config>()};
+
+			for (auto&& [filter, block_cfg] : _filters) {
+				cfg.sub_configs.push_back(std::move(block_cfg.def).commit(cfg, std::move(filter)));
+			}
+			return cfg;
 		}
 
-		void server_config::parse_server_name(parse_session& session) {
-			const std::size_t define_start = session.column() - std::string("server_name").length();
-			session.ignore_ws();
+		config block_config::commit(std::optional<filter> filt) && {
+			std::optional<std::size_t> max_body_size = _max_body_size;
+			std::optional<fs::path> index;
+			if (_index)
+				index = std::move(_index->def.path);
+			std::optional<std::variant<static_file_config, cgi_config>> handler = _handler;
+			std::unordered_set<std::string> server_names;
 
-			const std::size_t col = session.column();
-			const std::size_t line = session.line();
-			std::string name;
-			try {
-				name = session.get_word_simple();
-			} catch (error err) {
-				err.diag().message = "invalid server name";
+			for (auto&& [name,_] : _server_names){
+				server_names.insert(name);
 			}
-			const std::size_t len = col + name.length() - define_start;
+			config cfg = {std::move(filt), max_body_size, std::move(_headers), std::move(index), std::move(handler), std::move(server_names), std::vector<config>()};
 
-			if (_server_name) {
-				diagnostic diag = session.make_warn(line, define_start, len, "redefinition of server_name");
-				diag.sub_diags.push_back(diagnostic::note(_server_name->part, "previously defined here"));
+			for (auto&& [filter, block_cfg] : _filters) {
+				cfg.sub_configs.push_back(std::move(block_cfg.def).commit(cfg, std::move(filter)));
+			}
+			return cfg;
+		}
+
+		void server_config::parse_listen(parse_session& session) {
+			auto def = parse_define<listen_address>(session, "listen");
+
+			auto [it, inserted] = _addresses.insert(def);
+			if (!inserted) {
+				diagnostic diag = diagnostic::warn(def.part, "duplicate listen");
+				diag.sub_diags.push_back(diagnostic::note(it->part, "previously defined here"));
 				diag.print(std::cerr, session.lines());
-			} 
+			}
+		}
 
-			_server_name = make_define(std::move(name), file_part(session.file(), line, define_start, len));
+		void block_config::parse_server_name(parse_session& session) {
+			auto def = parse_define<server_name>(session, "server_name");
+
+			auto [it, inserted] = _server_names.insert({def.def.name, def.part});
+			if (!inserted) {
+				diagnostic diag = diagnostic::warn(def.part, "duplicate server_name");
+				diag.sub_diags.push_back(diagnostic::note(it->second, "previously defined here"));
+				diag.print(std::cerr, session.lines());
+			}
+		}
+
+		server server_config::commit() && {
+			std::vector<listen_address> addresses;
+			addresses.reserve(_addresses.size());
+
+			for (auto&& address : _addresses)
+				addresses.push_back(std::move(address));
+
+			config cfg = std::move(*this).block_config::commit();
+			return {std::move(cfg), std::move(addresses)};
 		}
 
 		void server_config::parse_ssl(parse_session& session) { (void) session; }
-		std::string_view server_config::server_name() const {
-			if (_server_name)
-				return _server_name->def;
-			return std::string_view();
-		}
 	}
 
 }

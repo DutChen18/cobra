@@ -1,7 +1,7 @@
 {
-	listen 127.0.0.1:8080
+	listen 127.0.0.1:7070
 
 	location / {
-		root /var/www
+		root /home/codam/cobra
 	}
 }

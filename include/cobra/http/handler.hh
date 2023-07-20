@@ -9,6 +9,10 @@
 namespace cobra {
 	class static_config {
 		std::filesystem::path _root;
+
+	public:
+		static_config(const std::filesystem::path& root) : _root(root) {}//TODO do properly
+		const std::filesystem::path& root() const;
 	};
 
 	template <class T>
@@ -19,7 +23,22 @@ namespace cobra {
 		buffered_istream_reference _istream;
 
 	public:
-		const std::string& file();
+		handle_context(std::string file, const T& config, const http_request& request, buffered_istream_reference istream) : _file(std::move(file)), _config(config), _request(request), _istream(istream) {}
+		const std::string& file() const {
+			return _file;
+		}
+
+		const T& config() const {
+			return _config;
+		}
+
+		const http_request& request() const {
+			return _request;
+		}
+
+		buffered_istream_reference istream() const {
+			return _istream;
+		}
 	};
 
 	task<void> handle_static(http_response_writer writer, const handle_context<static_config>& context);

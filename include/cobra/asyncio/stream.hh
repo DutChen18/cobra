@@ -72,6 +72,10 @@ namespace cobra {
 	template <class Stream, class Tag>
 	class buffered_ostream_tag_impl;
 
+	enum class stream_error {
+		bad_write,
+	};
+
 	template <class CharT, class Traits = std::char_traits<CharT>>
 	class basic_stream {
 	public:
@@ -255,15 +259,17 @@ namespace cobra {
 	public:
 		using typename Base::char_type;
 
-		// TODO: throw if return value less than size
 		task<std::size_t> write_all(const char_type* data, std::size_t size) {
 			Stream* self = static_cast<Stream*>(this);
 			std::size_t index = 0;
-			std::size_t ret = 1;
 
-			while (index < size && ret > 0) {
-				ret = co_await self->write(data + index, size - index);
+			while (index < size) {
+				std::size_t ret = co_await self->write(data + index, size - index);
 				index += ret;
+
+				if (ret == 0) {
+					throw stream_error::bad_write;
+				}
 			}
 
 			co_return index;
@@ -454,7 +460,7 @@ namespace cobra {
 
 	template <class Base, std::derived_from<Base>... Streams>
 	class stream_variant : public stream_wrapper<stream_variant<Base, Streams...>, Base> {
-		std::variant<Streams...> _stream;
+		mutable std::variant<Streams...> _stream;
 
 	public:
 		template <std::derived_from<Base> Stream>
@@ -462,11 +468,11 @@ namespace cobra {
 		}
 
 		Base* ptr() const {
-			return std::visit([](auto& stream) { return &stream; }, _stream);
+			return std::visit([](auto& stream) { return static_cast<Base*>(&stream); }, _stream);
 		}
 
 		const typename Base::tag_type* tag() const {
-			return std::visit([](auto& stream) { return detail::tag<Base, decltype(stream)>(); }, _stream);
+			return std::visit([](auto& stream) { return detail::tag<Base, std::remove_cvref_t<decltype(stream)>>(); }, _stream);
 		}
 	};
 
@@ -552,6 +558,21 @@ namespace cobra {
 	template <class Stream>
 	buffered_ostream_ref<Stream> make_buffered_ostream_ref(Stream& stream) {
 		return stream;
+	}
+
+	template <class CharT, class Traits = std::char_traits<CharT>>
+	task<void> pipe(basic_buffered_istream_reference<CharT, Traits> istream, basic_ostream_reference<CharT, Traits> ostream) {
+		while (true) {
+			auto [buffer, buffer_size] = co_await istream.fill_buf();
+
+			if (buffer_size == 0) {
+				break;
+			}
+
+			co_await ostream.write_all(buffer, buffer_size);
+			co_await ostream.flush();
+			istream.consume(buffer_size);
+		}
 	}
 } // namespace cobra
 

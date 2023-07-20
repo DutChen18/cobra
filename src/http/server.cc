@@ -10,35 +10,44 @@
 #include "cobra/asyncio/stream_buffer.hh"
 #include "cobra/config.hh"
 #include "cobra/http/parse.hh"
+#include "cobra/http/handler.hh"
 
 namespace cobra {
 
-	http_handler::http_handler(config::block_config config) : _filter(), _config(std::move(config)) {}
-	http_handler::http_handler(config::filter filter, config::block_config config) : _filter(std::move(filter)), _config(std::move(config)), _sub_handlers() {
-		for (auto&& sub_filter : config.filters()) {
-			_sub_handlers.push_back(http_handler(sub_filter.first, std::move(sub_filter.second)));
+	http_filter::http_filter(config::config config) : http_filter(std::string(), std::move(config)) {}
+	http_filter::http_filter(std::vector<http_filter> sub_filters) : _sub_filters(std::move(sub_filters)) {}
+
+	http_filter::http_filter(const std::string& location, config::config config) : _filter(config.filter), _config(std::move(config)), _path(location) {
+		std::string sub_location = _path;
+
+		if (_filter && _filter->type == config::filter::type::location)
+			sub_location.append(_filter->match);
+
+		for (const auto& sub_filter : config.sub_configs) {
+			_sub_filters.push_back(http_filter(sub_location, sub_filter));
 		}
 	}
 
-	task<void> http_handler::operator()(http_response_writer writer, const http_request& request, http_istream stream) {
-		std::cerr << "imagine something happening" << std::endl;
-	}
-
-	http_handler::~http_handler() {}
-
-	std::optional<std::reference_wrapper<http_handler>> http_handler::match(const socket_stream& socket, const http_request& request) {
-		if (eval(socket, request)) {
-			for (auto&& handler : _sub_handlers) {
-				auto m = handler.match(socket, request);
+	http_filter* http_filter::match(const http_request& request) {
+		if (eval(request)) {
+			for (auto& filter : _sub_filters) {
+				auto m = filter.match(request);
 				if (m)
 					return m;
 			}
-			return *this;
+			return this;
 		}
-		return std::nullopt;
+		return nullptr;
 	}
 
-	bool http_handler::eval(const socket_stream& /*unused*/, const http_request& request) const {
+	bool http_filter::eval(const http_request& request) const {
+		if (!config().server_names.empty()) {
+			if (!request.has_header("host"))
+				return false;
+			if (!config().server_names.contains(request.header("host")))
+				return false;
+		}
+
 		if (_filter) {
 			switch (_filter->type) {
 			case config::filter::type::method:
@@ -50,14 +59,8 @@ namespace cobra {
 		return true;
 	}
 
-	server_handler::server_handler(config::server_config config) : http_handler(std::move(config)),  _server_name(config.server_name()) {}
-
-	bool server_handler::eval(const socket_stream& socket, const http_request& request) const {
-		(void) socket;
-		return _server_name.empty() || request.header("host") == _server_name;
-	}
-
-	server::server(config::listen_address address, std::vector<std::unique_ptr<http_handler>> handlers) : _address(std::move(address)), _handlers(std::move(handlers)) {}
+	server::server(config::listen_address address, std::vector<http_filter> filters)
+		: http_filter(std::move(filters)), _address(std::move(address)) {}
 
 	task<void> server::on_connect(socket_stream socket) {
 		std::cout << "connect" << std::endl;
@@ -69,14 +72,18 @@ namespace cobra {
 
 		try {
 			http_request request = co_await parse_http_request(socket_istream);
-			auto handler = match(socket, request);
+			auto filter = match(request);
 
-			if (!handler)
+			if (!filter) {
+				std::cerr << "no filter found" << std::endl;
 				co_return co_await write_http_response(socket_ostream, http_response({1,1}, 404, "Not found"));
+			}
+			std::cerr << "found a filter" << std::endl;
 
-			http_response_writer writer(socket_ostream);
+			//http_response_writer writer(socket_ostream);
 
-			co_await (*handler)(std::move(writer), std::move(request), buffered_istream_reference(socket_istream));
+			co_await handle_request(*filter, request, socket_istream, socket_ostream);
+			//co_await (*handler)(std::move(writer), std::move(request), buffered_istream_reference(socket_istream));
 			//TODO limit socket_istream to client content-length
 		} catch (http_parse_error err) {
 			error = std::move(err);
@@ -95,6 +102,19 @@ namespace cobra {
 		}
 	}
 
+	task<void> server::handle_request(const http_filter& filt, const http_request& request, buffered_istream_reference in, buffered_ostream_reference out) {
+		http_response_writer writer(out);
+		//TODO write headers set in config
+		if (filt.config().handler) {
+			std::cout << "path: " << filt.path() << std::endl;
+			co_await handle_static(std::move(writer), {std::string(), {fs::path(filt.path())}, request, in});
+			//TODO execute handler
+		} else {
+			//TODO send 404 not found
+		}
+		co_return;
+	}
+
 	task<void> server::start(executor* exec, event_loop *loop) {
 		try {
 			std::string service = std::to_string(_address.service());
@@ -107,21 +127,22 @@ namespace cobra {
 		}
 	}
 
-	std::vector<server> server::convert(const config::server_config& config) {
-		std::map<config::listen_address, std::vector<std::unique_ptr<http_handler>>> handlers;
+	std::vector<server> server::convert(const config::server& config) {
+		std::map<config::listen_address, std::vector<http_filter>> filters;
 
-		for (auto&& address : config.addresses()) {
-			handlers[address].push_back(std::unique_ptr<http_handler>(new server_handler(config)));
+		for (const auto& address : config.addresses) {
+			filters[address].push_back(http_filter(config));
 		}
 
 		std::vector<server> result;
-		result.reserve(handlers.size());
-		for (auto&& [listen, handlers] : handlers) {
-			result.push_back(server(std::move(listen), std::move(handlers)));
+		result.reserve(filters.size());
+		for (const auto& [listen, filters] : filters) {
+			result.push_back(server(listen, filters));
 		}
 		return result;
 	}
 
+	/*
 	std::vector<server> server::convert(const std::vector<config::server_config>& configs) {
 		std::map<config::listen_address, std::vector<std::unique_ptr<http_handler>>> handlers;
 
@@ -137,14 +158,5 @@ namespace cobra {
 			result.push_back(server(std::move(listen), std::move(handlers)));
 		}
 		return result;
-	}
-
-	std::optional<std::reference_wrapper<http_handler>> server::match(const socket_stream& socket, const http_request& request) {
-		for (auto& handler : _handlers) {
-			const auto res = handler->match(socket, request);
-			if (res)
-				return res;
-		}
-		return std::nullopt;
-	}
+	}*/
 }

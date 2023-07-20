@@ -11,51 +11,43 @@
 
 namespace cobra {
 
-	class http_handler {
+	class http_filter {
 		std::optional<config::filter> _filter;
-		config::block_config _config;
-		std::vector<http_handler> _sub_handlers;
+		config::config _config;
+		//config::block_config _config;
+		std::vector<http_filter> _sub_filters;
+		std::string _path; //TODO use uri
 
 	protected:
-		http_handler() = delete;
-		http_handler(config::block_config config);
+		http_filter() = delete;
+		http_filter(std::vector<http_filter> sub_filters);
 	
+		http_filter(const std::string& location, config::config config);
 	public:
-		http_handler(config::filter filter, config::block_config config);
-		virtual ~http_handler();
+		http_filter(config::config config);
 
-		std::optional<std::reference_wrapper<http_handler>> match(const socket_stream& socket, const http_request& request);
-		task<void> operator()(http_response_writer writer, const http_request& request, http_istream stream);
+		http_filter* match(const http_request& request);
+
+		inline std::string_view path() const { return _path; };
+		inline const config::config& config() const { return _config; }
 
 	protected:
-		virtual bool eval(const socket_stream& socket, const http_request& request) const;
+		bool eval(const http_request& request) const;
 	};
 
-	class server_handler : public http_handler {
-		std::string _server_name;
-
-	public:
-		server_handler() = delete;
-		server_handler(config::server_config config);
-
-	protected:
-		bool eval(const socket_stream& socket, const http_request& request) const;
-	};
-
-	class server {
+	class server : public http_filter {
 		config::listen_address _address;
-		std::vector<std::unique_ptr<http_handler>> _handlers;
 
 		server() = delete;
-		server(config::listen_address address, std::vector<std::unique_ptr<http_handler>> handlers);
+		server(config::listen_address address, std::vector<http_filter> handlers);
 	public:
 		task<void> start(executor* exec, event_loop *loop);
 
-		static std::vector<server> convert(const config::server_config& config);
-		static std::vector<server> convert(const std::vector<config::server_config>& configs);
+		static std::vector<server> convert(const config::server& config);
+		//static std::vector<server> convert(const std::vector<config::server_config>& configs);
 	private:
 		task<void> on_connect(socket_stream socket);
-		std::optional<std::reference_wrapper<http_handler>> match(const socket_stream& socket, const http_request& request);
+		static task<void> handle_request(const http_filter& config, const http_request& request, buffered_istream_reference in, buffered_ostream_reference out);
 	};
 }
 

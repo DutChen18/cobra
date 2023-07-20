@@ -7,6 +7,7 @@
 #include <any>
 #include <cctype>
 #include <compare>
+#include <concepts>
 #include <exception>
 #include <filesystem>
 #include <format>
@@ -14,12 +15,15 @@
 #include <istream>
 #include <limits>
 #include <map>
+#include <set>
+#include <unordered_set>
 #include <optional>
 #include <ostream>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <variant>
 #include <vector>
 #include <charconv>
 #include <string_view>
@@ -28,12 +32,12 @@
 	X(max_body_size)                                                                                                   \
 	X(location)                                                                                                        \
 	X(index)                                                                                                           \
+	X(server_name)                                                                                                     \
 	X(root)
 
 #define COBRA_SERVER_KEYWORDS                                                                                          \
 	X(listen)                                                                                                          \
 	X(ssl)                                                                                                             \
-	X(server_name)                                                                                                     \
 	COBRA_BLOCK_KEYWORDS
 
 namespace cobra {
@@ -188,7 +192,7 @@ namespace cobra {
 
 		private:
 			std::string_view get_line(std::size_t idx) const;
-			std::string_view cur_line() const { return get_line(line()); }
+			inline std::string_view cur_line() const { return get_line(line()); }
 
 			std::optional<std::string> read_line();
 
@@ -246,7 +250,18 @@ namespace cobra {
 			T def;
 			file_part part;
 
+			constexpr define(const T& t, const file_part& part) : def(t), part(part) {}
+			constexpr define(T&& t, file_part&& part) noexcept : def(std::move(t)), part(std::move(part)) {}
+			template <class U>
+			constexpr define(const define<U>& other) requires std::convertible_to<U, T> : def(other.def), part(other.part) {}
+			template <class U>
+			constexpr define(define<U>&& other) noexcept requires std::convertible_to<U, T> : def(std::move(other.def)), part(std::move(other.part)) {}
+
 			constexpr operator T() const noexcept { return def; };
+
+			inline constexpr auto operator<=>(const define& other) const {
+				return def <=> other.def;
+			}
 		};
 
 		template <class T>
@@ -260,52 +275,94 @@ namespace cobra {
 			inline static config_path parse(parse_session& session) {
 				return config_path{session.get_word()};
 			}
+
+			operator fs::path() { return path; }
+		};
+		
+		struct static_file_config {
+			config_path root;
+
+			inline static static_file_config parse(parse_session& session) {
+				return {config_path{session.get_word()}};
+			}
+		};
+
+		struct cgi_config {
+		};
+
+		struct server_name {
+			std::string name;
+
+			inline static server_name parse(parse_session& session) {
+				return {session.get_word_simple()};
+			}
+		};
+
+		struct config {
+			std::optional<filter> filter;
+			std::optional<std::size_t> max_body_size;
+			std::unordered_map<std::string, std::string> headers;//TODO use header map
+			std::optional<fs::path> index;
+			std::optional<std::variant<static_file_config, cgi_config>> handler;
+			std::unordered_set<std::string> server_names;
+			std::vector<config> sub_configs;
+		};
+
+		struct server : config {
+			std::vector<listen_address> addresses;
 		};
 
 		class block_config {
-			std::optional<std::pair<std::size_t, file_part>> _max_body_size;
+			std::optional<define<std::size_t>> _max_body_size;
 			std::unordered_map<std::string, std::string> _headers;
 			std::optional<define<config_path>> _index;
-			std::optional<define<config_path>> _root;
-			std::optional<std::pair<unsigned short, std::string>> _redirect;//TODO use http_response_code
+			std::optional<define<std::variant<static_file_config, cgi_config>>> _handler;//TODO add other handlers (redirect, proxy...)
+			//std::optional<std::pair<unsigned short, std::string>> _redirect;//TODO use http_response_code
 			std::map<filter, define<block_config>> _filters;
+			std::unordered_map<std::string, file_part> _server_names;
+			//std::optional<define<server_name>> _server_name;
 
 		public:
 			static block_config parse(parse_session& session);
 
-			inline std::optional<std::size_t> max_body_size() const { if (_max_body_size) { return _max_body_size->first; } else { return std::nullopt; } }
+			//inline std::optional<std::size_t> max_body_size() const { if (_max_body_size) { return _max_body_size->first; } else { return std::nullopt; } }
+			//TODO remove all these getters
 			inline const auto& filters() const { return _filters; }
+			inline auto handler() const { return _handler; }
+			inline auto& server_names()  const { return _server_names; }
+
 
 		protected:
 			void parse_max_body_size(parse_session& session);
 			void parse_location(parse_session& session);
 			void parse_root(parse_session& session);
 			void parse_index(parse_session& session);
+			void parse_server_name(parse_session& session);
+
+			config commit(std::optional<filter> filt = std::nullopt) &&;
+			config commit(const config& parent, std::optional<filter> filt = std::nullopt) &&;
 
 			template <class T>
 			define<T> parse_define(parse_session& session, const std::string& directive) {
 				file_part part(session.file(), session.line(), session.column() - directive.length(), directive.length());
 				session.ignore_ws();
-				return {T::parse(session), std::move(part)};
+				return define<T>(T::parse(session), std::move(part));
 			}
 		};
 
 		class server_config : public block_config {
-			std::optional<define<std::string>> _server_name;
-			std::vector<listen_address> _listen;
+			std::set<define<listen_address>> _addresses;
 
 			server_config() = default;
 
 		public:
 			static server_config parse(parse_session& session);
 
-			std::string_view server_name() const;
-			inline const std::vector<listen_address>& addresses() const { return _listen; }
+			server commit() &&;
 
 		private:
 			void parse_listen(parse_session& session);
 			void parse_ssl(parse_session& session);
-			void parse_server_name(parse_session& session);
 		};
 	};
 } // namespace cobra

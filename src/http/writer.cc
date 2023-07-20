@@ -36,7 +36,7 @@ namespace cobra {
 	}
 	
 	task<void> write_http_request(ostream_reference stream, const http_request& request) {
-		co_await print(stream, "{} {} HTTP/{}.{}\r\n", request.method(), request.uri(), request.version().major(), request.version().minor());
+		co_await print(stream, "{} {} HTTP/{}.{}\r\n", request.method(), request.uri().string(), request.version().major(), request.version().minor());
 		co_await write_http_header_map(stream, request);
 		co_await stream.flush();
 	}

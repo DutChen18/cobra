@@ -1,4 +1,5 @@
 #include "cobra/http/uri.hh"
+#include "cobra/http/util.hh"
 
 namespace cobra {
 	uri_abs_path::uri_abs_path(std::vector<uri_segment> segments) : _segments(std::move(segments)) {
@@ -38,6 +39,16 @@ namespace cobra {
 		return segments;
 	}
 
+	std::string uri_abs_path::string() const {
+		std::string result;
+
+		for (const uri_segment& segment : _segments) {
+			result += "/" + hexify(segment, is_uri_segment);
+		}
+
+		return result;
+	};
+
 	uri_origin::uri_origin(uri_abs_path path, std::optional<uri_query> query) : _path(std::move(path)), _query(std::move(query)) {
 	}
 
@@ -47,5 +58,35 @@ namespace cobra {
 
 	const std::optional<uri_query>& uri_origin::query() const {
 		return _query;
+	}
+
+	std::string uri_origin::string() const {
+		if (auto query = _query) {
+			return _path.string() + "?" + hexify(*query, is_uri_query);
+		} else {
+			return _path.string();
+		}
+	}
+
+	uri_absolute::uri_absolute(std::string string) : _string(std::move(string)) {
+	}
+
+	std::string uri_absolute::string() const {
+		return _string;
+	}
+
+	uri_authority::uri_authority(std::string string) : _string(std::move(string)) {
+	}
+
+	std::string uri_authority::string() const {
+		return _string;
+	}
+
+	std::string uri_asterisk::string() const {
+		return "*";
+	}
+
+	std::string uri::string() const {
+		return std::visit([](auto value) { return value.string(); }, _variant);
 	}
 }
