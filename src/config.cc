@@ -3,13 +3,16 @@
 #include "cobra/exception.hh"
 #include "cobra/print.hh"
 
+//TODO check which headers aren't needed anymore
 #include <any>
 #include <cctype>
 #include <compare>
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <ostream>
+#include <ranges>
 #include <stdexcept>
 #include <string_view>
 #include <type_traits>
@@ -17,6 +20,7 @@
 #include <memory>
 #include <unordered_set>
 #include <utility>
+#include <variant>
 #include <vector>
 #include <cassert>
 
@@ -24,17 +28,23 @@ namespace cobra {
 
 	namespace config {
 		constexpr buf_pos::buf_pos(std::size_t line, std::size_t col) noexcept : buf_pos(line, col, 1) {}
+
 		constexpr buf_pos::buf_pos(std::size_t line, std::size_t col, std::size_t length) noexcept
 			: line(line), col(col), length(length) {}
 
 		file_part::file_part(std::optional<fs::path> file, std::size_t line, std::size_t col)
 			: file_part(std::move(file), line, col, 1) {}
+
 		file_part::file_part(std::optional<fs::path> file, std::size_t line, std::size_t col, std::size_t length)
 			: buf_pos(line, col, length), file(std::move(file)) {}
+
 		file_part::file_part(fs::path file, std::size_t line, std::size_t col) : file_part(file, line, col, 1) {}
+
 		file_part::file_part(fs::path file, std::size_t line, std::size_t col, std::size_t length)
 			: buf_pos(line, col, length), file(std::move(file)) {}
+
 		file_part::file_part(std::size_t line, std::size_t col) : file_part(line, col, 1) {}
+
 		file_part::file_part(std::size_t line, std::size_t col, std::size_t length)
 			: buf_pos(line, col, length), file() {}
 
@@ -114,9 +124,10 @@ namespace cobra {
 		}
 
 		error::error(diagnostic diag) : std::runtime_error(diag.message), _diag(diag) {}
-		
-		parse_session::parse_session(std::istream& stream) : _stream(stream), _lines(), _file(), _col_num(0)/*, _line_num(0)*/ {
-			_stream.exceptions(std::ios::badbit | std::ios::failbit);
+
+		parse_session::parse_session(std::istream& stream)
+			: _stream(stream), _lines(), _file(), _col_num(0) {
+			_stream.exceptions(std::ios::badbit);
 		}
 
 		std::optional<int> parse_session::peek() {
@@ -137,10 +148,25 @@ namespace cobra {
 			const std::size_t col = column();
 			const auto got = get();
 
-			if (!got)
-				throw error(make_error(line(), col, "unexpected EOF", std::format("expected `{}`", static_cast<char>(ch))));
-			else if (got != ch)
-				throw error(make_error(line(), col, std::format("unexpected `{}`", static_cast<char>(*got)), std::format("expected `{}`", static_cast<char>(ch))));
+			if (!got) {
+				throw error(
+					make_error(line(), col, "unexpected EOF", std::format("expected `{}`", static_cast<char>(ch))));
+			} else if (got != ch) {
+				throw error(make_error(line(), col, std::format("unexpected `{}`", static_cast<char>(*got)),
+									   std::format("expected `{}`", static_cast<char>(ch))));
+			}
+		}
+
+		void parse_session::expect_word_simple(std::string_view str) {
+			const std::size_t col_num = column();
+			const std::size_t line_num = line();
+
+			const std::string word = get_word_simple();
+
+			if (word != str) {
+				throw error(make_error(line_num, col_num, "unexpected word", std::format("expected `{}`", str),
+									   std::format("consider replacing `{}` with `{}`", word, str)));
+			}
 		}
 
 		std::string parse_session::get_word() {
@@ -213,7 +239,7 @@ namespace cobra {
 			std::string line;
 
 			std::getline(_stream, line);
-			if (line.empty() && _stream.eof())
+			if (_stream.fail() || (line.empty() && _stream.eof()))
 				return std::nullopt;
 			return line;
 		}
@@ -234,7 +260,6 @@ namespace cobra {
 					return std::string_view();
 
 				_col_num = 0;
-				//_line_num += 1;
 
 				_lines.push_back(std::move(*line));
 				return fill_buf();
@@ -250,7 +275,26 @@ namespace cobra {
 			return _lines.at(idx);
 		}
 
+		bool location_filter::starts_with(const location_filter& other) const {
+			if (other.path.size() > path.size())
+				return false;
+
+			auto ita = path.begin();
+			auto itb = other.path.begin();
+
+			while (itb != other.path.end()) {
+				if (itb + 1 == other.path.end())
+					return ita->starts_with(*itb);
+				if (*ita != *itb)
+					return false;
+				++ita;
+				++itb;
+			}
+			return true;
+		}
+
 		constexpr listen_address::listen_address(std::string node, port service) noexcept : _node(std::move(node)), _service(service) {}
+
 		constexpr listen_address::listen_address(port service) noexcept : _node(), _service(service) {}
 
 		server_config server_config::parse(parse_session& session) {
@@ -282,6 +326,99 @@ namespace cobra {
 			}
 
 			return config;
+		}
+
+		std::vector<server_config> server_config::parse_servers(parse_session& session) {
+			std::vector<server_config> configs;
+
+			while (true) {
+				session.ignore_ws();
+
+				if (session.eof())
+					break;
+
+				session.expect_word_simple("server");
+				configs.push_back(server_config::parse(session));
+			}
+
+			server_config::lint_configs(configs, session);
+			return configs;
+		}
+
+		void server_config::lint_configs(const std::vector<server_config>& configs, const parse_session& session) {
+			ssl_lint(configs);
+			server_name_lint(configs);
+			(void)session;
+		}
+
+		void server_config::ssl_lint(const std::vector<server_config>& configs) {
+			std::map<listen_address, file_part> plain_ports;
+			std::map<listen_address, file_part> ssl_ports;
+
+			for (auto& config : configs) {
+				if (config._ssl) {
+					for (auto& address : config._addresses) {
+						const auto it = plain_ports.find(address);
+						if (it != plain_ports.end()) {
+							diagnostic diag = diagnostic::error(config._ssl->part,
+																"a non-ssl address cannot be listened to using ssl",
+																"consider listening to another address");
+							diag.sub_diags.push_back(
+								diagnostic::note(it->second, "previously listened to here without ssl"));
+							throw diag;
+						}
+						ssl_ports.insert({address, config._ssl->part});
+					}
+				} else {
+					for (auto& address : config._addresses) {
+						const auto it = ssl_ports.find(address);
+						if (it != ssl_ports.end()) {
+							diagnostic diag = diagnostic::error(config._ssl->part,
+																"a ssl address cannot be listened without ssl",
+																"consider listening to another address");
+							diag.sub_diags.push_back(
+								diagnostic::note(it->second, "previously listened to here with ssl"));
+							throw diag;
+						}
+						plain_ports.insert({address, address.part});
+					}
+				}
+			}
+		}
+
+		void server_config::server_name_lint(const std::vector<server_config>& configs) {
+			std::map<listen_address, std::vector<std::reference_wrapper<const server_config>>> servers;
+
+			for (auto& config : configs) {
+				for (auto& address : config._addresses) {
+					servers[address].push_back(config);
+				}
+			}
+
+			//TODO only check in (sub)configs that have handlers
+
+			for (auto& [address, configs] : servers) {
+				if (configs.size() < 2)
+					continue;
+				std::unordered_set<std::string_view> names;
+				std::size_t total_count = 0;
+
+				for (auto& config : configs) {
+					if (config.get()._server_names.empty()) {
+						names.insert(std::string_view());
+						total_count += 1;
+					}
+
+					for (auto& [name,_] : config.get()._server_names) {
+						names.insert(name);
+						total_count += 1;
+					}
+				}
+				if (names.size() < total_count) {
+					std::cerr << "ambigious servers" << std::endl;
+					//TODO print pretty diagnostic
+				}
+			}
 		}
 
 		listen_address listen_address::parse(parse_session& session) {
@@ -318,6 +455,13 @@ namespace cobra {
 			if (type == other.type)
 				return match <=> other.match;
 			return type <=> other.type;
+		}
+
+		ssl_config ssl_config::parse(parse_session& session) {
+			fs::path cert(session.get_word());
+			session.ignore_ws();
+			fs::path key(session.get_word());
+			return {std::move(cert), std::move(key)};
 		}
 
 		block_config block_config::parse(parse_session& session) {
@@ -386,19 +530,32 @@ namespace cobra {
 		}
 
 		void block_config::parse_location(parse_session& session) {
-			constexpr std::size_t dir_len = std::string("location").length();
-			const file_part part(session.file(), session.line(), session.column() - dir_len, dir_len); 
+			auto def = parse_define<location_filter>(session, "location");
 			session.ignore_ws();
 
-			filter filt{filter::type::location, session.get_word()};
-			define<block_config> block = define<block_config>{block_config::parse(session), part};
+			define<block_config> block = define<block_config>{block_config::parse(session), std::move(def.part)};
+			block->_filter = def;
 
-			auto [it, inserted] = _filters.insert({std::move(filt), std::move(block)});
-			if (!inserted) {
-				diagnostic diag = diagnostic::warn(part, "unreachable filter");
-				diag.sub_diags.push_back(diagnostic::note(it->second.part, "because of an earlier definition here"));
+			auto it = std::find_if(_filters.begin(), _filters.end(), [&def](auto pair) {
+					if (!std::holds_alternative<location_filter>(pair.first))
+						return false;
+					const location_filter& other = std::get<location_filter>(pair.first);
+
+					return def->starts_with(other);
+			});
+
+			if (it != _filters.end()) {
+				diagnostic diag = diagnostic::warn(block.part, "unreachable filter");
+				if (std::get<location_filter>(it->first) == def.def) {
+					diag.sub_diags.push_back(diagnostic::note(it->second.part, "because of an earlier definition here"));
+				} else {
+					diag.sub_diags.push_back(
+						diagnostic::note(it->second.part, "because a less strict filter defined earlier here"));
+				}
 				diag.print(std::cerr, session.lines());
 			}
+
+			_filters.push_back({std::move(def.def), std::move(block)});
 		}
 
 		void block_config::parse_root(parse_session& session) {
@@ -419,54 +576,6 @@ namespace cobra {
 				diag.print(std::cerr, session.lines());
 			}
 			_index = std::move(def);
-		}
-
-		config block_config::commit(const config& parent, std::optional<filter> filt) && {
-			std::optional<std::size_t> max_body_size = _max_body_size;
-			std::optional<fs::path> index;
-			if (_index)
-				index = std::move(_index->def.path);
-			std::optional<std::variant<static_file_config, cgi_config>> handler = _handler;
-			std::unordered_set<std::string> server_names;
-
-			for (auto&& [name,_] : _server_names){
-				server_names.insert(name);
-			}
-
-			if (!max_body_size)
-				max_body_size = parent.max_body_size;
-			if (!index)
-				index = parent.index;
-			if (!handler)
-				handler = parent.handler;
-			if (server_names.empty())
-				server_names = parent.server_names;
-
-			config cfg = {std::move(filt), max_body_size, std::move(_headers), std::move(index), std::move(handler), std::move(server_names), std::vector<config>()};
-
-			for (auto&& [filter, block_cfg] : _filters) {
-				cfg.sub_configs.push_back(std::move(block_cfg.def).commit(cfg, std::move(filter)));
-			}
-			return cfg;
-		}
-
-		config block_config::commit(std::optional<filter> filt) && {
-			std::optional<std::size_t> max_body_size = _max_body_size;
-			std::optional<fs::path> index;
-			if (_index)
-				index = std::move(_index->def.path);
-			std::optional<std::variant<static_file_config, cgi_config>> handler = _handler;
-			std::unordered_set<std::string> server_names;
-
-			for (auto&& [name,_] : _server_names){
-				server_names.insert(name);
-			}
-			config cfg = {std::move(filt), max_body_size, std::move(_headers), std::move(index), std::move(handler), std::move(server_names), std::vector<config>()};
-
-			for (auto&& [filter, block_cfg] : _filters) {
-				cfg.sub_configs.push_back(std::move(block_cfg.def).commit(cfg, std::move(filter)));
-			}
-			return cfg;
 		}
 
 		void server_config::parse_listen(parse_session& session) {
@@ -491,18 +600,53 @@ namespace cobra {
 			}
 		}
 
-		server server_config::commit() && {
-			std::vector<listen_address> addresses;
-			addresses.reserve(_addresses.size());
-
-			for (auto&& address : _addresses)
-				addresses.push_back(std::move(address));
-
-			config cfg = std::move(*this).block_config::commit();
-			return {std::move(cfg), std::move(addresses)};
+		void server_config::parse_ssl(parse_session& session) {
+			_ssl = parse_define<ssl_config>(session, "ssl");
 		}
 
-		void server_config::parse_ssl(parse_session& session) { (void) session; }
+		config::config(config* parent, const block_config& cfg)
+			: parent(parent), max_body_size(cfg._max_body_size), handler(cfg._handler) {
+			if (cfg._index)
+				index = cfg._index->def.path;
+
+			for (auto [name,_] : cfg._server_names) {
+				server_names.insert(name);
+			}
+
+			if (cfg._filter) {
+				if (std::holds_alternative<location_filter>(*cfg._filter)) {
+					location = std::get<location_filter>(*cfg._filter).path;
+				} else if (std::holds_alternative<method_filter>(*cfg._filter)) {
+					methods.insert(std::get<method_filter>(*cfg._filter).method);
+				} else {
+					assert(0 && "filter not implemented");
+				}
+			}
+
+			for (auto& [filter, sub_cfg] : cfg._filters) {
+				sub_configs.push_back(std::shared_ptr<config>(new config(this, sub_cfg)));
+			}
+
+			if (parent) {
+				if (!index)
+					index = parent->index;
+				if (!max_body_size)
+					max_body_size = parent->max_body_size;
+				if (!handler)
+					handler = parent->handler;
+				if (server_names.empty())
+					server_names = parent->server_names;
+			}
+		}
+
+		config::config(const block_config& cfg) : config(nullptr, cfg) {}
+		config::~config() {}
+
+		server::server(const server_config& cfg) : config(cfg) {
+			for (auto& address : cfg._addresses) {
+				addresses.push_back(address);
+			}
+		}
 	}
 
 }

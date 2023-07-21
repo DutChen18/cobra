@@ -1,5 +1,33 @@
-{
+server {
 	listen 127.0.0.1:7070
+	server_name kaas
+
+	location /sr {
+		root /
+	}
+
+	location /src {
+		root /
+	}
+
+
+	location / {
+		root /home/codam/cobra
+	}
+}
+
+server {
+	listen 127.0.0.1:7070
+	server_name kaas
+
+	location /sr {
+		root /
+	}
+
+	location /src {
+		root /
+	}
+
 
 	location / {
 		root /home/codam/cobra

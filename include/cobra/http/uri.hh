@@ -11,13 +11,14 @@ namespace cobra {
 	using uri_segment = std::string;
 	using uri_query = std::string;
 
-	class uri_abs_path {
-		std::vector<uri_segment> _segments;
+	class uri_abs_path : public std::vector<uri_segment> {
 
 	public:
+		uri_abs_path() = default;
+		uri_abs_path(const std::filesystem::path& path);
 		uri_abs_path(std::vector<uri_segment> segments);
 
-		const std::vector<uri_segment>& segments() const;
+		inline const std::vector<uri_segment>& segments() const { return *this; }
 		std::optional<std::filesystem::path> path() const;
 		uri_abs_path normalize() const;
 		std::string string() const;

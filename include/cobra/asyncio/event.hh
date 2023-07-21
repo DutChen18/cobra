@@ -46,7 +46,7 @@ namespace cobra {
 	};
 
 	template <class T, class Function>
-	class event {
+	class [[nodiscard]] event {
 		event_handle<T> _handle;
 		Function _function;
 

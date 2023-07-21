@@ -15,6 +15,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <fstream>
+#include <memory>
 
 extern "C" {
 #include <sys/socket.h>
@@ -130,13 +131,23 @@ int main(int argc, char **argv) {
 		config::parse_session session(stream);
 
 		try {
-			config::server_config config = config::server_config::parse(session);
-			config::server srv = std::move(config).commit();
-			std::vector<server> servers = server::convert(srv);
-
-			cobra::thread_pool_executor exec;
+			cobra::sequential_executor exec;
 			cobra::epoll_event_loop loop(exec);
 
+
+			std::vector<std::shared_ptr<config::server>> srvs;
+
+			{
+				std::vector<config::server_config> configs = config::server_config::parse_servers(session);
+
+				eprintln("loaded {} server config(s)", configs.size());
+				for (auto&& config : configs) {
+					srvs.push_back(std::make_shared<config::server>(config::server(config)));
+				}
+			}
+
+			std::vector<server> servers = server::convert(srvs, &exec, &loop);
+			eprintln("setup {} server(s)", servers.size());
 			std::vector<future_task<void>> jobs;
 
 			for (auto&& server : servers) {

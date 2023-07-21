@@ -1,18 +1,27 @@
 #include "cobra/http/uri.hh"
 #include "cobra/http/util.hh"
 
-namespace cobra {
-	uri_abs_path::uri_abs_path(std::vector<uri_segment> segments) : _segments(std::move(segments)) {
-	}
+#include "cobra/print.hh"
 
-	const std::vector<uri_segment>& uri_abs_path::segments() const {
-		return _segments;
+namespace cobra {
+	uri_abs_path::uri_abs_path(std::vector<uri_segment> segments)
+		: std::vector<uri_segment>(std::move(segments)) {}
+	//TODO only allow this constructor for absolute paths?
+	uri_abs_path::uri_abs_path(const std::filesystem::path& path) {
+		bool first = true;
+
+		for (auto& part : path) {
+			if (!first || !path.is_absolute()) {
+				push_back(part);
+			}
+			first = false;
+		}
 	}
 
 	std::optional<std::filesystem::path> uri_abs_path::path() const {
 		std::filesystem::path result;
 
-		for (const uri_segment& segment : _segments) {
+		for (const uri_segment& segment : segments()) {
 			if (segment.find('/') != uri_segment::npos) {
 				return std::nullopt;
 			} else {
@@ -24,25 +33,25 @@ namespace cobra {
 	}
 
 	uri_abs_path uri_abs_path::normalize() const {
-		std::vector<uri_segment> segments;
+		uri_abs_path res;
 
-		for (const uri_segment& segment : _segments) {
+		for (const uri_segment& segment : segments()) {
 			if (segment == "..") {
-				if (!segments.empty()) {
-					segments.pop_back();
+				if (!res.empty()) {
+					res.pop_back();
 				}
 			} else if (segment != ".") {
-				segments.push_back(segment);
+				res.push_back(segment);
 			}
 		}
 
-		return segments;
+		return res;
 	}
 
 	std::string uri_abs_path::string() const {
 		std::string result;
 
-		for (const uri_segment& segment : _segments) {
+		for (const uri_segment& segment : segments()) {
 			result += "/" + hexify(segment, is_uri_segment);
 		}
 

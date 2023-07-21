@@ -16,6 +16,7 @@ namespace cobra {
 		using typename base::char_type;
 
 		std_istream(Stream&& stream) : _stream(std::move(stream)) {
+			_stream.exceptions(Stream::badbit | Stream::failbit);
 			_stream.exceptions(Stream::badbit);
 		}
 
@@ -39,6 +40,7 @@ namespace cobra {
 		using typename base::char_type;
 
 		std_ostream(Stream&& stream) : _stream(std::move(stream)) {
+			_stream.exceptions(Stream::badbit | Stream::failbit);
 			_stream.exceptions(Stream::badbit);
 		}
 
@@ -67,6 +69,7 @@ namespace cobra {
 		using typename base::char_type;
 
 		basic_std_istream_reference(std::basic_istream<CharT, Traits>& stream) : _stream(stream) {
+			_stream.get().exceptions(std::basic_istream<CharT, Traits>::badbit | std::basic_istream<CharT, Traits>::failbit);
 			_stream.get().exceptions(std::basic_istream<CharT, Traits>::badbit);
 		}
 
@@ -90,6 +93,7 @@ namespace cobra {
 		using typename base::char_type;
 
 		basic_std_ostream_reference(std::basic_ostream<CharT, Traits>& stream) : _stream(stream) {
+			_stream.get().exceptions(std::basic_ostream<CharT, Traits>::badbit | std::basic_ostream<CharT, Traits>::failbit);
 			_stream.get().exceptions(std::basic_ostream<CharT, Traits>::badbit);
 		}
 

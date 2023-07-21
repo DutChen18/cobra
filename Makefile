@@ -56,13 +56,7 @@ SRC_DIR := src
 OBJ_DIR := build
 DEP_DIR := build
 # SRC_FILES = $(shell find $(SRC_DIR) -type f -name "*.cc")
-
-ifdef yes
-	SRC_FILES := src/main.cc src/asyncio/executor.cc src/exception.cc src/asyncio/event_loop.cc src/exception.cc src/file.cc src/net/address.cc src/net/stream.cc src/http/parse.cc src/process.cc src/http/message.cc src/http/writer.cc src/http/uri.cc src/http/util.cc src/http/handler.cc # src/http/server.cc src/config.cc
-else
-	SRC_FILES := src/main.cc src/asyncio/executor.cc src/exception.cc src/asyncio/event_loop.cc src/exception.cc src/file.cc src/net/address.cc src/net/stream.cc src/http/parse.cc src/process.cc src/http/message.cc src/http/writer.cc src/http/uri.cc src/http/util.cc src/http/handler.cc src/http/server.cc src/config.cc
-endif
-
+SRC_FILES := src/main.cc src/asyncio/executor.cc src/exception.cc src/asyncio/event_loop.cc src/exception.cc src/file.cc src/net/address.cc src/net/stream.cc src/http/parse.cc src/process.cc src/http/message.cc src/http/writer.cc src/http/uri.cc src/http/util.cc src/http/handler.cc src/http/server.cc src/config.cc src/fastcgi.cc src/serde.cc src/asyncio/mutex.cc
 OBJ_FILES := $(patsubst $(SRC_DIR)/%.cc,$(OBJ_DIR)/%.o,$(SRC_FILES))
 DEP_FILES := $(patsubst $(SRC_DIR)/%.cc,$(DEP_DIR)/%.d,$(SRC_FILES))
 NAME := webserv

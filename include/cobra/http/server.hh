@@ -1,6 +1,8 @@
 #ifndef COBRA_HTTP_SERVER_HH
 #define COBRA_HTTP_SERVER_HH
 
+#include "cobra/asyncio/executor.hh"
+#include "cobra/asyncio/event_loop.hh"
 #include "cobra/http/message.hh"
 #include "cobra/http/writer.hh"
 #include "cobra/net/stream.hh"
@@ -12,42 +14,45 @@
 namespace cobra {
 
 	class http_filter {
-		std::optional<config::filter> _filter;
-		config::config _config;
-		//config::block_config _config;
+		std::shared_ptr<const config::config> _config;
 		std::vector<http_filter> _sub_filters;
-		std::string _path; //TODO use uri
+		std::size_t _match_count;
 
+		http_filter(std::shared_ptr<const config::config> config, std::size_t match_count);
 	protected:
 		http_filter() = delete;
-		http_filter(std::vector<http_filter> sub_filters);
 	
-		http_filter(const std::string& location, config::config config);
 	public:
-		http_filter(config::config config);
+		http_filter(std::shared_ptr<const config::config> config);
+		http_filter(std::shared_ptr<const config::config> config, std::vector<http_filter> filters);
 
-		http_filter* match(const http_request& request);
+		http_filter* match(const http_request& request, const uri_abs_path& normalized);
 
-		inline std::string_view path() const { return _path; };
-		inline const config::config& config() const { return _config; }
+		inline const config::config& config() const { return *_config.get(); }
+		inline std::size_t match_count() const { return _match_count; }
 
 	protected:
-		bool eval(const http_request& request) const;
+		bool eval(const http_request& request, const uri_abs_path& normalized) const;
 	};
 
 	class server : public http_filter {
 		config::listen_address _address;
+		executor* _exec;
+		event_loop* _loop;
 
 		server() = delete;
-		server(config::listen_address address, std::vector<http_filter> handlers);
+		server(config::listen_address address, std::vector<http_filter> handlers, executor* exec, event_loop* loop);
 	public:
 		task<void> start(executor* exec, event_loop *loop);
 
-		static std::vector<server> convert(const config::server& config);
-		//static std::vector<server> convert(const std::vector<config::server_config>& configs);
+		static std::vector<server> convert(std::shared_ptr<const config::server> config, executor* exec,
+										   event_loop* loop);
+		static std::vector<server> convert(const std::vector<std::shared_ptr<config::server>>& configs,
+										   executor* exec, event_loop* loop);
+
 	private:
 		task<void> on_connect(socket_stream socket);
-		static task<void> handle_request(const http_filter& config, const http_request& request, buffered_istream_reference in, buffered_ostream_reference out);
+		task<void> handle_request(const http_filter& config, const http_request& request, const uri_abs_path& normalized, buffered_istream_reference in, buffered_ostream_reference out);
 	};
 }
 

@@ -23,6 +23,7 @@ namespace cobra {
 	concept AsyncInput = requires(T& t, CharT* data, SizeT size) {
 		{ t.read(data, size) } -> std::convertible_to<task<SizeT>>;
 		{ t.get() } -> std::convertible_to<task<std::optional<CharT>>>;
+		{ t.read_all(data, size) } -> std::convertible_to<task<SizeT>>;
 	};
 
 	template <class T, class CharT, class SizeT>
@@ -73,7 +74,8 @@ namespace cobra {
 	class buffered_ostream_tag_impl;
 
 	enum class stream_error {
-		bad_write,
+		incomplete_read,
+		incomplete_write,
 	};
 
 	template <class CharT, class Traits = std::char_traits<CharT>>
@@ -136,6 +138,7 @@ namespace cobra {
 
 		virtual task<std::size_t> read(stream_type* stream, char_type* data, std::size_t size) const = 0;
 		virtual task<std::optional<char_type>> get(stream_type* stream) const = 0;
+		virtual task<std::size_t> read_all(stream_type* stream, char_type* data, std::size_t size) const = 0;
 	};
 
 	template <class CharT, class Traits>
@@ -184,6 +187,10 @@ namespace cobra {
 
 		task<std::optional<char_type>> get(stream_type* stream) const override {
 			return static_cast<Stream*>(stream)->get();
+		}
+
+		task<std::size_t> read_all(stream_type* stream, char_type* data, std::size_t size) const override {
+			return static_cast<Stream*>(stream)->read_all(data, size);
 		}
 	};
 
@@ -252,6 +259,22 @@ namespace cobra {
 				co_return std::nullopt;
 			}
 		}
+
+		task<std::size_t> read_all(char_type* data, std::size_t size) {
+			Stream* self = static_cast<Stream*>(this);
+			std::size_t index = 0;
+			
+			while (index < size) {
+				std::size_t ret = co_await self->read(data + index, size - index);
+				index += ret;
+
+				if (ret == 0) {
+					throw stream_error::incomplete_read;
+				}
+			}
+
+			co_return index;
+		}
 	};
 
 	template <class Stream, class CharT, class Traits = std::char_traits<CharT>, class Base = basic_ostream<CharT, Traits>>
@@ -268,7 +291,7 @@ namespace cobra {
 				index += ret;
 
 				if (ret == 0) {
-					throw stream_error::bad_write;
+					throw stream_error::incomplete_write;
 				}
 			}
 
@@ -328,6 +351,13 @@ namespace cobra {
 		{
 			const Wrapper* wrapper = static_cast<const Wrapper*>(this);
 			return wrapper->tag()->get(wrapper->ptr());
+		}
+
+		task<std::size_t> read_all(char_type* data, std::size_t size) const
+			requires std::is_base_of_v<basic_istream<char_type, traits_type>, Base>
+		{
+			const Wrapper* wrapper = static_cast<const Wrapper*>(this);
+			return wrapper->tag()->read_all(wrapper->ptr(), data, size);
 		}
 
 		task<std::pair<const char_type*, std::size_t>> fill_buf() const

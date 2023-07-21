@@ -59,6 +59,8 @@ namespace cobra {
 
 		virtual void schedule(std::function<void()> func) override;
 	};
+
+	extern sequential_executor global_executor;
 } // namespace cobra
 
 #endif

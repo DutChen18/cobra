@@ -1,37 +1,40 @@
 #include "cobra/http/server.hh"
 
+#include "cobra/asyncio/stream_buffer.hh"
+#include "cobra/config.hh"
+#include "cobra/http/handler.hh"
+#include "cobra/http/parse.hh"
+
 #include <exception>
 #include <iterator>
 #include <map>
 #include <memory>
+#include <optional>
 #include <queue>
 #include <ranges>
+#include <stdexcept>
 #include <unordered_map>
-#include "cobra/asyncio/stream_buffer.hh"
-#include "cobra/config.hh"
-#include "cobra/http/parse.hh"
-#include "cobra/http/handler.hh"
+#include <utility>
+#include <variant>
 
 namespace cobra {
 
-	http_filter::http_filter(config::config config) : http_filter(std::string(), std::move(config)) {}
-	http_filter::http_filter(std::vector<http_filter> sub_filters) : _sub_filters(std::move(sub_filters)) {}
-
-	http_filter::http_filter(const std::string& location, config::config config) : _filter(config.filter), _config(std::move(config)), _path(location) {
-		std::string sub_location = _path;
-
-		if (_filter && _filter->type == config::filter::type::location)
-			sub_location.append(_filter->match);
-
-		for (const auto& sub_filter : config.sub_configs) {
-			_sub_filters.push_back(http_filter(sub_location, sub_filter));
+	http_filter::http_filter(std::shared_ptr<const config::config> config, std::size_t match_count)
+		: _config(config), _match_count(match_count + config->location.size()) {
+		for (const auto& sub_filter : _config->sub_configs) {
+			_sub_filters.push_back(http_filter(sub_filter, _match_count));
 		}
 	}
 
-	http_filter* http_filter::match(const http_request& request) {
-		if (eval(request)) {
+	http_filter::http_filter(std::shared_ptr<const config::config> config) : http_filter(config, 0) {}
+
+	http_filter::http_filter(std::shared_ptr<const config::config> config, std::vector<http_filter> filters)
+		: _config(config), _sub_filters(std::move(filters)) , _match_count(0) {}
+
+	http_filter* http_filter::match(const http_request& request, const uri_abs_path& normalized) {
+		if (eval(request, normalized)) {
 			for (auto& filter : _sub_filters) {
-				auto m = filter.match(request);
+				auto m = filter.match(request, normalized);
 				if (m)
 					return m;
 			}
@@ -40,27 +43,45 @@ namespace cobra {
 		return nullptr;
 	}
 
-	bool http_filter::eval(const http_request& request) const {
+	bool http_filter::eval(const http_request& request, const uri_abs_path& normalized) const {
 		if (!config().server_names.empty()) {
-			if (!request.has_header("host"))
+			if (!request.has_header("host")) {
+				eprintln("no host header");
 				return false;
-			if (!config().server_names.contains(request.header("host")))
+			}
+			if (!config().server_names.contains(request.header("host"))) {
+				eprintln("other host");
 				return false;
+			}
 		}
 
-		if (_filter) {
-			switch (_filter->type) {
-			case config::filter::type::method:
-				return request.method() == _filter->match;
-			case config::filter::type::location:
-				return true; //TODO
+		if (!config().location.empty()) {
+			const std::size_t already_matched = match_count() - config().location.size();
+
+			auto it = normalized.begin() + already_matched;
+
+			for (auto& part : config().location) {
+					if (it == normalized.end()) {
+						eprintln("too short, expected: {}", part);
+						return false;
+					} else if (*it != part) {
+						eprintln("{} != {}", *it, part);
+						return false;
+					}
+				++it;
 			}
+		}
+
+		if (!config().methods.empty() && !config().methods.contains(request.method())) {
+			eprintln("other method");
+			return false;
 		}
 		return true;
 	}
 
-	server::server(config::listen_address address, std::vector<http_filter> filters)
-		: http_filter(std::move(filters)), _address(std::move(address)) {}
+	server::server(config::listen_address address, std::vector<http_filter> filters, executor* exec, event_loop* loop)
+		: http_filter(std::shared_ptr<config::config>(new config::config()), std::move(filters)),
+		  _address(std::move(address)), _exec(exec), _loop(loop) {}
 
 	task<void> server::on_connect(socket_stream socket) {
 		std::cout << "connect" << std::endl;
@@ -72,22 +93,27 @@ namespace cobra {
 
 		try {
 			http_request request = co_await parse_http_request(socket_istream);
-			auto filter = match(request);
 
-			if (!filter) {
-				std::cerr << "no filter found" << std::endl;
-				co_return co_await write_http_response(socket_ostream, http_response({1,1}, 404, "Not found"));
+			const uri_origin* org = request.uri().get<uri_origin>();
+			if (!org) {
+				eprintln("request did not contain uri_origin");
+				co_return co_await write_http_response(socket_ostream, http_response({1,1}, 400, "Bad request"));
 			}
-			std::cerr << "found a filter" << std::endl;
+			const uri_abs_path normalized = org->path().normalize();
 
-			//http_response_writer writer(socket_ostream);
+			auto filter = match(request, normalized);
 
-			co_await handle_request(*filter, request, socket_istream, socket_ostream);
-			//co_await (*handler)(std::move(writer), std::move(request), buffered_istream_reference(socket_istream));
-			//TODO limit socket_istream to client content-length
+			if (!filter || !filter->config().handler) {
+				std::cerr << "no filter or handler found" << std::endl;
+				co_return co_await write_http_response(socket_ostream, http_response({1, 1}, 404, "Not found"));
+			}
+
+			co_await handle_request(*filter, request, normalized, socket_istream, socket_ostream);
+			// co_await (*handler)(std::move(writer), std::move(request), buffered_istream_reference(socket_istream));
+			// TODO limit socket_istream to client content-length
 		} catch (http_parse_error err) {
 			error = std::move(err);
-		} catch (const std::exception &ex) {
+		} catch (const std::exception& ex) {
 			unknown_error = true;
 			std::cerr << ex.what() << std::endl;
 		} catch (...) {
@@ -102,61 +128,69 @@ namespace cobra {
 		}
 	}
 
-	task<void> server::handle_request(const http_filter& filt, const http_request& request, buffered_istream_reference in, buffered_ostream_reference out) {
+	task<void> server::handle_request(const http_filter& filt, const http_request& request, const uri_abs_path& normalized,
+									  buffered_istream_reference in, buffered_ostream_reference out) {
 		http_response_writer writer(out);
-		//TODO write headers set in config
-		if (filt.config().handler) {
-			std::cout << "path: " << filt.path() << std::endl;
-			co_await handle_static(std::move(writer), {std::string(), {fs::path(filt.path())}, request, in});
-			//TODO execute handler
-		} else {
-			//TODO send 404 not found
+		eprintln("match count: {}", filt.match_count());
+		// TODO write headers set in config
+		std::cout << "path: " << request.uri().string() << std::endl;
+		// TODO properly match uri
+		//
+		fs::path file("/");
+		for (std::size_t i = filt.match_count(); i < normalized.size(); ++i) {
+			file.append(normalized[i]);
 		}
-		co_return;
+
+		co_await handle_static(std::move(writer),
+							   {_loop,
+								_exec,
+								file.string(),
+								{std::get<config::static_file_config>(*filt.config().handler).root.path},
+								request,
+								in});
 	}
 
-	task<void> server::start(executor* exec, event_loop *loop) {
-		try {
-			std::string service = std::to_string(_address.service());
-			std::cout << _address.node() << ":" << service << std::endl;
-			co_return co_await start_server(exec, loop, _address.node().data(), service.c_str(), [this](socket_stream socket) -> task<void> {
-				co_return co_await on_connect(std::move(socket));
-			});
-		} catch (...) {
-			std::terminate();
-		}
+	task<void> server::start(executor* exec, event_loop* loop) {
+		std::string service = std::to_string(_address.service());
+		std::cout << _address.node() << ":" << service << std::endl;
+		co_return co_await start_server(exec, loop, _address.node().data(), service.c_str(),
+										[this](socket_stream socket) -> task<void> {
+											co_return co_await on_connect(std::move(socket));
+										});
 	}
 
-	std::vector<server> server::convert(const config::server& config) {
+	std::vector<server> server::convert(std::shared_ptr<const config::server> config, executor* exec, event_loop *loop) {
 		std::map<config::listen_address, std::vector<http_filter>> filters;
 
-		for (const auto& address : config.addresses) {
+		for (const auto& address : config->addresses) {
 			filters[address].push_back(http_filter(config));
 		}
 
 		std::vector<server> result;
 		result.reserve(filters.size());
 		for (const auto& [listen, filters] : filters) {
-			result.push_back(server(listen, filters));
+			result.push_back(server(listen, filters, exec, loop));
 		}
 		return result;
 	}
 
-	/*
-	std::vector<server> server::convert(const std::vector<config::server_config>& configs) {
-		std::map<config::listen_address, std::vector<std::unique_ptr<http_handler>>> handlers;
+	std::vector<server> server::convert(const std::vector<std::shared_ptr<config::server>>& configs,
+										executor* exec, event_loop* loop) {
+		//TODO ssl
+		std::map<config::listen_address, std::vector<http_filter>> filters;
 
-		for (auto& config : configs) {
-			for (auto&& address : config.addresses()) {
-				handlers[address].push_back(std::unique_ptr<http_handler>(new server_handler(config)));
+		for (const auto& config : configs) {
+			for (const auto& address : config->addresses) {
+				filters[address].push_back(http_filter(config));
 			}
+
 		}
 
 		std::vector<server> result;
-		result.reserve(handlers.size());
-		for (auto&& [listen, handlers] : handlers) {
-			result.push_back(server(std::move(listen), std::move(handlers)));
+		result.reserve(filters.size());
+		for (const auto& [listen, filters] : filters) {
+			result.push_back(server(listen, filters, exec, loop));
 		}
 		return result;
-	}*/
-}
+	}
+} // namespace cobra
