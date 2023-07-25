@@ -16,6 +16,10 @@ namespace cobra {
 		co_yield { "SCRIPT_FILENAME", context.config().root() + context.file() };
 		co_yield { "REDIRECT_STATUS", "200" };
 
+		if (auto query = context.request().uri().get<uri_origin>()->query()) {
+			co_yield { "QUERY_STRING", *query };
+		}
+
 		if (context.request().has_header("Content-Length")) {
 			co_yield { "CONTENT_LENGTH", context.request().header("Content-Length") };
 		}
@@ -78,19 +82,68 @@ namespace cobra {
 		return std::get_if<cgi_address>(&_config);
 	}
 
-	// TODO: 404 not found
-	// TODO: move Connection: close to http_response_writer
-	task<void> handle_static(http_response_writer writer, const handle_context<static_config>& context) {
-		std::string path = context.config().root() + context.file();
-		istream_buffer file_istream(std_istream(std::ifstream(path, std::ifstream::binary)), 1024);
-		http_response response(HTTP_OK);
-		response.set_header("Connection", "close");
-		http_ostream sock_ostream = co_await std::move(writer).send(response);
-		co_await pipe(buffered_istream_reference(file_istream), ostream_reference(sock_ostream));
+	redirect_config::redirect_config(http_response_code code, std::string root) : _code(code), _root(std::move(root)) {
 	}
 
-	// TODO: response headers from cgi
-	// TODO: move Connection: close to http_response_writer
+	http_response_code redirect_config::code() const {
+		return _code;
+	}
+
+	const std::string& redirect_config::root() const {
+		return _root;
+	}
+
+	proxy_config::proxy_config(std::string node, std::string service) : _node(std::move(node)), _service(std::move(service)) {
+	}
+
+	const std::string& proxy_config::node() const {
+		return _node;
+	}
+
+	const std::string& proxy_config::service() const {
+		return _service;
+	}
+
+	task<void> handle_static(http_response_writer writer, const handle_context<static_config>& context) {
+		std::string path = context.config().root() + context.file();
+		bool found = true;
+
+		try {
+			istream_buffer file_istream(std_istream(std::ifstream(path, std::ifstream::binary)), 1024);
+			http_ostream sock_ostream = co_await std::move(writer).send(HTTP_OK);
+			co_await pipe(buffered_istream_reference(file_istream), ostream_reference(sock_ostream));
+		} catch (const std::ifstream::failure&) {
+			found = false;
+		}
+
+		if (!found) {
+			co_await std::move(writer).send(HTTP_NOT_FOUND);
+		}
+	}
+
+	task<void> handle_cgi_response(buffered_istream_reference istream, http_response_writer writer) {
+		http_header_map header_map = co_await parse_cgi(istream);
+		http_response_code code = 200;
+
+		if (header_map.contains("Status")) {
+			// TODO: use reason phrase from status
+			code = std::stoi(header_map.at("Status").substr(0, 3));
+		}
+
+		http_response response(code);
+
+		if (header_map.contains("Location")) {
+			response.set_header("Location", header_map.at("Location"));
+		}
+
+		if (header_map.contains("Content-Type")) {
+			response.set_header("Content-Type", header_map.at("Content-Type"));
+		}
+
+		http_ostream sock = co_await std::move(writer).send(response);
+		co_await pipe(istream, ostream_reference(sock));
+	}
+
 	task<void> handle_cgi(http_response_writer writer, const handle_context<cgi_config>& context) {
 		if (const auto* config = context.config().cmd()) {
 			command cmd({ config->cmd(), context.config().root() + context.file() });
@@ -112,11 +165,7 @@ namespace cobra {
 			}(context.istream(), proc_ostream));
 
 			auto sock_writer = context.exec()->schedule([](auto& proc, auto writer) -> task<void> {
-				co_await parse_cgi(proc);
-				http_response response(HTTP_OK);
-				response.set_header("Connection", "close");
-				http_ostream sock = co_await std::move(writer).send(response);
-				co_await pipe(buffered_istream_reference(proc), ostream_reference(sock));
+				co_await handle_cgi_response(proc, std::move(writer));
 			}(proc_istream, std::move(writer)));
 
 			co_await proc_writer;
@@ -147,12 +196,8 @@ namespace cobra {
 				co_await fcgi.inner().ptr()->close();
 			}(context.istream(), fcgi_ostream));
 
-			auto sock_writer = context.exec()->schedule([](auto& proc, auto writer) -> task<void> {
-				co_await parse_cgi(proc);
-				http_response response(HTTP_OK);
-				response.set_header("Connection", "close");
-				http_ostream sock = co_await std::move(writer).send(response);
-				co_await pipe(buffered_istream_reference(proc), ostream_reference(sock));
+			auto sock_writer = context.exec()->schedule([](auto& fcgi, auto writer) -> task<void> {
+				co_await handle_cgi_response(fcgi, std::move(writer));
 			}(fcgi_istream, std::move(writer)));
 
 			while (co_await fcgi_connection.poll());
@@ -160,5 +205,36 @@ namespace cobra {
 			co_await fcgi_writer;
 			co_await sock_writer;
 		}
+	}
+
+	task<void> handle_redirect(http_response_writer writer, const handle_context<redirect_config>& context) {
+		std::string path = context.config().root() + context.file();
+		http_response response(context.config().code());
+		response.set_header("Location", path);
+		co_await std::move(writer).send(response);
+	}
+
+	task<void> handle_proxy(http_response_writer writer, const handle_context<proxy_config>& context) {
+		socket_stream gate = co_await open_connection(context.loop(), context.config().node().c_str(), context.config().service().c_str());
+		istream_buffer gate_istream(make_istream_ref(gate), 1024);
+		ostream_buffer gate_ostream(make_ostream_ref(gate), 1024);
+		http_request gate_request(context.request().method(), context.request().uri());
+
+		co_await write_http_request(gate_ostream, gate_request);
+
+		auto gate_writer = context.exec()->schedule([](auto sock, auto& gate) -> task<void> {
+			co_await pipe(sock, ostream_reference(gate));
+			gate.inner().ptr()->shutdown(SHUT_WR);
+		}(context.istream(), gate_ostream));
+
+		auto sock_writer = context.exec()->schedule([](auto& gate, auto writer) -> task<void> {
+			http_response gate_response = co_await parse_http_response(gate);
+			http_response response(gate_response.code());
+			http_ostream sock = co_await std::move(writer).send(response);
+			co_await pipe(buffered_istream_reference(gate), ostream_reference(sock));
+		}(gate_istream, std::move(writer)));
+
+		co_await gate_writer;
+		co_await sock_writer;
 	}
 }

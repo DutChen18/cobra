@@ -4,6 +4,8 @@
 #include "cobra/print.hh"
 #include "cobra/net/address.hh"
 
+#include <stdexcept>
+
 extern "C" {
 #include <fcntl.h>
 #include <sys/socket.h>
@@ -36,6 +38,37 @@ namespace cobra {
 
 	void socket_stream::shutdown(int how) {
 		check_return(::shutdown(_file.fd(), how));
+	}
+	
+	address socket_stream::peername() const {
+		sockaddr_storage addr;
+		socklen_t len = sizeof addr;
+		check_return(getpeername(_file.fd(), reinterpret_cast<sockaddr*>(&addr), &len));
+		return address(reinterpret_cast<sockaddr*>(&addr), len);
+	}
+
+	ssl_ctx::ssl_ctx(const std::filesystem::path& cert, const std::filesystem::path& key) {
+		const SSL_METHOD *method = TLS_server_method();
+		if (method == nullptr) {
+			throw std::runtime_error("failed to get server method");
+		}
+
+		_ctx = SSL_CTX_new(method);
+
+		if (_ctx == nullptr) {
+			throw std::runtime_error("failed to initialize SSL context");//TODO use ssl error (ERR_error_string)
+		}
+
+		if (SSL_CTX_use_certificate_file(_ctx, cert.c_str(), SSL_FILETYPE_PEM) <= 0) {
+			throw std::runtime_error("failed to set certificate");
+		}
+		if (SSL_CTX_use_PrivateKey_file(_ctx, key.c_str(), SSL_FILETYPE_PEM) <= 0) {
+			throw std::runtime_error("failed to set key");
+		}
+	}
+
+	ssl_ctx::ssl_ctx(const ssl_ctx& other) : _ctx(other._ctx) {
+		SSL_CTX_up_ref(other._ctx);//SSL_CTX_up_ref is atomic
 	}
 
 	task<socket_stream> open_connection(event_loop* loop, const char* node, const char* service) {

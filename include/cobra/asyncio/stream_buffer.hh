@@ -52,15 +52,15 @@ namespace cobra {
 		}
 	};
 
-	template<AsyncInputStream Stream>
-	class istream_limit_base {
+	template<class Base, AsyncInputStream Stream>
+	class istream_limit_base : public Base {
 	protected:
-		using char_type = typename Stream::char_type;
-
 		Stream _stream;
 		std::size_t _limit;
 
 	public:
+		using char_type = typename Stream::char_type;
+
 		istream_limit_base(Stream&& stream, std::size_t limit) : _stream(std::move(stream)) {
 			_limit = limit;
 		}
@@ -82,24 +82,28 @@ namespace cobra {
 	};
 
 	template<AsyncInputStream Stream>
-	class istream_limit : public basic_istream_impl<istream_limit<Stream>, typename Stream::char_type, typename Stream::traits_type>, public istream_limit_base<Stream> {
+	class istream_limit : public istream_limit_base<basic_istream_impl<istream_limit<Stream>, typename Stream::char_type, typename Stream::traits_type>, Stream> {
 	public:
-		istream_limit(Stream&& stream, std::size_t limit) : istream_limit_base<Stream>(std::move(stream), limit) {
+		istream_limit(Stream&& stream, std::size_t limit) : istream_limit_base<basic_istream_impl<istream_limit<Stream>, typename Stream::char_type, typename Stream::traits_type>, Stream>(std::move(stream), limit) {
 		}
 	};
 
 	template<AsyncBufferedInputStream Stream>
-	class istream_limit<Stream> : public basic_buffered_istream_impl<istream_limit<Stream>, typename Stream::char_type, typename Stream::traits_type>, public istream_limit_base<Stream> {
+	class istream_limit<Stream> : public istream_limit_base<basic_buffered_istream_impl<istream_limit<Stream>, typename Stream::char_type, typename Stream::traits_type>, Stream> {
 	public:
-		using base = istream_limit_base<Stream>;
+		using base = istream_limit_base<basic_buffered_istream_impl<istream_limit<Stream>, typename Stream::char_type, typename Stream::traits_type>, Stream>;
 		using typename base::char_type;
 
-		istream_limit(Stream&& stream, std::size_t limit) : istream_limit_base<Stream>(std::move(stream), limit) {
+		istream_limit(Stream&& stream, std::size_t limit) : istream_limit_base<basic_buffered_istream_impl<istream_limit<Stream>, typename Stream::char_type, typename Stream::traits_type>, Stream>(std::move(stream), limit) {
 		}
 
 		task<std::pair<const char_type*, std::size_t>> fill_buf() {
-			auto [buffer, size] = co_await base::_stream.fill_buf();
-			co_return { buffer, std::min(size, base::_limit) };
+			if (base::_limit > 0) {
+				auto [buffer, size] = co_await base::_stream.fill_buf();
+				co_return { buffer, std::min(size, base::_limit) };
+			} else {
+				co_return { nullptr, 0 };
+			}
 		}
 
 		void consume(std::size_t size) {
@@ -159,15 +163,15 @@ namespace cobra {
 		}
 	};
 
-	template<AsyncOutputStream Stream>
-	class ostream_limit_base {
+	template<class Base, AsyncOutputStream Stream>
+	class ostream_limit_base : public Base {
 	protected:
-		using char_type = typename Stream::char_type;
-
 		Stream _stream;
 		std::size_t _limit;
 
 	public:
+		using char_type = typename Stream::char_type;
+
 		ostream_limit_base(Stream&& stream, std::size_t limit) : _stream(std::move(stream)) {
 			_limit = limit;
 		}
@@ -185,16 +189,16 @@ namespace cobra {
 	};
 
 	template<AsyncOutputStream Stream>
-	class ostream_limit : public basic_buffered_ostream_impl<ostream_limit<Stream>, typename Stream::char_type, typename Stream::traits_type>, public ostream_limit_base<Stream> {
+	class ostream_limit : public ostream_limit_base<basic_ostream_impl<ostream_limit<Stream>, typename Stream::char_type, typename Stream::traits_type>, Stream> {
 	public:
-		ostream_limit(Stream&& stream, std::size_t limit) : ostream_limit_base<Stream>(std::move(stream), limit) {
+		ostream_limit(Stream&& stream, std::size_t limit) : ostream_limit_base<basic_ostream_impl<ostream_limit<Stream>, typename Stream::char_type, typename Stream::traits_type>, Stream>(std::move(stream), limit) {
 		}
 	};
 
 	template<AsyncBufferedOutputStream Stream>
-	class ostream_limit<Stream> : public basic_ostream_impl<ostream_limit<Stream>, typename Stream::char_type, typename Stream::traits_type>, public ostream_limit_base<Stream> {
+	class ostream_limit<Stream> : public ostream_limit_base<basic_buffered_ostream_impl<ostream_limit<Stream>, typename Stream::char_type, typename Stream::traits_type>, Stream> {
 	public:
-		ostream_limit(Stream&& stream, std::size_t limit) : ostream_limit_base<Stream>(std::move(stream), limit) {
+		ostream_limit(Stream&& stream, std::size_t limit) : ostream_limit_base<basic_buffered_ostream_impl<ostream_limit<Stream>, typename Stream::char_type, typename Stream::traits_type>, Stream>(std::move(stream), limit) {
 		}
 	};
 }

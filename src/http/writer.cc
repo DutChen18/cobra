@@ -11,18 +11,65 @@ namespace cobra {
 		}
 	}
 
+	void http_server_logger::set_socket(const socket_stream& socket) {
+		_socket = &socket;
+	}
+
+	void http_server_logger::set_request(const http_request& request) {
+		_request = &request;
+	}
+
+	void http_server_logger::log(const http_response& response) {
+		term::control ctrl;
+
+		if (response.code() / 100 == 1) {
+			ctrl |= term::fg_cyan();
+		} else if (response.code() / 100 == 2) {
+			ctrl |= term::fg_green();
+		} else if (response.code() / 100 == 3) {
+			ctrl |= term::fg_yellow();
+		} else if (response.code() / 100 == 4) {
+			ctrl |= term::fg_red();
+		} else if (response.code() / 100 == 5) {
+			ctrl |= term::fg_magenta();
+		}
+
+		print("{}[{}]", ctrl, response.code());
+
+		if (_socket) {
+			print(" {}", _socket->peername().string());
+		}
+
+		if (_request) {
+			if (_socket) {
+				print(" ->");
+			}
+
+			print(" {} {}", _request->method(), _request->uri().string());
+		}
+
+		println("{}", term::reset());
+	}
+
 	http_request_writer::http_request_writer(buffered_ostream_reference stream) : _stream(stream) {
 	}
 
-	task<http_ostream> http_request_writer::send(const http_request& request)&& {
+	task<http_ostream> http_request_writer::send(http_request request)&& {
 		co_await write_http_request(_stream, request);
 		co_return to_stream(_stream, request);
 	}
 
-	http_response_writer::http_response_writer(buffered_ostream_reference stream) : _stream(stream) {
+	http_response_writer::http_response_writer(buffered_ostream_reference stream, http_server_logger* logger) : _stream(stream), _logger(logger) {
 	}
 
-	task<http_ostream> http_response_writer::send(const http_response& response)&& {
+	// TODO: implement keep-alive
+	task<http_ostream> http_response_writer::send(http_response response)&& {
+		response.set_header("Connection", "close");
+
+		if (_logger) {
+			_logger->log(response);
+		}
+
 		co_await write_http_response(_stream, response);
 		co_return to_stream(_stream, response);
 	}

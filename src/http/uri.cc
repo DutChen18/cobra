@@ -55,7 +55,11 @@ namespace cobra {
 			result += "/" + hexify(segment, is_uri_segment);
 		}
 
-		return result;
+		if (result.size() == 0) {
+			return "/";
+		} else {
+			return result;
+		}
 	};
 
 	uri_origin::uri_origin(uri_abs_path path, std::optional<uri_query> query) : _path(std::move(path)), _query(std::move(query)) {

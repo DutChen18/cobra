@@ -29,6 +29,8 @@ namespace cobra {
 		inline std::size_t len() const {
 			return _len;
 		}
+
+		std::string string() const;
 	};
 
 	class address_info {

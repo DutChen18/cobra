@@ -51,6 +51,28 @@ namespace cobra {
 		const cgi_address* addr() const;
 	};
 
+	class redirect_config {
+		http_response_code _code;
+		std::string _root;
+
+	public:
+		redirect_config(http_response_code code, std::string root);
+
+		http_response_code code() const;
+		const std::string& root() const;
+	};
+
+	class proxy_config {
+		std::string _node;
+		std::string _service;
+
+	public:
+		proxy_config(std::string node, std::string service);
+
+		const std::string& node() const;
+		const std::string& service() const;
+	};
+
 	template <class T>
 	class handle_context {
 		event_loop* _loop;
@@ -92,6 +114,7 @@ namespace cobra {
 
 	task<void> handle_static(http_response_writer writer, const handle_context<static_config>& context);
 	task<void> handle_cgi(http_response_writer writer, const handle_context<cgi_config>& context);
+	task<void> handle_redirect(http_response_writer writer, const handle_context<redirect_config>& context);
 }
 
 #endif

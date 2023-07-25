@@ -11,6 +11,7 @@
 #include <memory>
 #include <optional>
 #include <queue>
+#include <cassert>
 #include <ranges>
 #include <stdexcept>
 #include <unordered_map>
@@ -84,20 +85,25 @@ namespace cobra {
 		  _address(std::move(address)), _exec(exec), _loop(loop) {}
 
 	task<void> server::on_connect(socket_stream socket) {
-		std::cout << "connect" << std::endl;
 		istream_buffer socket_istream(make_istream_ref(socket), 1024);
 		ostream_buffer socket_ostream(make_ostream_ref(socket), 1024);
+		http_server_logger logger;
+		http_response_writer writer(socket_ostream, &logger);
+		logger.set_socket(socket);
 
+		http_request request("GET", parse_uri("/", "GET"));
 		std::optional<http_parse_error> error;
 		bool unknown_error = false;
 
 		try {
-			http_request request = co_await parse_http_request(socket_istream);
+			request = co_await parse_http_request(socket_istream);
+			logger.set_request(request);
 
 			const uri_origin* org = request.uri().get<uri_origin>();
 			if (!org) {
 				eprintln("request did not contain uri_origin");
-				co_return co_await write_http_response(socket_ostream, http_response({1,1}, 400, "Bad request"));
+				co_await std::move(writer).send(HTTP_BAD_REQUEST);
+				co_return;
 			}
 			const uri_abs_path normalized = org->path().normalize();
 
@@ -105,10 +111,11 @@ namespace cobra {
 
 			if (!filter || !filter->config().handler) {
 				std::cerr << "no filter or handler found" << std::endl;
-				co_return co_await write_http_response(socket_ostream, http_response({1, 1}, 404, "Not found"));
+				co_await std::move(writer).send(HTTP_NOT_FOUND);
+				co_return;
 			}
 
-			co_await handle_request(*filter, request, normalized, socket_istream, socket_ostream);
+			co_await handle_request(*filter, request, normalized, socket_istream, std::move(writer));
 			// co_await (*handler)(std::move(writer), std::move(request), buffered_istream_reference(socket_istream));
 			// TODO limit socket_istream to client content-length
 		} catch (http_parse_error err) {
@@ -122,18 +129,17 @@ namespace cobra {
 		}
 
 		if (error) {
-			co_await write_http_response(socket_ostream, http_response({1, 1}, 400, "Bad request"));
+			co_await std::move(writer).send(HTTP_BAD_REQUEST);
+			co_return;
 		} else if (unknown_error) {
-			co_await write_http_response(socket_ostream, http_response({1, 1}, 500, "Internal server error"));
+			co_await std::move(writer).send(HTTP_INTERNAL_SERVER_ERROR);
+			co_return;
 		}
 	}
 
 	task<void> server::handle_request(const http_filter& filt, const http_request& request, const uri_abs_path& normalized,
-									  buffered_istream_reference in, buffered_ostream_reference out) {
-		http_response_writer writer(out);
-		eprintln("match count: {}", filt.match_count());
+									  buffered_istream_reference in, http_response_writer writer) {
 		// TODO write headers set in config
-		std::cout << "path: " << request.uri().string() << std::endl;
 		// TODO properly match uri
 		//
 		fs::path file("/");
@@ -141,13 +147,27 @@ namespace cobra {
 			file.append(normalized[i]);
 		}
 
-		co_await handle_static(std::move(writer),
-							   {_loop,
-								_exec,
-								file.string(),
-								{std::get<config::static_file_config>(*filt.config().handler).root.path},
-								request,
-								in});
+		//TODO do properly: https://datatracker.ietf.org/doc/html/rfc9112#name-message-body-length
+		//TODO utility file for int parsing etc..
+		std::size_t content_length = request.has_header("content-length") ? std::stoull(request.header("content-length")) : 0;
+		auto limited_stream = istream_limit(std::move(in), content_length);
+
+		if (std::holds_alternative<config::cgi_config>(*filt.config().handler)) {
+			auto cfg = std::get<config::cgi_config>(*filt.config().handler);
+			co_await handle_cgi(std::move(writer),
+								{_loop, _exec, file.string(),//TODO avoid duplicating strings
+								 cgi_config(cfg.root.path.string(), cgi_command(cfg.command)), request, limited_stream});
+		} else if (std::holds_alternative<config::static_file_config>(*filt.config().handler)) {
+			co_await handle_static(std::move(writer),
+								   {_loop,
+									_exec,
+									file.string(),
+									{std::get<config::static_file_config>(*filt.config().handler).root.path},
+									request,
+									limited_stream});
+		} else {
+			assert(0 && "unimplemented");
+		}
 	}
 
 	task<void> server::start(executor* exec, event_loop* loop) {

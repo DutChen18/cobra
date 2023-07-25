@@ -52,7 +52,7 @@ namespace cobra {
 
 	private:
 		task<void> on_connect(socket_stream socket);
-		task<void> handle_request(const http_filter& config, const http_request& request, const uri_abs_path& normalized, buffered_istream_reference in, buffered_ostream_reference out);
+		task<void> handle_request(const http_filter& config, const http_request& request, const uri_abs_path& normalized, buffered_istream_reference in, http_response_writer writer);
 	};
 }
 

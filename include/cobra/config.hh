@@ -35,12 +35,13 @@
 	X(max_body_size)                                                                                                   \
 	X(location)                                                                                                        \
 	X(index)                                                                                                           \
-	X(server_name)                                                                                                     \
+	X(cgi)                                                                                                             \
 	X(root)
 
 #define COBRA_SERVER_KEYWORDS                                                                                          \
 	X(listen)                                                                                                          \
 	X(ssl)                                                                                                             \
+	X(server_name)                                                                                                     \
 	COBRA_BLOCK_KEYWORDS
 
 namespace cobra {
@@ -49,27 +50,28 @@ namespace cobra {
 
 	namespace config {
 
+
 		//TODO multiline diagnostics
 		struct buf_pos {
 			std::size_t line;
 			std::size_t col;
-			std::size_t length;
 
 			buf_pos() = delete;
 			constexpr buf_pos(std::size_t line, std::size_t col) noexcept;
-			constexpr buf_pos(std::size_t line, std::size_t col, std::size_t length) noexcept;
 		};
 
-		struct file_part : public buf_pos {
+		struct file_part {
 			std::optional<fs::path> file;
+			buf_pos start, end;
 
 			file_part() = delete;
+			file_part(std::optional<fs::path> file, buf_pos start, buf_pos end);
 			file_part(std::optional<fs::path> file, std::size_t line, std::size_t col);
 			file_part(std::optional<fs::path> file, std::size_t line, std::size_t col, std::size_t length);
-			file_part(fs::path file, std::size_t line, std::size_t col);
-			file_part(fs::path file, std::size_t line, std::size_t col, std::size_t length);
 			file_part(std::size_t line, std::size_t col);
 			file_part(std::size_t line, std::size_t col, std::size_t length);
+
+			inline bool is_multiline() const { return start.line != end.line; }
 		};
 
 		struct diagnostic {
@@ -92,6 +94,10 @@ namespace cobra {
 					   std::string secondary_label);
 
 			std::ostream& print(std::ostream& out, const std::vector<std::string>& lines) const;
+		private:
+			std::ostream& print_single(std::ostream& out, const std::vector<std::string>& lines) const;
+			std::ostream& print_multi(std::ostream& out, const std::vector<std::string>& lines) const;
+		public:
 
 			inline static diagnostic error(file_part part, std::string message,
 										   std::string primary_label = std::string(),
@@ -343,7 +349,16 @@ namespace cobra {
 			}
 		};
 
-		struct cgi_config {};
+		struct cgi_config {
+			config_path root;
+			std::string command;
+
+			inline static cgi_config parse(parse_session& session) {
+				config_path root = config_path::parse(session);
+				session.ignore_ws();
+				return {std::move(root), session.get_word()};
+			}
+		};
 
 		struct server_name {
 			std::string name;
@@ -407,6 +422,7 @@ namespace cobra {
 			void parse_max_body_size(parse_session& session);
 			void parse_location(parse_session& session);
 			void parse_root(parse_session& session);
+			void parse_cgi(parse_session& session);
 			void parse_index(parse_session& session);
 			void parse_server_name(parse_session& session);
 
@@ -445,7 +461,7 @@ namespace cobra {
 
 			std::optional<std::size_t> max_body_size;
 			std::optional<fs::path> index;
-			std::optional<std::variant<static_file_config, cgi_config>> handler;
+			std::optional<std::variant<static_file_config, cgi_config>> handler;//TODO use configs from handler.hh
 			std::unordered_set<http_request_method> methods;
 			std::unordered_set<std::string> server_names;
 			std::vector<std::shared_ptr<config>> sub_configs;

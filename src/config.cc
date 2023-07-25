@@ -27,26 +27,20 @@
 namespace cobra {
 
 	namespace config {
-		constexpr buf_pos::buf_pos(std::size_t line, std::size_t col) noexcept : buf_pos(line, col, 1) {}
-
-		constexpr buf_pos::buf_pos(std::size_t line, std::size_t col, std::size_t length) noexcept
-			: line(line), col(col), length(length) {}
+		constexpr buf_pos::buf_pos(std::size_t line, std::size_t col) noexcept : line(line), col(col) {}
 
 		file_part::file_part(std::optional<fs::path> file, std::size_t line, std::size_t col)
 			: file_part(std::move(file), line, col, 1) {}
 
+		file_part::file_part(std::optional<fs::path> file, buf_pos start, buf_pos end) : file(std::move(file)), start(start), end(end) {}
+
 		file_part::file_part(std::optional<fs::path> file, std::size_t line, std::size_t col, std::size_t length)
-			: buf_pos(line, col, length), file(std::move(file)) {}
-
-		file_part::file_part(fs::path file, std::size_t line, std::size_t col) : file_part(file, line, col, 1) {}
-
-		file_part::file_part(fs::path file, std::size_t line, std::size_t col, std::size_t length)
-			: buf_pos(line, col, length), file(std::move(file)) {}
+			: file_part(std::move(file), {line, col}, {line, col + length}) {}
 
 		file_part::file_part(std::size_t line, std::size_t col) : file_part(line, col, 1) {}
 
 		file_part::file_part(std::size_t line, std::size_t col, std::size_t length)
-			: buf_pos(line, col, length), file() {}
+			: file_part(std::nullopt, line, col, length) {}
 
 		diagnostic::diagnostic(level lvl, file_part part, std::string message) : diagnostic(lvl, part, message, "") {}
 
@@ -58,6 +52,72 @@ namespace cobra {
 			: lvl(lvl), part(std::move(part)), message(std::move(message)), primary_label(std::move(primary_label)),
 			  secondary_label(std::move(secondary_label)) {}
 
+		std::ostream& diagnostic::print_single(std::ostream& out, const std::vector<std::string>& lines) const {
+			const std::size_t line_num = part.start.line;
+			const std::string line = std::format("{}", line_num + 1);
+
+			cobra::println(out, "{}{} |{} ", term::fg_blue() | term::set_bold(), std::string(line.length(), ' '),
+						   term::reset());
+			cobra::print(out, "{}{} |{} ", term::fg_blue() | term::set_bold(), line, term::reset());
+
+			for (auto&& ch : lines.at(line_num)) {
+				if (ch == '\t') {
+					out << ' ';
+				} else {
+					out << ch;
+				}
+			}
+
+			const std::size_t col = part.start.col;
+			const std::size_t length = part.end.col - part.start.col;
+
+			out << std::endl;
+			cobra::println(out, "{}{} |{} {}{}{}{}{}", term::fg_blue() | term::set_bold(),
+						   std::string(line.length(), ' '), term::reset(), std::string(col, ' '),
+						   get_control(lvl) | term::set_bold(), std::string(length, '^'), term::reset(),
+						   secondary_label);
+			if (!primary_label.empty()) {
+				cobra::println(out, "{}{} |{} {}{}|{}", term::fg_blue() | term::set_bold(),
+							   std::string(line.length(), ' '), term::reset(), std::string(col, ' '),
+							   get_control(lvl) | term::set_bold(), term::reset());
+				cobra::println(out, "{}{} |{} {}{}{}{}", term::fg_blue() | term::set_bold(),
+							   std::string(line.length(), ' '), term::reset(), std::string(col, ' '),
+							   get_control(lvl) | term::set_bold(), primary_label, term::reset());
+			}
+			return out;
+		}
+
+		std::ostream& diagnostic::print_multi(std::ostream& out, const std::vector<std::string>& lines) const {
+			std::size_t max_length = 0;
+			for (std::size_t line_num = part.start.line; line_num <= part.end.line; ++line_num) {
+				const std::string& line = lines.at(line_num);
+				if (line.length() > max_length)
+					max_length = line.length();
+			}
+
+			/*
+			const std::size_t line_length = std::format("{}", part.end.line).length();
+			const std::size_t max_col_length = 80;
+
+			for (std::size_t line_num = part.start.line; line_num <= part.end.line; ++line_num) {
+				const std::string& line = lines.at(line_num);
+				std::size_t start = 0;
+				std::size_t end  = line.length();
+
+				if (max_length > max_col_length) {
+
+				}
+				if (line.length() < max_length) {
+
+				}
+				cobra::println(out, "{}{{}} |{} {}{}|{}", term::fg_blue() | term::set_bold(),
+							   line_num, line_length, term::reset(), std::string(col, ' '),
+							   get_control(lvl) | term::set_bold(), term::reset());
+			}*/
+
+			return out;
+		}
+
 		std::ostream& diagnostic::print(std::ostream& out, const std::vector<std::string>& lines) const {
 			cobra::println(out, "{}{}{}{}: {}{}", get_control(lvl) | term::set_bold(), lvl, term::reset(), term::set_bold(), message,
 						   term::reset());
@@ -67,32 +127,12 @@ namespace cobra {
 				file = part.file->string();
 			}
 			cobra::println(out, " {}-->{} {}:{}:{}", term::fg_blue() | term::set_bold(), term::reset(), file,
-						   part.line + 1, part.col + 1);
+						   part.start.line + 1, part.start.col + 1);
 
-			const std::string line = std::format("{}", part.line + 1);
-			cobra::println(out, "{}{} |{} ", term::fg_blue() | term::set_bold(), std::string(line.length(), ' '),
-						   term::reset());
-			cobra::print(out, "{}{} |{} ", term::fg_blue() | term::set_bold(), line, term::reset());
-
-			for (auto&& ch : lines.at(part.line)) {
-				if (ch == '\t') {
-					out << ' ';
-				} else {
-					out << ch;
-				}
-			}
-			out << std::endl;
-			cobra::println(out, "{}{} |{} {}{}{}{}{}", term::fg_blue() | term::set_bold(),
-						   std::string(line.length(), ' '), term::reset(), std::string(part.col, ' '),
-						   get_control(lvl) | term::set_bold(), std::string(part.length, '^'), term::reset(),
-						   secondary_label);
-			if (!primary_label.empty()) {
-				cobra::println(out, "{}{} |{} {}{}|{}", term::fg_blue() | term::set_bold(),
-							   std::string(line.length(), ' '), term::reset(), std::string(part.col, ' '),
-							   get_control(lvl) | term::set_bold(), term::reset());
-				cobra::println(out, "{}{} |{} {}{}{}{}", term::fg_blue() | term::set_bold(),
-							   std::string(line.length(), ' '), term::reset(), std::string(part.col, ' '),
-							   get_control(lvl) | term::set_bold(), primary_label, term::reset());
+			if (part.is_multiline()) {
+				print_multi(out, lines);
+			} else {
+				print_single(out, lines);
 			}
 
 			for (auto&& diag : sub_diags) {
@@ -365,7 +405,7 @@ namespace cobra {
 																"consider listening to another address");
 							diag.sub_diags.push_back(
 								diagnostic::note(it->second, "previously listened to here without ssl"));
-							throw diag;
+							throw error(diag);
 						}
 						ssl_ports.insert({address, config._ssl->part});
 					}
@@ -378,7 +418,7 @@ namespace cobra {
 																"consider listening to another address");
 							diag.sub_diags.push_back(
 								diagnostic::note(it->second, "previously listened to here with ssl"));
-							throw diag;
+							throw error(diag);
 						}
 						plain_ports.insert({address, address.part});
 					}
@@ -395,28 +435,24 @@ namespace cobra {
 				}
 			}
 
-			//TODO only check in (sub)configs that have handlers
-
 			for (auto& [address, configs] : servers) {
 				if (configs.size() < 2)
 					continue;
-				std::unordered_set<std::string_view> names;
-				std::size_t total_count = 0;
+				std::unordered_map<std::string_view, file_part> names;
 
 				for (auto& config : configs) {
 					if (config.get()._server_names.empty()) {
-						names.insert(std::string_view());
-						total_count += 1;
 					}
 
-					for (auto& [name,_] : config.get()._server_names) {
-						names.insert(name);
-						total_count += 1;
+					for (auto& [name, part] : config.get()._server_names) {
+						auto [it, inserted] = names.insert({name, part});
+						
+						if (!inserted) {
+							diagnostic diag = diagnostic::error(part, "ambigious server", "another config has the same server_name");
+							diag.sub_diags.push_back(diagnostic::note(it->second, "previously specified here"));
+							throw error(diag);
+						}
 					}
-				}
-				if (names.size() < total_count) {
-					std::cerr << "ambigious servers" << std::endl;
-					//TODO print pretty diagnostic
 				}
 			}
 		}
@@ -444,9 +480,7 @@ namespace cobra {
 				return listen_address(std::move(node), parse_unsigned<port>(word.substr(pos)));
 			} catch (error err) {
 				err.diag().message = "invalid port";
-				err.diag().part.line = line;
-				err.diag().part.col = port_start;
-				err.diag().part.length = word.length();
+				err.diag().part = file_part(session.file(), line, port_start, word.length());
 				throw err;
 			}
 		}
@@ -522,9 +556,7 @@ namespace cobra {
 				_max_body_size = define<std::size_t>(limit, file_part(session.file(), line, define_start, len));//TODO use parse_define
 			} catch (error err) {
 				err.diag().message = "invalid max_body_size";
-				err.diag().part.line = line;
-				err.diag().part.col = col;
-				err.diag().part.length = word.length();
+				err.diag().part = file_part(session.file(), line, col, word.length());
 				throw err;
 			}
 		}
@@ -556,6 +588,16 @@ namespace cobra {
 			}
 
 			_filters.push_back({std::move(def.def), std::move(block)});
+		}
+
+		void block_config::parse_cgi(parse_session& session) {
+			define<cgi_config> def = parse_define<cgi_config>(session, "cgi");
+			if (_handler) {//TODO dry
+				diagnostic diag = diagnostic::warn(def.part, "redefinition of request handler");
+				diag.sub_diags.push_back(diagnostic::note(_handler->part, "previously defined here"));
+				diag.print(std::cerr, session.lines());
+			}
+			_handler = std::move(def);
 		}
 
 		void block_config::parse_root(parse_session& session) {
@@ -596,7 +638,7 @@ namespace cobra {
 			if (!inserted) {
 				diagnostic diag = diagnostic::warn(def.part, "duplicate server_name");
 				diag.sub_diags.push_back(diagnostic::note(it->second, "previously defined here"));
-				diag.print(std::cerr, session.lines());
+				session.print_diagnostic(std::cerr, diag);
 			}
 		}
 

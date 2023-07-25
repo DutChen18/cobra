@@ -84,7 +84,7 @@ namespace cobra {
 			constexpr color() : color(color_mode::keep) {
 			}
 
-			constexpr color(color_mode mode) : _mode(mode) {
+			constexpr color(color_mode mode) : _mode(mode), _val { 0, 0, 0 } {
 			}
 
 			constexpr color(color_mode mode, channel_t val) : _mode(mode), _val { val, val, val } {
