@@ -172,16 +172,39 @@ namespace cobra {
 			return result;
 		}
 
+		class parse_session;
+
+		class diagnostic_reporter {
+		public:
+			inline virtual ~diagnostic_reporter() {}
+			virtual void report(const diagnostic& diag, const parse_session& session) = 0;
+		};
+
+		class basic_diagnostic_reporter : public diagnostic_reporter {
+			bool _print;
+			std::vector<diagnostic> _diags;
+
+		public:
+			basic_diagnostic_reporter(bool print);
+
+			void report(const diagnostic& diag, const parse_session& session) override;
+
+			inline const std::vector<diagnostic>& get_diags() const {
+				return _diags;
+			}
+		};
+
 		class parse_session {
 			std::istream& _stream;
 			std::vector<std::string> _lines;
+			diagnostic_reporter* _reporter;
 
 			std::optional<fs::path> _file;
 			std::size_t _col_num;
 
 		public:
 			parse_session() = delete;
-			parse_session(std::istream& stream);
+			parse_session(std::istream& stream, diagnostic_reporter& reporter);
 
 			std::optional<int> peek();
 			std::optional<int> get();
@@ -204,6 +227,10 @@ namespace cobra {
 				return _lines;
 			}
 
+			inline void report(const diagnostic& diag) const {
+				_reporter->report(diag, *this);
+			}
+
 			inline bool eof() const { return _stream.eof(); }
 
 			inline diagnostic make_error(std::size_t line, std::size_t col, std::size_t length, std::string message,
@@ -217,10 +244,6 @@ namespace cobra {
 										std::string secondary_label = std::string()) const {
 				return diagnostic::warn(file_part(file(), line, col, length), std::move(message),
 										std::move(primary_label), std::move(secondary_label));
-			}
-
-			inline std::ostream& print_diagnostic(std::ostream& stream, const diagnostic& diag) const {
-				return diag.print(stream, lines());
 			}
 
 		private:
@@ -481,6 +504,7 @@ namespace cobra {
 		class server : public config {
 		public:
 			std::vector<listen_address> addresses;
+			std::optional<ssl_config> ssl;
 
 			server(const server_config& cfg);
 		};

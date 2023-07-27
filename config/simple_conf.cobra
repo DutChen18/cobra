@@ -1,0 +1,11 @@
+server {
+	listen 127.0.0.1:7070
+
+	location / {
+		cgi /home/codam/cobra/cgi /usr/bin/php-cgi
+	}
+
+	location / {
+		cgi /home/codam/cobra/cgi /usr/bin/php-cgi
+	}
+}

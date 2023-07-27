@@ -125,6 +125,7 @@ namespace cobra {
 
 	public:
 		http_response(http_version version, http_response_code code, http_response_reason reason);
+		http_response(http_response_code code, http_response_reason reason);
 		http_response(http_response_code code);
 
 		const http_response_code& code() const;

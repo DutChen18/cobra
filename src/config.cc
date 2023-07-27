@@ -164,9 +164,20 @@ namespace cobra {
 		}
 
 		error::error(diagnostic diag) : std::runtime_error(diag.message), _diag(diag) {}
+		
+		basic_diagnostic_reporter::basic_diagnostic_reporter(bool print) : _print(print) {
+		}
 
-		parse_session::parse_session(std::istream& stream)
-			: _stream(stream), _lines(), _file(), _col_num(0) {
+		void basic_diagnostic_reporter::report(const diagnostic& diag, const parse_session& session) {
+			if (_print) {
+				diag.print(std::cerr, session.lines());
+			}
+
+			_diags.push_back(diag);
+		}
+
+		parse_session::parse_session(std::istream& stream, diagnostic_reporter& reporter)
+			: _stream(stream), _lines(), _reporter(&reporter), _file(), _col_num(0) {
 			_stream.exceptions(std::ios::badbit);
 		}
 
@@ -550,7 +561,7 @@ namespace cobra {
 				if (_max_body_size) {
 					diagnostic diag = session.make_warn(line, define_start, len, "redefinition of max_body_size");
 					diag.sub_diags.push_back(diagnostic::note(_max_body_size->part, "previously defined here"));
-					diag.print(std::cerr, session.lines());
+					session.report(diag);
 				}
 
 				_max_body_size = define<std::size_t>(limit, file_part(session.file(), line, define_start, len));//TODO use parse_define
@@ -584,7 +595,7 @@ namespace cobra {
 					diag.sub_diags.push_back(
 						diagnostic::note(it->second.part, "because a less strict filter defined earlier here"));
 				}
-				diag.print(std::cerr, session.lines());
+				session.report(diag);
 			}
 
 			_filters.push_back({std::move(def.def), std::move(block)});
@@ -595,7 +606,7 @@ namespace cobra {
 			if (_handler) {//TODO dry
 				diagnostic diag = diagnostic::warn(def.part, "redefinition of request handler");
 				diag.sub_diags.push_back(diagnostic::note(_handler->part, "previously defined here"));
-				diag.print(std::cerr, session.lines());
+				session.report(diag);
 			}
 			_handler = std::move(def);
 		}
@@ -605,7 +616,7 @@ namespace cobra {
 			if (_handler) {
 				diagnostic diag = diagnostic::warn(def.part, "redefinition of request handler");
 				diag.sub_diags.push_back(diagnostic::note(_handler->part, "previously defined here"));
-				diag.print(std::cerr, session.lines());
+				session.report(diag);
 			}
 			_handler = std::move(def);
 		}
@@ -615,7 +626,7 @@ namespace cobra {
 			if (_index) {
 				diagnostic diag = diagnostic::warn(def.part, "redefinition of index");
 				diag.sub_diags.push_back(diagnostic::note(_index->part, "previously defined here"));
-				diag.print(std::cerr, session.lines());
+				session.report(diag);
 			}
 			_index = std::move(def);
 		}
@@ -627,7 +638,7 @@ namespace cobra {
 			if (!inserted) {
 				diagnostic diag = diagnostic::warn(def.part, "duplicate listen");
 				diag.sub_diags.push_back(diagnostic::note(it->part, "previously defined here"));
-				diag.print(std::cerr, session.lines());
+				session.report(diag);
 			}
 		}
 
@@ -638,7 +649,7 @@ namespace cobra {
 			if (!inserted) {
 				diagnostic diag = diagnostic::warn(def.part, "duplicate server_name");
 				diag.sub_diags.push_back(diagnostic::note(it->second, "previously defined here"));
-				session.print_diagnostic(std::cerr, diag);
+				session.report(diag);
 			}
 		}
 
@@ -684,7 +695,7 @@ namespace cobra {
 		config::config(const block_config& cfg) : config(nullptr, cfg) {}
 		config::~config() {}
 
-		server::server(const server_config& cfg) : config(cfg) {
+		server::server(const server_config& cfg) : config(cfg), ssl(cfg._ssl) {
 			for (auto& address : cfg._addresses) {
 				addresses.push_back(address);
 			}

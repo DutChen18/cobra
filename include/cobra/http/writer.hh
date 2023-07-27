@@ -11,11 +11,11 @@ namespace cobra {
 	using http_ostream = ostream_variant<buffered_ostream_reference, ostream_limit<buffered_ostream_reference>>;
 
 	class http_server_logger {
-		const socket_stream* _socket = nullptr;
+		const basic_socket_stream* _socket = nullptr;
 		const http_request* _request = nullptr;
 
 	public:
-		void set_socket(const socket_stream& socket);
+		void set_socket(const basic_socket_stream& socket);
 		void set_request(const http_request& request);
 
 		void log(const http_response& response);

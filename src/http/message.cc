@@ -123,6 +123,9 @@ namespace cobra {
 	http_response::http_response(http_version version, http_response_code code, http_response_reason reason) : http_message(std::move(version)), _code(std::move(code)), _reason(std::move(reason)) {
 	}
 
+	http_response::http_response(http_response_code code, http_response_reason reason) : http_response({ 1, 1 }, code, std::move(reason)) {
+	}
+
 	static http_response_reason get_response_reason(http_response_code code) {
 		switch (code) {
 		case 200:
@@ -214,7 +217,7 @@ namespace cobra {
 		}
 	}
 
-	http_response::http_response(http_response_code code) : http_response({ 1, 1 }, code, get_response_reason(code)) {
+	http_response::http_response(http_response_code code) : http_response(code, get_response_reason(code)) {
 	}
 
 	const http_response_code& http_response::code() const {

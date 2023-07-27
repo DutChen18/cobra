@@ -37,21 +37,20 @@ namespace cobra {
 
 	class server : public http_filter {
 		config::listen_address _address;
+		std::optional<ssl_ctx> _ssl_ctx;
 		executor* _exec;
 		event_loop* _loop;
 
 		server() = delete;
-		server(config::listen_address address, std::vector<http_filter> handlers, executor* exec, event_loop* loop);
+		server(config::listen_address address, std::optional<ssl_ctx> ctx, std::vector<http_filter> handlers, executor* exec, event_loop* loop);
 	public:
 		task<void> start(executor* exec, event_loop *loop);
 
-		static std::vector<server> convert(std::shared_ptr<const config::server> config, executor* exec,
-										   event_loop* loop);
 		static std::vector<server> convert(const std::vector<std::shared_ptr<config::server>>& configs,
 										   executor* exec, event_loop* loop);
 
 	private:
-		task<void> on_connect(socket_stream socket);
+		task<void> on_connect(basic_socket_stream& socket);
 		task<void> handle_request(const http_filter& config, const http_request& request, const uri_abs_path& normalized, buffered_istream_reference in, http_response_writer writer);
 	};
 }

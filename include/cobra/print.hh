@@ -6,6 +6,7 @@
 #include <format>
 #include <iostream>
 #include <cstdint>
+#include <iomanip>
 
 namespace cobra {
 	template <class... Args>
@@ -42,6 +43,12 @@ namespace cobra {
 	template <class... Args>
 	std::ostream& eprintln(std::format_string<Args...> fmt, Args&&... args) {
 		return println(std::cerr, fmt, std::forward<Args>(args)...);
+	}
+
+	inline std::string quoted(std::string_view string) {
+		std::stringstream ss;
+		ss << std::quoted(string);
+		return ss.str();
 	}
 
 	namespace term {

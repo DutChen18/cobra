@@ -1,12 +1,12 @@
+use serde_json::Value;
 use std::collections::VecDeque;
+use std::fs::File;
+use std::process::Stdio;
+use tokio::io::AsyncWriteExt;
+use tokio::process::Command;
 use tower_lsp::jsonrpc;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
-use tokio::process::Command;
-use std::process::Stdio;
-use std::fs::File;
-use serde_json::Value;
-use tokio::io::AsyncWriteExt;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -18,22 +18,46 @@ struct Backend {
 fn get_range(value: &Value) -> Result<Range> {
     let start = value.get("start").ok_or("missing start")?;
     let end = value.get("end").ok_or("missing end")?;
-    let start_line = start.get("line").and_then(Value::as_u64).ok_or("bad start line")?;
-    let start_col = start.get("col").and_then(Value::as_u64).ok_or("bad start column")?;
-    let end_line = end.get("line").and_then(Value::as_u64).ok_or("bad end line")?;
-    let end_col = end.get("col").and_then(Value::as_u64).ok_or("bad end column")?;
+    let start_line = start
+        .get("line")
+        .and_then(Value::as_u64)
+        .ok_or("bad start line")?;
+    let start_col = start
+        .get("col")
+        .and_then(Value::as_u64)
+        .ok_or("bad start column")?;
+    let end_line = end
+        .get("line")
+        .and_then(Value::as_u64)
+        .ok_or("bad end line")?;
+    let end_col = end
+        .get("col")
+        .and_then(Value::as_u64)
+        .ok_or("bad end column")?;
     let start = Position::new(start_line.try_into()?, start_col.try_into()?);
     let end = Position::new(end_line.try_into()?, end_col.try_into()?);
     Ok(Range::new(start, end))
 }
 
 fn get_message(value: &Value) -> Result<String> {
-    let message = value.get("message").and_then(Value::as_str).ok_or("bad message")?;
-    let primary_label = value.get("primary_label").and_then(Value::as_str).ok_or("bad primary label")?;
-    let secondary_label = value.get("secondary_label").and_then(Value::as_str).ok_or("bad secondary label")?;
+    let message = value
+        .get("message")
+        .and_then(Value::as_str)
+        .ok_or("bad message")?;
+    let primary_label = value
+        .get("primary_label")
+        .and_then(Value::as_str)
+        .ok_or("bad primary label")?;
+    let secondary_label = value
+        .get("secondary_label")
+        .and_then(Value::as_str)
+        .ok_or("bad secondary label")?;
 
     if !primary_label.is_empty() && !secondary_label.is_empty() {
-        Ok(format!("{} ({}) ({})", message, primary_label, secondary_label))
+        Ok(format!(
+            "{} ({}) ({})",
+            message, primary_label, secondary_label
+        ))
     } else if !primary_label.is_empty() {
         Ok(format!("{} ({})", message, primary_label))
     } else if !secondary_label.is_empty() {
@@ -81,7 +105,11 @@ impl Backend {
             let lvl_str = object.get("lvl").and_then(Value::as_str).ok_or("bad lvl")?;
             let mut related_information = Vec::new();
 
-            for object in object.get("sub_diags").and_then(Value::as_array).ok_or("bad array")? {
+            for object in object
+                .get("sub_diags")
+                .and_then(Value::as_array)
+                .ok_or("bad array")?
+            {
                 related_information.push(DiagnosticRelatedInformation {
                     location: Location {
                         uri: uri.clone(),
@@ -98,7 +126,7 @@ impl Backend {
                 "note" => DiagnosticSeverity::INFORMATION,
                 _ => DiagnosticSeverity::ERROR,
             };
-            
+
             diags.push(Diagnostic {
                 range: get_range(&object)?,
                 severity: Some(severity),
@@ -125,11 +153,13 @@ impl LanguageServer for Backend {
     async fn initialize(&self, _: InitializeParams) -> jsonrpc::Result<InitializeResult> {
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
-                text_document_sync: Some(TextDocumentSyncCapability::Options(TextDocumentSyncOptions {
-                    save: Some(TextDocumentSyncSaveOptions::Supported(true)),
-                    change: Some(TextDocumentSyncKind::FULL),
-                    ..Default::default()
-                })),
+                text_document_sync: Some(TextDocumentSyncCapability::Options(
+                    TextDocumentSyncOptions {
+                        save: Some(TextDocumentSyncSaveOptions::Supported(true)),
+                        change: Some(TextDocumentSyncKind::FULL),
+                        ..Default::default()
+                    },
+                )),
                 ..Default::default()
             },
             ..Default::default()
@@ -150,7 +180,8 @@ impl LanguageServer for Backend {
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
         if let Some(change) = params.content_changes.first() {
-            self.update(params.text_document.uri, Some(change.text.clone())).await;
+            self.update(params.text_document.uri, Some(change.text.clone()))
+                .await;
         }
     }
 }

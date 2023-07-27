@@ -1,0 +1,17 @@
+server {
+	listen 127.0.0.1:8080
+	server_name a
+
+	location / {
+		cgi /home/codam/cobra/cgi /usr/bin/php-cgi
+	}
+}
+
+server {
+	listen 127.0.0.1:8080
+	server_name a
+
+	location / {
+		cgi /home/codam/cobra/cgi /usr/bin/php-cgi
+	}
+}

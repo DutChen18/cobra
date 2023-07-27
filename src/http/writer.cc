@@ -11,7 +11,7 @@ namespace cobra {
 		}
 	}
 
-	void http_server_logger::set_socket(const socket_stream& socket) {
+	void http_server_logger::set_socket(const basic_socket_stream& socket) {
 		_socket = &socket;
 	}
 

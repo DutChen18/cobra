@@ -1,6 +1,6 @@
 CXX := clang++
 CXXFLAGS := -Wall -Wextra -std=c++20 -Iinclude
-LDFLAGS := 
+LDFLAGS := -lssl -lcrypto
 # CXXFLAGS = -Wall -Wextra -std=c++11 -Iinclude -fsanitize=thread -g3
 # LDFLAGS = -fsanitize=thread
 # CXXFLAGS = -Wall -Wextra -std=c++11 -Iinclude -Ofast -march=native -flto
@@ -72,7 +72,10 @@ fuzz: $(FUZZ_NAME)
 $(FUZZ_NAME): $(OBJ_FILES)
 	$(CXX) -o $(FUZZ_NAME) -Iinclude fuzz/request.cc $(OBJ_FILES) $(LDFLAGS) $(CXXFLAGS) -MMD
 
-$(NAME): $(OBJ_FILES)
+$(NAME): $(NAME).out
+	mv $(NAME).out $(NAME)
+
+$(NAME).out: $(OBJ_FILES)
 	$(CXX) -o $@ $^ $(LDFLAGS) 
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc Makefile
