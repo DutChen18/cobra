@@ -114,8 +114,6 @@ namespace cobra {
 
 		bool _bad;
 
-		bool _fatal_error;
-
 		ssl_socket_stream() = delete;
 		ssl_socket_stream(event_loop* loop, file&& f, ssl&& _ssl);
 		ssl_socket_stream(executor* exec, event_loop* loop, file&& f, ssl&& _ssl);

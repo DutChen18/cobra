@@ -205,13 +205,13 @@ namespace cobra {
 
 	ssl_socket_stream::ssl_socket_stream(executor* exec, event_loop* loop, file&& f, ssl&& ssl)
 		: _exec(exec), _loop(loop), _file(std::move(f)), _ssl(std::move(ssl)), _write_shutdown(false),
-		  _read_shutdown(false), _fatal_error(false) {}
+		  _read_shutdown(false), _bad(false) {}
 
 	ssl_socket_stream::ssl_socket_stream(ssl_socket_stream&& other)
 		: _exec(other._exec), _loop(other._loop), _file(std::move(other._file)), _ssl(std::move(other._ssl)),
 		  _write_shutdown(std::exchange(other._write_shutdown, true)),
 		  _read_shutdown(std::exchange(other._read_shutdown, false)),
-		  _fatal_error(std::exchange(other._fatal_error, false)) {}
+		  _bad(std::exchange(other._bad, false)) {}
 
 	ssl_socket_stream::~ssl_socket_stream() {
 		if (!bad() && !_write_shutdown) {
