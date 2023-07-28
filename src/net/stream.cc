@@ -15,25 +15,6 @@ extern "C" {
 #include <openssl/err.h>
 }
 
-#define SSL_CHECK(ssl, loop, fd, func) \
-	do { \
-		int rc = func; \
-		if (rc <= 0) { \
-			int error = SSL_get_error(ssl, rc); \
-			if (error == SSL_ERROR_NONE) { \
-				break; \
-			} else if (error == SSL_ERROR_WANT_READ) { \
-				co_await loop->wait_read(f);\
-			} else if (error == SSL_ERROR_WANT_WRITE) { \
-				co_await loop->wait_write(f);\
-			} else { \
-				throw std::runtime_error(##func " failed"); \
-			} \
-		} else { \
-			break; \
-		} \
-	} while (1)
-
 namespace cobra {
 	static bool check_sock(int fd) {
 		int error;
@@ -45,7 +26,8 @@ namespace cobra {
 
 	basic_socket_stream::~basic_socket_stream() {}
 
-	socket_stream::socket_stream(socket_stream&& other) : _loop(std::exchange(other._loop, nullptr)), _file(std::move(other._file)) {}
+	socket_stream::socket_stream(socket_stream&& other)
+		: _loop(std::exchange(other._loop, nullptr)), _file(std::move(other._file)) {}
 	socket_stream::socket_stream(event_loop* loop, file&& f) : _loop(loop), _file(std::move(f)) {}
 	socket_stream::~socket_stream() {}
 
@@ -86,21 +68,18 @@ namespace cobra {
 		return address(reinterpret_cast<sockaddr*>(&addr), len);
 	}
 
-	ssl_error::ssl_error(const std::string& what) : std::runtime_error(what) {}
-	ssl_error::ssl_error(std::mutex& mtx) : std::runtime_error(get_all_errors(mtx)) {}
+	ssl_error::ssl_error(const std::string& what, std::vector<error_type> errors)
+		: std::runtime_error(what), _errors(std::move(errors)) {}
+	ssl_error::ssl_error(const std::string& what) : ssl_error(what, get_all_errors()) {}
 
-	std::string ssl_error::get_all_errors(std::mutex& mtx) {
-		std::lock_guard guard(mtx);
-		return get_all_errors_unsafe();
-	}
+	std::vector<ssl_error::error_type> ssl_error::get_all_errors() {
+		std::vector<error_type> errors;
 
-	std::string ssl_error::get_all_errors_unsafe() {
-		std::string errors;
-
-		unsigned long errc;
-		while ((errc = ERR_get_error()) != 0) {
-			errors.append(std::string(ERR_error_string(errc, nullptr)));
-			errors.push_back('\n');
+		while (true) {
+			error_type error = ERR_get_error();
+			if (error == 0)
+				break;
+			errors.push_back(error);
 		}
 		return errors;
 	}
@@ -108,13 +87,11 @@ namespace cobra {
 	ssl::ssl(ssl_ctx ctx) : _ctx(ctx) {
 		_ssl = SSL_new(ctx._ctx);
 		if (_ssl == nullptr) {
-			throw ssl_error();
+			throw ssl_error("SSL_new failed");
 		}
 	}
 
 	ssl::ssl(ssl&& other) noexcept : _ssl(std::exchange(other._ssl, nullptr)), _ctx(std::move(other._ctx)) {}
-
-	ssl_error::ssl_error() : std::runtime_error("something went wrong. oops") {}
 
 	ssl::~ssl() {
 		if (_ssl){
@@ -132,9 +109,7 @@ namespace cobra {
 			
 			if (rc == 1 || rc == 0) {
 				break;
-			}
-
-			if (rc < 0) {
+			} else if (rc < 0) {
 				int error = SSL_get_error(ptr(), rc);
 
 				if (error == SSL_ERROR_WANT_READ) {
@@ -144,8 +119,10 @@ namespace cobra {
 					std::cerr << "want write" << std::endl;
 					co_await loop->wait_write(f);
 				} else {
-					throw std::runtime_error("ssl_shutdown errored");
+					throw ssl_error("SSL_shutdown error");
 				}
+			} else {
+				throw std::runtime_error("unknown ssl error");
 			}
 		}
 		co_return;
@@ -234,11 +211,10 @@ namespace cobra {
 		: _exec(other._exec), _loop(other._loop), _file(std::move(other._file)), _ssl(std::move(other._ssl)),
 		  _write_shutdown(std::exchange(other._write_shutdown, true)),
 		  _read_shutdown(std::exchange(other._read_shutdown, false)),
-		  _fatal_error(std::exchange(other._fatal_error, false)) {
-		  }
+		  _fatal_error(std::exchange(other._fatal_error, false)) {}
 
 	ssl_socket_stream::~ssl_socket_stream() {
-		if (!fail() && !_write_shutdown) {
+		if (!bad() && !_write_shutdown) {
 			std::cerr << "ssl connection was not correctly shut down" << std::endl;
 			if (_exec) {
 				auto loop = _loop;
@@ -252,30 +228,28 @@ namespace cobra {
 	}
 
 	task<ssl_socket_stream> ssl_socket_stream::accept(executor* exec, event_loop* loop, socket_stream&& socket,
-													  ssl&& _ssl) {
-		_ssl.set_file(socket._file);
+													  ssl&& ssl) {
+		ssl.set_file(socket._file);
 
 		while (true) {
-			co_await loop->wait_read(socket._file);
-			int rc = SSL_accept(_ssl.ptr());
-			if (rc <= 0) {
-				int error = SSL_get_error(_ssl.ptr(), rc);
-				if (rc == 0) {
-					throw std::runtime_error("tls connection was shut down");
+			const int rc = SSL_accept(ssl.ptr());
+			if (rc > 0) {
+				break;
+			} else if (rc == 0) {
+				throw ssl_error("TLS connectoin was shut down");
+			} else {
+				const int error = SSL_get_error(ssl.ptr(), rc);
+
+				if (error ==  SSL_ERROR_WANT_READ) {
+					co_await loop->wait_read(socket._file);
+				} else if (error == SSL_ERROR_WANT_WRITE) {
+					co_await loop->wait_write(socket._file);
+				} else {
+					throw ssl_error("SSL_accept error");
 				}
-				if (error == SSL_ERROR_WANT_READ) {
-					continue;
-				}
-				throw std::runtime_error("ssl_accept error");
 			}
-			break;
 		}
-
-		co_return ssl_socket_stream(exec, loop, std::move(socket._file), std::move(_ssl));
-	}
-
-	task<ssl_socket_stream> ssl_socket_stream::connect(event_loop* loop, socket_stream&& socket, ssl&& ssl) {
-		co_return co_await ssl_socket_stream::connect(nullptr, loop, std::move(socket), std::move(ssl));
+		co_return ssl_socket_stream(exec, loop, std::move(socket._file), std::move(ssl));
 	}
 
 	task<ssl_socket_stream> ssl_socket_stream::connect(executor* exec, event_loop* loop, socket_stream&& socket,
@@ -283,61 +257,32 @@ namespace cobra {
 		ssl.set_file(socket._file);
 
 		while (true) {
-			co_await loop->wait_write(socket._file);
+			const int rc = SSL_connect(ssl.ptr());
 
-			int rc = SSL_connect(ssl.ptr());
-
-			if (rc <= 0) {
-				int error = SSL_get_error(ssl.ptr(), rc);
-
-				if (rc == 0) {
-					throw std::runtime_error("tls connection was shut down");
-				}
+			if (rc > 0) {
+				break;
+			} else if (rc == 0) {
+				throw ssl_error("TLS connection was shut down");
+			} else {
+				const int error = SSL_get_error(ssl.ptr(), rc);
 
 				if (error == SSL_ERROR_WANT_READ) {
 					co_await loop->wait_read(socket._file);
 				} else if (error == SSL_ERROR_WANT_WRITE) {
 					co_await loop->wait_write(socket._file);
 				} else {
-					println("ssl_connect: {}", ERR_error_string(ERR_get_error(), nullptr));
-					throw std::runtime_error("ssl_connect error");
+					throw ssl_error("SSL_connect error");
 				}
-			} else {
-				break;
 			}
 		}
 		co_return ssl_socket_stream(exec, loop, std::move(socket._file), std::move(ssl));
 	}
 
 	task<std::size_t> ssl_socket_stream::read(char_type* data, std::size_t size) {
-		/*
-		if (!can_read())
-			co_return 0;*/
-
 		std::size_t nread = 0;
 
-		while (true) {
-			co_await _loop->wait_read(_file);
-			int rc = SSL_read_ex(_ssl.ptr(), data, size, &nread);
-			if (rc <= 0) {
-				int error = SSL_get_error(_ssl.ptr(), rc);
-				std::cerr << "read_ex error: " << error << std::endl;
-
-				if (error == SSL_ERROR_SSL) {//TODO also check for SSL_ERROR_SYSCALL
-					_fatal_error = true;
-				}
-
-				if (error == SSL_ERROR_ZERO_RETURN) {
-					break;
-				} else if (error != SSL_ERROR_WANT_READ) {
-					perror("ssl_read_ex perror");
-					ERR_print_errors_fp(stderr);
-					//std::cerr << ERR_error_string(ERR_get_error(), nullptr) << std::endl;//TODO remove
-					throw std::runtime_error("ssl_read_ex error");
-				}
-				//TODO SSL_ERROR_WANT_READ can might actually have read some bytes,
-				//So next read should happen at an offset
-			} else {
+		while (can_read()) {
+			if (co_await rw_check(SSL_read_ex(_ssl.ptr(), data, size, &nread))) {
 				break;
 			}
 		}
@@ -345,28 +290,12 @@ namespace cobra {
 	}
 
 	task<std::size_t> ssl_socket_stream::write(const char_type* data, std::size_t size) {
-		if (!can_write())
-			co_return 0;
-
 		std::size_t nwritten = 0;
 
-		while (true) {
-			co_await _loop->wait_write(_file);
-			int rc = SSL_write_ex(_ssl.ptr(), data, size, &nwritten);
-			if (rc <= 0) {
-				int error = SSL_get_error(_ssl.ptr(), rc);
-
-				if (error == SSL_ERROR_SSL) {
-					_fatal_error = true;
-				}
-
-				if (error != SSL_ERROR_WANT_WRITE) {
-					throw std::runtime_error("ssl_write_ex error");
-				}
-			} else {
+		while (can_write()) {
+			if (co_await rw_check(SSL_write_ex(_ssl.ptr(), data, size, &nwritten))) {
 				break;
 			}
-
 		}
 		co_return nwritten;
 	}
@@ -382,7 +311,6 @@ namespace cobra {
 		return address(reinterpret_cast<sockaddr*>(&addr), len);
 	}
 
-	//TODO make `how` an enum
 	task<void> ssl_socket_stream::shutdown(shutdown_how how) {
 		switch (how) {
 		case shutdown_how::read: 
@@ -408,12 +336,35 @@ namespace cobra {
 		if (_write_shutdown) {
 			throw std::runtime_error("write end already shut down");
 		}
-		if (!fail()) {
+		if (!bad()) {
 			_write_shutdown = true;
 			co_await _ssl.shutdown(_loop, _file);
-			//::shutdown(_file.fd(), SHUT_WR);
 		}
-		co_return;
+	}
+
+	void ssl_socket_stream::set_bad() {
+		_bad = true;
+		throw ssl_error("a fatal openssl error has ocurred");
+	}
+
+	task<bool> ssl_socket_stream::rw_check(int rc) {
+		if (rc <= 0) {
+			int error = SSL_get_error(_ssl.ptr(), rc);
+
+			if (error == SSL_ERROR_ZERO_RETURN) {
+				co_return true;
+			} else if (error == SSL_ERROR_WANT_READ) {
+				co_await _loop->wait_read(_file);
+			} else if (error == SSL_ERROR_WANT_WRITE) {
+				co_await _loop->wait_write(_file);
+			} else if (error == SSL_ERROR_SSL || error == SSL_ERROR_SYSCALL) {
+				set_bad();
+			} else {
+				throw ssl_error("ssl_write_ex/ssl_read_ex error");
+			}
+			co_return false;
+		}
+		co_return true;
 	}
 
 	task<socket_stream> open_connection(event_loop* loop, const char* node, const char* service) {
@@ -469,9 +420,10 @@ namespace cobra {
 	}
 
 	task<void> start_ssl_server(ssl_ctx ctx, executor* exec, event_loop* loop, const char* node, const char* service,
-							std::function<task<void>(ssl_socket_stream)> cb) {
-		co_await start_server(exec, loop, node, service, [ctx, exec, loop, cb](socket_stream socket) mutable -> task<void> {
-			co_await cb(co_await ssl_socket_stream::accept(exec, loop, std::move(socket), ssl(ctx)));
-		});
+								std::function<task<void>(ssl_socket_stream)> cb) {
+		co_await start_server(
+			exec, loop, node, service, [ctx, exec, loop, cb](socket_stream socket) mutable -> task<void> {
+				co_await cb(co_await ssl_socket_stream::accept(exec, loop, std::move(socket), ssl(ctx)));
+			});
 	}
 } // namespace cobra

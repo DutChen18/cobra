@@ -52,33 +52,17 @@ namespace cobra {
 		inline file leak() && { return std::move(_file); }
 	};
 
-	class ssl_errc {
-	public:
-		using error_type = unsigned long;
-	private:
-		unsigned long _errc;
-
-		constexpr ssl_errc(unsigned long errc) noexcept;
-	public:
-		const static ssl_errc want_read;
-		const static ssl_errc want_write;
-
-		static ssl_errc from_latest();
-
-		inline error_type errc() const { return _errc; }
-		inline operator error_type() const { return errc(); }
-
-		inline bool operator==(const ssl_errc& other) const { return errc() == other.errc(); };
-	};
-
 	class ssl_error : std::runtime_error {
+		using error_type = unsigned long;
+		std::vector<error_type> _errors;
+
+		ssl_error() = delete;
+		ssl_error(const std::string& what, std::vector<error_type> errors);
 	public:
 		ssl_error(const std::string& what);
-		ssl_error(std::mutex& mtx);
-		ssl_error();//NOT THREAD SAFE
 
-		static std::string get_all_errors(std::mutex& mtx);
-		static std::string get_all_errors_unsafe();//NOT THREAD SAFE
+	private:
+		static std::vector<error_type> get_all_errors();
 	};
 
 	class ssl_ctx {
@@ -127,6 +111,9 @@ namespace cobra {
 		ssl _ssl;
 		bool _write_shutdown;
 		bool _read_shutdown;
+
+		bool _bad;
+
 		bool _fatal_error;
 
 		ssl_socket_stream() = delete;
@@ -146,10 +133,12 @@ namespace cobra {
 		[[deprecated]] static task<ssl_socket_stream> connect(event_loop* loop, socket_stream&& f, ssl&& _ssl);
 
 	private:
-		inline bool fail() const { return _fatal_error; }
-		inline bool can_read() const { return !fail() && !_read_shutdown; }
-		inline bool can_write() const { return !fail() && !_write_shutdown; }
+		void set_bad();
+		inline bool bad() const { return _bad; }
+		inline bool can_read() const { return !bad() && !_read_shutdown; }
+		inline bool can_write() const { return !bad() && !_write_shutdown; }
 		void shutdown_read();
+		task<bool> rw_check(int rc);
 		task<void> shutdown_write();
 	};
 
