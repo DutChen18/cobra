@@ -195,7 +195,7 @@ namespace cobra {
 			for (const auto& address : config->addresses) {
 				filters[address].push_back(http_filter(config));
 				if (config->ssl) {
-					contexts.insert({address, ssl_ctx(*config->ssl)});
+						contexts.insert({address, ssl_ctx::server(config->ssl->cert, config->ssl->key)});
 				}
 			}
 

@@ -175,6 +175,16 @@ namespace cobra {
 
 			_diags.push_back(diag);
 		}
+		
+		void basic_diagnostic_reporter::report_token(file_part part, std::string type, const parse_session& session) {
+			(void) session;
+			_tokens.push_back({ part, std::move(type) });
+		}
+		
+		void basic_diagnostic_reporter::report_inlay_hint(buf_pos pos, std::string hint, const parse_session& session) {
+			(void) session;
+			_inlay_hints.push_back({ pos, std::move(hint) });
+		}
 
 		parse_session::parse_session(std::istream& stream, diagnostic_reporter& reporter)
 			: _stream(stream), _lines(), _reporter(&reporter), _file(), _col_num(0) {
@@ -286,6 +296,55 @@ namespace cobra {
 			return res;
 		}
 
+		void parse_session::expect_word_simple(std::string_view str, std::string type) {
+			std::size_t start_line = line();
+			std::size_t start_col = column();
+			expect_word_simple(str);
+			report_token(file_part(file(), start_line, start_col, str.size()), std::move(type));
+		}
+
+		std::string parse_session::get_word(std::string type) {
+			std::size_t start_line = line();
+			std::size_t start_col = column();
+			std::string result = get_word();
+			report_token(file_part(file(), start_line, start_col, result.size()), std::move(type));
+			return result;
+		}
+
+		std::string parse_session::get_word_simple(std::string type) {
+			std::size_t start_line = line();
+			std::size_t start_col = column();
+			std::string result = get_word_simple();
+			report_token(file_part(file(), start_line, start_col, result.size()), std::move(type));
+			return result;
+		}
+
+		void parse_session::expect_word_simple(std::string_view str, std::string type, std::string hint) {
+			std::size_t start_line = line();
+			std::size_t start_col = column();
+			expect_word_simple(str);
+			report_token(file_part(file(), start_line, start_col, str.size()), std::move(type));
+			report_inlay_hint(buf_pos(start_line, start_col), std::move(hint));
+		}
+
+		std::string parse_session::get_word(std::string type, std::string hint) {
+			std::size_t start_line = line();
+			std::size_t start_col = column();
+			std::string result = get_word();
+			report_token(file_part(file(), start_line, start_col, result.size()), std::move(type));
+			report_inlay_hint(buf_pos(start_line, start_col), std::move(hint));
+			return result;
+		}
+
+		std::string parse_session::get_word_simple(std::string type, std::string hint) {
+			std::size_t start_line = line();
+			std::size_t start_col = column();
+			std::string result = get_word_simple();
+			report_token(file_part(file(), start_line, start_col, result.size()), std::move(type));
+			report_inlay_hint(buf_pos(start_line, start_col), std::move(hint));
+			return result;
+		}
+
 		std::optional<std::string> parse_session::read_line() {
 			std::string line;
 
@@ -299,9 +358,11 @@ namespace cobra {
 			if (_lines.size() == 0) {
 				auto line = read_line();
 
-				if (line)
+				if (line) {
 					_lines.push_back(std::move(*line));
-				return fill_buf();
+					return fill_buf();
+				}
+				return std::string_view();
 			} else if (!remaining().empty()) {
 				return remaining();
 			} else {
@@ -364,7 +425,7 @@ namespace cobra {
 
 				const std::size_t word_start = session.column();
 				const std::size_t word_line = session.line();
-				const std::string word = session.get_word_simple();
+				const std::string word = session.get_word_simple("keyword");
 
 #define X(name) \
 				if (word == #name) {\
@@ -388,7 +449,7 @@ namespace cobra {
 				if (session.eof())
 					break;
 
-				session.expect_word_simple("server");
+				session.expect_word_simple("server", "keyword");
 				configs.push_back(server_config::parse(session));
 			}
 
@@ -473,7 +534,8 @@ namespace cobra {
 
 			std::size_t port_start = session.column();
 			std::size_t line = session.line();
-			std::string word = session.get_word_simple();
+			std::string word = session.get_word_simple("string", "address");
+			std::size_t port_length = word.length();
 
 			auto pos = word.find(':');
 
@@ -481,7 +543,8 @@ namespace cobra {
 
 			if (pos != std::string::npos) {
 				node = word.substr(0, pos);
-				port_start += pos;
+				port_start += pos + 1;
+				port_length -= pos + 1;
 				pos += 1;
 			} else {
 				pos = 0;
@@ -491,7 +554,7 @@ namespace cobra {
 				return listen_address(std::move(node), parse_unsigned<port>(word.substr(pos)));
 			} catch (error err) {
 				err.diag().message = "invalid port";
-				err.diag().part = file_part(session.file(), line, port_start, word.length());
+				err.diag().part = file_part(session.file(), line, port_start, port_length);
 				throw err;
 			}
 		}
@@ -503,9 +566,9 @@ namespace cobra {
 		}
 
 		ssl_config ssl_config::parse(parse_session& session) {
-			fs::path cert(session.get_word());
+			fs::path cert(session.get_word("string", "certificate"));
 			session.ignore_ws();
-			fs::path key(session.get_word());
+			fs::path key(session.get_word("string", "key"));
 			return {std::move(cert), std::move(key)};
 		}
 
@@ -525,7 +588,7 @@ namespace cobra {
 
 				const std::size_t word_start = session.column();
 				const std::size_t word_line = session.line();
-				const std::string word = session.get_word_simple();
+				const std::string word = session.get_word_simple("keyword");
 
 #define X(name) \
 				if (word == #name) {\
@@ -548,7 +611,7 @@ namespace cobra {
 
 			std::string word;
 			try {
-				word  = session.get_word_simple();
+				word  = session.get_word_simple("number", "size");
 			} catch (error err) {
 				err.diag().message = "invalid number";
 				throw err;

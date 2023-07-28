@@ -13,3 +13,4 @@
 *.d
 /a.out
 /gmon.out
+/*.pem

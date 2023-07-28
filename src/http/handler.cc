@@ -105,11 +105,12 @@ namespace cobra {
 	}
 
 	// TODO: handle all the stuffs
+	// TODO: properly handle parse_http_response errors and stuff
 	static task<std::pair<http_response, std::vector<char>>> get_response(basic_socket_stream& socket, const http_request& request) {
 		istream_buffer socket_istream(make_istream_ref(socket), 1024);
 		ostream_buffer socket_ostream(make_ostream_ref(socket), 1024);
 		co_await write_http_request(socket_ostream, request);
-		co_await socket.shutdown(SHUT_WR);
+		co_await socket.shutdown(shutdown_how::write);
 		http_response response = co_await parse_http_response(socket_istream);
 		std::vector<char> data;
 
@@ -120,6 +121,8 @@ namespace cobra {
 			if (size == 0) {
 				break;
 			}
+
+			socket_istream.consume(size);
 		}
 
 		co_return { response, data };
@@ -130,11 +133,12 @@ namespace cobra {
 		co_return co_await get_response(socket, request);
 	}
 
-	static task<std::pair<http_response, std::vector<char>>> send_https_request(event_loop* loop, const http_request& request, std::string node, std::string service = "443") {
-		ssl_socket_stream socket = co_await open_ssl_connection(loop, node.c_str(), service.c_str());
+	static task<std::pair<http_response, std::vector<char>>> send_https_request(executor* exec, event_loop* loop, const http_request& request, std::string node, std::string service = "443") {
+		ssl_socket_stream socket = co_await open_ssl_connection(exec, loop, node.c_str(), service.c_str());
 		co_return co_await get_response(socket, request);
 	}
 
+	// TODO: directories don't immediately error
 	task<void> handle_static(http_response_writer writer, const handle_context<static_config>& context) {
 		std::string path = context.config().root() + context.file();
 		bool found = true;
@@ -149,11 +153,13 @@ namespace cobra {
 
 		if (!found) {
 			http_request request("GET", parse_uri("/404", "GET"));
-			auto [_, data] = co_await send_https_request(context.loop(), request, "http.cat");
+			request.set_header("Host", "http.cat");
+			auto [_, data] = co_await send_https_request(context.exec(), context.loop(), request, "http.cat");
 			http_response response(HTTP_NOT_FOUND);
 			response.set_header("Content-Type", "image/jpeg");
 			http_ostream ostream = co_await std::move(writer).send(response);
 			co_await ostream.write_all(data.data(), data.size());
+			co_await ostream.flush();
 		}
 	}
 
@@ -260,7 +266,7 @@ namespace cobra {
 
 		auto gate_writer = context.exec()->schedule([](auto sock, auto& gate) -> task<void> {
 			co_await pipe(sock, ostream_reference(gate));
-			co_await gate.inner().ptr()->shutdown(SHUT_WR);
+			co_await gate.inner().ptr()->shutdown(shutdown_how::write);
 		}(context.istream(), gate_ostream));
 
 		auto sock_writer = context.exec()->schedule([](auto& gate, auto writer) -> task<void> {

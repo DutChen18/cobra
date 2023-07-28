@@ -178,19 +178,33 @@ namespace cobra {
 		public:
 			inline virtual ~diagnostic_reporter() {}
 			virtual void report(const diagnostic& diag, const parse_session& session) = 0;
+			virtual void report_token(file_part part, std::string type, const parse_session& session) = 0;
+			virtual void report_inlay_hint(buf_pos pos, std::string hint, const parse_session& session) = 0;
 		};
 
 		class basic_diagnostic_reporter : public diagnostic_reporter {
 			bool _print;
 			std::vector<diagnostic> _diags;
+			std::vector<std::pair<file_part, std::string>> _tokens;
+			std::vector<std::pair<buf_pos, std::string>> _inlay_hints;
 
 		public:
 			basic_diagnostic_reporter(bool print);
 
 			void report(const diagnostic& diag, const parse_session& session) override;
+			void report_token(file_part part, std::string type, const parse_session& session) override;
+			void report_inlay_hint(buf_pos pos, std::string hint, const parse_session& session) override;
 
 			inline const std::vector<diagnostic>& get_diags() const {
 				return _diags;
+			}
+
+			inline const std::vector<std::pair<file_part, std::string>> get_tokens() const {
+				return _tokens;
+			}
+
+			inline const std::vector<std::pair<buf_pos, std::string>> get_inlay_hints() const {
+				return _inlay_hints;
 			}
 		};
 
@@ -212,6 +226,12 @@ namespace cobra {
 			void expect_word_simple(std::string_view str);
 			std::string get_word();
 			std::string get_word_simple();
+			void expect_word_simple(std::string_view str, std::string type);
+			std::string get_word(std::string type);
+			std::string get_word_simple(std::string type);
+			void expect_word_simple(std::string_view str, std::string type, std::string hint);
+			std::string get_word(std::string type, std::string hint);
+			std::string get_word_simple(std::string type, std::string hint);
 			std::size_t ignore_ws();
 
 			inline std::size_t column() const {
@@ -229,6 +249,12 @@ namespace cobra {
 
 			inline void report(const diagnostic& diag) const {
 				_reporter->report(diag, *this);
+			}
+			inline void report_token(file_part part, std::string type) const {
+				_reporter->report_token(part, std::move(type), *this);
+			}
+			inline void report_inlay_hint(buf_pos pos, std::string hint) const {
+				_reporter->report_inlay_hint(pos, std::move(hint), *this);
 			}
 
 			inline bool eof() const { return _stream.eof(); }
@@ -356,7 +382,7 @@ namespace cobra {
 			fs::path path;
 
 			inline static config_path parse(parse_session& session) {
-				return config_path{session.get_word()};
+				return config_path{session.get_word("string", "path")};
 			}
 
 			operator fs::path() noexcept {
@@ -368,7 +394,7 @@ namespace cobra {
 			config_path root;
 
 			inline static static_file_config parse(parse_session& session) {
-				return {config_path{session.get_word()}};
+				return {config_path{session.get_word("string", "path")}};
 			}
 		};
 
@@ -379,7 +405,7 @@ namespace cobra {
 			inline static cgi_config parse(parse_session& session) {
 				config_path root = config_path::parse(session);
 				session.ignore_ws();
-				return {std::move(root), session.get_word()};
+				return {std::move(root), session.get_word("string", "command")};
 			}
 		};
 
@@ -387,7 +413,7 @@ namespace cobra {
 			std::string name;
 
 			inline static server_name parse(parse_session& session) {
-				return {session.get_word_simple()};
+				return {session.get_word_simple("string", "host")};
 			}
 		};
 
@@ -397,7 +423,7 @@ namespace cobra {
 			constexpr auto operator<=>(const location_filter& other) const noexcept = default;
 
 			inline static location_filter parse(parse_session& session) {
-				return {fs::path(session.get_word())};
+				return {fs::path(session.get_word("filter", "filter"))};
 			}
 
 			bool starts_with(const location_filter& other) const;
@@ -409,7 +435,7 @@ namespace cobra {
 			constexpr auto operator<=>(const method_filter& other) const noexcept = default;
 
 			inline static method_filter parse(parse_session& session) {
-				return {session.get_word_simple()};
+				return {session.get_word_simple("filter", "filter")};
 			}
 		};
 

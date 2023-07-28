@@ -18,8 +18,11 @@
 #include <fstream>
 #include <memory>
 
+#include <cassert>
+
 extern "C" {
 #include <sys/socket.h>
+#include <openssl/ssl.h>
 }
 
 #ifndef COBRA_TEST
@@ -51,9 +54,12 @@ int main(int argc, char **argv) {
 	sequential_executor exec;
 	epoll_event_loop loop(exec);
 
+	assert(signal(SIGPIPE, SIG_IGN) != SIG_ERR);
+
 	if (argc == 1) {
 		config::basic_diagnostic_reporter reporter(false);
 		config::parse_session session(std::cin, reporter);
+		const char* delim = "";
 
 		try {
 			config::server_config::parse_servers(session);
@@ -61,7 +67,38 @@ int main(int argc, char **argv) {
 			session.report(err.diag());
 		}
 
+		print("{{");
+		print("\"diags\":");
 		print_json_diags(reporter.get_diags());
+		print(",");
+		print("\"tokens\":");
+		print("[");
+
+		for (const auto& [part, type] : reporter.get_tokens()) {
+			print("{}{{", delim);
+			print("\"start\":{{\"line\":{},\"col\":{}}},", part.start.line, part.start.col);
+			print("\"end\":{{\"line\":{},\"col\":{}}},", part.end.line, part.end.col);
+			print("\"type\":{}", cobra::quoted(type));
+			print("}}");
+			delim = ",";
+		}
+
+		print("],");
+		print("\"inlay_hints\":");
+		print("[");
+		delim = "";
+
+		for (const auto& [pos, hint] : reporter.get_inlay_hints()) {
+			print("{}{{", delim);
+			print("\"line\":{},", pos.line);
+			print("\"col\":{},", pos.col);
+			print("\"hint\":{}", cobra::quoted(hint));
+			print("}}");
+			delim = ",";
+		}
+
+		print("]");
+		print("}}");
 	} else {
 		std::fstream stream(argv[1], std::ios::in);
 		config::basic_diagnostic_reporter reporter(true);
