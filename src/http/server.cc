@@ -141,7 +141,6 @@ namespace cobra {
 									  buffered_istream_reference in, http_response_writer writer) {
 		// TODO write headers set in config
 		// TODO properly match uri
-		//
 		fs::path file("/");
 		for (std::size_t i = filt.match_count(); i < normalized.size(); ++i) {
 			file.append(normalized[i]);
@@ -156,13 +155,13 @@ namespace cobra {
 			auto cfg = std::get<config::cgi_config>(*filt.config().handler);
 			co_await handle_cgi(std::move(writer),
 								{_loop, _exec, file.string(),//TODO avoid duplicating strings
-								 cgi_config(cfg.root.path.string(), cgi_command(cfg.command)), request, limited_stream});
+								 cgi_config(cfg.root.dir().string(), cgi_command(cfg.command.file())), request, limited_stream});
 		} else if (std::holds_alternative<config::static_file_config>(*filt.config().handler)) {
 			co_await handle_static(std::move(writer),
 								   {_loop,
 									_exec,
 									file.string(),
-									{std::get<config::static_file_config>(*filt.config().handler).root.path},
+									{std::get<config::static_file_config>(*filt.config().handler).root.dir()},
 									request,
 									limited_stream});
 		} else {
@@ -195,7 +194,7 @@ namespace cobra {
 			for (const auto& address : config->addresses) {
 				filters[address].push_back(http_filter(config));
 				if (config->ssl) {
-						contexts.insert({address, ssl_ctx::server(config->ssl->cert, config->ssl->key)});
+						contexts.insert({address, ssl_ctx::server(config->ssl->cert(), config->ssl->key())});
 				}
 			}
 

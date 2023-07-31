@@ -4,6 +4,7 @@
 #include "cobra/asyncio/stream.hh"
 #include "cobra/asyncio/stream_buffer.hh"
 #include "cobra/asyncio/std_stream.hh"
+#include "cobra/asyncio/deflate.hh"
 #include "cobra/http/writer.hh"
 #include "cobra/http/parse.hh"
 #include "cobra/net/stream.hh"
@@ -56,7 +57,12 @@ int main(int argc, char **argv) {
 
 	assert(signal(SIGPIPE, SIG_IGN) != SIG_ERR);
 
-	if (argc == 1) {
+	if (argc == 3) {
+		std_istream_reference cin_istream(std::cin);
+		std_ostream_reference cout_ostream(std::cout);
+		inflate_istream istream(std::move(cin_istream));
+		make_future_task(cobra::pipe(buffered_istream_reference(istream), ostream_reference(cout_ostream))).get_future().get();
+	} else if (argc == 1) {
 		config::basic_diagnostic_reporter reporter(false);
 		config::parse_session session(std::cin, reporter);
 		const char* delim = "";

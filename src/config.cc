@@ -2,13 +2,19 @@
 
 #include "cobra/exception.hh"
 #include "cobra/print.hh"
+#include "cobra/net/address.hh"
 
 //TODO check which headers aren't needed anymore
+#include <algorithm>
 #include <any>
 #include <cctype>
+#include <cerrno>
 #include <compare>
 #include <cstddef>
+#include <cstring>
+#include <filesystem>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <ostream>
@@ -27,6 +33,52 @@
 namespace cobra {
 
 	namespace config {
+		const static std::vector<std::string> BLOCK_KEYWORDS = {
+#define X(keyword) #keyword,
+			COBRA_BLOCK_KEYWORDS
+#undef X
+		};
+
+		const static std::vector<std::string> SERVER_KEYWORDS = {
+#define X(keyword) #keyword,
+			COBRA_SERVER_KEYWORDS
+#undef X
+		};
+
+
+		std::size_t levenshtein_dist(const std::string& a, const std::string& b) {
+			if (a.length() == 0) {
+				return b.length();
+			} else if (b.length() == 0) {
+				return a.length();
+			}
+
+			std::size_t a_len = a.length();
+			std::size_t b_len = b.length();
+
+			std::vector dists(a_len, std::vector<std::size_t>(b_len, 0));
+
+			for (std::size_t aidx = 0; aidx < a_len; ++aidx) {
+				dists[aidx][0] = aidx;
+			}
+
+			for (std::size_t bidx = 0; bidx < b_len; ++bidx) {
+				dists[0][bidx] = bidx;
+			}
+
+			for (std::size_t bidx = 1; bidx < b_len; ++bidx) {
+				for (std::size_t aidx = 1; aidx < a_len; ++aidx) {
+					std::size_t sub_cost = 1;
+					if (a[aidx] == b[bidx]) {
+						sub_cost = 0;
+					}
+
+					dists[aidx][bidx] = std::min({dists[aidx-1][bidx] + 1, dists[aidx][bidx-1] + 1, dists[aidx -1][bidx -1] + sub_cost});
+				}
+			}
+			return dists.back().back();
+		}
+
 		constexpr buf_pos::buf_pos(std::size_t line, std::size_t col) noexcept : line(line), col(col) {}
 
 		file_part::file_part(std::optional<fs::path> file, std::size_t line, std::size_t col)
@@ -186,6 +238,8 @@ namespace cobra {
 			_inlay_hints.push_back({ pos, std::move(hint) });
 		}
 
+		word::word(file_part part, std::string str) : _part(std::move(part)), _str(std::move(str)) {}
+
 		parse_session::parse_session(std::istream& stream, diagnostic_reporter& reporter)
 			: _stream(stream), _lines(), _reporter(&reporter), _file(), _col_num(0) {
 			_stream.exceptions(std::ios::badbit);
@@ -230,7 +284,7 @@ namespace cobra {
 			}
 		}
 
-		std::string parse_session::get_word() {
+		word parse_session::get_word() {
 			if (peek() == '"')
 				return get_word_quoted();
 			return get_word_simple();
@@ -249,15 +303,23 @@ namespace cobra {
 			return nignored;
 		}
 
-		std::string parse_session::get_word_quoted() {
+		std::size_t parse_session::ignore_line() {
+			return consume(remaining().length());
+		}
+
+		word parse_session::get_word_quoted() {
 			const std::size_t start_col = column();
 			const std::size_t start_line = line();
+			std::size_t end_col = start_col;
+			std::size_t end_line = start_line;
 			consume(1);
 
 			std::string res;
 
 			bool escaped = false;
 			while (true) {
+				end_col = column();
+				end_line = line();
 				const auto ch = get();
 
 				if (ch == '\\') {
@@ -278,10 +340,12 @@ namespace cobra {
 
 			if (res.empty())
 				throw error(make_error(start_line, start_col, 2, "invalid word", "expected at least one character"));
-			return res;
+			return word(file_part(file(), buf_pos(start_line, start_col), buf_pos(end_line, end_col)), std::move(res));
 		}
 
-		std::string parse_session::get_word_simple() {
+		word parse_session::get_word_simple() {
+			std::size_t start_line = line();
+			std::size_t start_col = column();
 			std::string res;
 
 			for (auto ch : remaining()) {
@@ -293,7 +357,7 @@ namespace cobra {
 			if (res.empty())
 				throw error(make_error("invalid word", "expected at least one graphical character"));
 			consume(res.length());
-			return res;
+			return word(file_part(file(), start_line, start_col, res.length()), std::move(res));
 		}
 
 		void parse_session::expect_word_simple(std::string_view str, std::string type) {
@@ -303,19 +367,15 @@ namespace cobra {
 			report_token(file_part(file(), start_line, start_col, str.size()), std::move(type));
 		}
 
-		std::string parse_session::get_word(std::string type) {
-			std::size_t start_line = line();
-			std::size_t start_col = column();
-			std::string result = get_word();
-			report_token(file_part(file(), start_line, start_col, result.size()), std::move(type));
-			return result;
+		word parse_session::get_word(std::string type) {
+			word w = get_word();
+			report_token(w.part(), std::move(type));
+			return w;
 		}
 
-		std::string parse_session::get_word_simple(std::string type) {
-			std::size_t start_line = line();
-			std::size_t start_col = column();
-			std::string result = get_word_simple();
-			report_token(file_part(file(), start_line, start_col, result.size()), std::move(type));
+		word parse_session::get_word_simple(std::string type) {
+			word result = get_word_simple();
+			report_token(result.part(), std::move(type));
 			return result;
 		}
 
@@ -327,21 +387,17 @@ namespace cobra {
 			report_inlay_hint(buf_pos(start_line, start_col), std::move(hint));
 		}
 
-		std::string parse_session::get_word(std::string type, std::string hint) {
-			std::size_t start_line = line();
-			std::size_t start_col = column();
-			std::string result = get_word();
-			report_token(file_part(file(), start_line, start_col, result.size()), std::move(type));
-			report_inlay_hint(buf_pos(start_line, start_col), std::move(hint));
+		word parse_session::get_word(std::string type, std::string hint) {
+			word result = get_word();
+			report_token(result.part(), std::move(type));
+			report_inlay_hint(result.part().start, std::move(hint));
 			return result;
 		}
 
-		std::string parse_session::get_word_simple(std::string type, std::string hint) {
-			std::size_t start_line = line();
-			std::size_t start_col = column();
-			std::string result = get_word_simple();
-			report_token(file_part(file(), start_line, start_col, result.size()), std::move(type));
-			report_inlay_hint(buf_pos(start_line, start_col), std::move(hint));
+		word parse_session::get_word_simple(std::string type, std::string hint) {
+			word result = get_word_simple();
+			report_token(result.part(), std::move(type));
+			report_inlay_hint(result.part().start, std::move(hint));
 			return result;
 		}
 
@@ -378,9 +434,10 @@ namespace cobra {
 			}
 		}
 
-		void parse_session::consume(std::size_t count) {
+		std::size_t parse_session::consume(std::size_t count) {
 			assert(remaining().length() >= count && "tried to consume more than available");
 			_col_num += count;
+			return count;
 		}
 
 		std::string_view parse_session::get_line(std::size_t idx) const {
@@ -406,8 +463,87 @@ namespace cobra {
 		}
 
 		constexpr listen_address::listen_address(std::string node, port service) noexcept : _node(std::move(node)), _service(service) {}
-
 		constexpr listen_address::listen_address(port service) noexcept : _node(), _service(service) {}
+
+		static const char* get_filetype_name(fs::file_type type) {
+			switch (type) {
+			case fs::file_type::regular:
+				return "regular file";
+			case fs::file_type::directory:
+				return "directory";
+			case fs::file_type::symlink:
+				return "symlink";
+			case fs::file_type::block:
+				return "block device";
+			case fs::file_type::character:
+				return "character device";
+			case fs::file_type::fifo:
+				return "fifo";
+			case fs::file_type::socket:
+				return "socket";
+			default:
+				return "unknown";
+			}
+		}
+
+
+		config_file::config_file(fs::path file) : _file(std::move(file)) {}
+
+		config_file config_file::parse(parse_session& session) {
+			word w = session.get_word("string", "path");
+			fs::path p(w);
+			
+			if (p.is_absolute()) {
+				if (!fs::exists(p)) {
+					session.report(diagnostic::warn(w.part(), "file not found"));
+				} else if (fs::is_directory(p)) {
+					session.report(diagnostic::warn(w.part(), "not a normal file", "is a directory"));
+				}
+			}
+
+			return config_file{std::move(p)};
+		}
+
+		config_exec::config_exec(fs::path file) : config_file(std::move(file)) {}
+
+		config_exec config_exec::parse(parse_session& session) {
+			word w = session.get_word("string", "path");
+			fs::path p(w);
+
+			if (p.is_absolute()) {
+				fs::perms perms = fs::status(p).permissions();
+
+				if (!fs::exists(p)) {
+					session.report(diagnostic::warn(w.part(), "file not found"));
+				} else if (fs::is_directory(p)) {
+					session.report(diagnostic::warn(w.part(), "not a normal file", "is a directory"));
+				}
+
+				if ((perms & fs::perms::owner_exec) == fs::perms::none &&
+					(perms & fs::perms::group_exec) == fs::perms::none &&
+					(perms & fs::perms:: others_exec) == fs::perms::none) {
+					session.report(diagnostic::warn(w.part(), "not an executable file"));
+				}
+			}
+			return config_exec(std::move(p));
+		}
+
+		config_dir::config_dir(fs::path dir) : _dir(std::move(dir)) {}
+
+		config_dir config_dir::parse(parse_session& session) {
+			word w = session.get_word("string", "path");
+			fs::path p(w);
+			
+			if (p.is_absolute()) {
+				if (!fs::exists(p)) {
+					session.report(diagnostic::warn(w.part(), "directory not found"));
+				} else if (!fs::is_directory(p)) {
+					session.report(diagnostic::warn(w.part(), "not a directory", std::format("is a {}", get_filetype_name(fs::status(p).type()))));
+				}
+			}
+
+			return config_dir{std::move(p)};
+		}
 
 		server_config server_config::parse(parse_session& session) {
 			session.ignore_ws();
@@ -421,20 +557,26 @@ namespace cobra {
 				if (session.peek() == '}') {
 					session.get();
 					break;
+				} else if (session.peek() == '#') {
+					config.parse_comment(session);
+					continue;
 				}
 
-				const std::size_t word_start = session.column();
-				const std::size_t word_line = session.line();
-				const std::string word = session.get_word_simple("keyword");
+				const word w = session.get_word_simple("keyword");
 
 #define X(name) \
-				if (word == #name) {\
+				if (w.str() == #name) {\
 					config.parse_##name(session);\
 					continue;\
 				}
 				COBRA_SERVER_KEYWORDS
 #undef X
-				throw error(session.make_error(word_line, word_start, word.length(), std::format("unknown directive `{}`", word)));
+
+				throw_undefined_directive(SERVER_KEYWORDS, w);
+				/*
+				throw error(
+					diagnostic::error(w.part(), std::format("unknown directive `{}`", w.str()),
+									  std::format("did you mean `{}`?", get_suggestion(SERVER_KEYWORDS, w.str()))));*/
 			}
 
 			return config;
@@ -532,17 +674,16 @@ namespace cobra {
 		listen_address listen_address::parse(parse_session& session) {
 			session.ignore_ws();
 
-			std::size_t port_start = session.column();
-			std::size_t line = session.line();
-			std::string word = session.get_word_simple("string", "address");
-			std::size_t port_length = word.length();
+			word w = session.get_word_simple("string", "address");
+			std::size_t port_start = w.part().start.col;
+			std::size_t port_length = w.str().length();
 
-			auto pos = word.find(':');
+			auto pos = w.str().find(':');
 
 			std::string node;
 
 			if (pos != std::string::npos) {
-				node = word.substr(0, pos);
+				node = w.str().substr(0, pos);
 				port_start += pos + 1;
 				port_length -= pos + 1;
 				pos += 1;
@@ -550,13 +691,19 @@ namespace cobra {
 				pos = 0;
 			}
 
+			port p;
+
+			std::string port_str = w.str().substr(pos);
+
 			try {
-				return listen_address(std::move(node), parse_unsigned<port>(word.substr(pos)));
+				p = parse_unsigned<port>(port_str);
 			} catch (error err) {
 				err.diag().message = "invalid port";
-				err.diag().part = file_part(session.file(), line, port_start, port_length);
+				err.diag().part = file_part(session.file(), w.part().start.line, port_start, port_length);
 				throw err;
 			}
+
+			return listen_address(std::move(node), p);
 		}
 
 		std::strong_ordering filter::operator<=>(const filter& other) const {
@@ -565,10 +712,12 @@ namespace cobra {
 			return type <=> other.type;
 		}
 
+		ssl_config::ssl_config(config_file cert, config_file key) : _cert(std::move(cert)), _key(std::move(key)) {}
+
 		ssl_config ssl_config::parse(parse_session& session) {
-			fs::path cert(session.get_word("string", "certificate"));
+			config_file cert = config_file::parse(session);
 			session.ignore_ws();
-			fs::path key(session.get_word("string", "key"));
+			config_file key = config_file::parse(session);
 			return {std::move(cert), std::move(key)};
 		}
 
@@ -584,20 +733,21 @@ namespace cobra {
 				if (session.peek() == '}') {
 					session.get();
 					break;
+				} else if (session.peek() == '#') {
+					config.parse_comment(session);
+					continue;
 				}
 
-				const std::size_t word_start = session.column();
-				const std::size_t word_line = session.line();
-				const std::string word = session.get_word_simple("keyword");
+				const word w = session.get_word_simple("keyword");
 
 #define X(name) \
-				if (word == #name) {\
+				if (w.str() == #name) {\
 					config.parse_##name(session);\
 					continue;\
 				}
 				COBRA_BLOCK_KEYWORDS
 #undef X
-				throw error(session.make_error(word_line, word_start, word.length(), std::format("unknown directive `{}`", word)));
+				throw_undefined_directive(BLOCK_KEYWORDS, w);
 			}
 			return config;
 		}
@@ -685,7 +835,7 @@ namespace cobra {
 		}
 
 		void block_config::parse_index(parse_session& session) {
-			define<config_path> def = parse_define<config_path>(session, "index");
+			auto def = parse_define<config_file>(session, "index");
 			if (_index) {
 				diagnostic diag = diagnostic::warn(def.part, "redefinition of index");
 				diag.sub_diags.push_back(diagnostic::note(_index->part, "previously defined here"));
@@ -716,6 +866,13 @@ namespace cobra {
 			}
 		}
 
+		void block_config::parse_comment(parse_session& session) {
+			size_t start_line = session.line();
+			size_t start_col  = session.column();
+			size_t length = session.ignore_line();
+			session.report_token(file_part(session.file(), start_line, start_col, length), "comment");
+		}
+
 		void server_config::parse_ssl(parse_session& session) {
 			_ssl = parse_define<ssl_config>(session, "ssl");
 		}
@@ -723,7 +880,7 @@ namespace cobra {
 		config::config(config* parent, const block_config& cfg)
 			: parent(parent), max_body_size(cfg._max_body_size), handler(cfg._handler) {
 			if (cfg._index)
-				index = cfg._index->def.path;
+				index = cfg._index->def.file();
 
 			for (auto [name,_] : cfg._server_names) {
 				server_names.insert(name);
@@ -766,14 +923,3 @@ namespace cobra {
 	}
 
 }
-
-/*
-int main() {
-	cobra::config::parse_session session(std::cin);
-
-	try {
-		cobra::config::server_config::parse(session);
-	} catch (const cobra::config::error& err) {
-		err.diag().print(std::cerr, session.lines());
-	}
-}*/

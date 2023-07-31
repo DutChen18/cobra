@@ -31,6 +31,10 @@
 #include <variant>
 #include <vector>
 
+extern "C" {
+#include <sys/stat.h>
+}
+
 #define COBRA_BLOCK_KEYWORDS                                                                                           \
 	X(max_body_size)                                                                                                   \
 	X(location)                                                                                                        \
@@ -50,6 +54,11 @@ namespace cobra {
 
 	namespace config {
 
+		std::size_t levenshtein_dist(const std::string& a, const std::string& b);
+		template <typename Container>
+		const std::string get_suggestion(const Container& c, const std::string &str) {
+			return *std::min_element(c.begin(), c.end(), [str](auto a, auto b) { return levenshtein_dist(a, str) < levenshtein_dist(b, str); });
+		}
 
 		//TODO multiline diagnostics
 		struct buf_pos {
@@ -208,6 +217,20 @@ namespace cobra {
 			}
 		};
 
+		class word {
+			file_part _part;
+			std::string _str;
+
+			word(file_part part, std::string str);
+		public:
+			friend class parse_session;
+
+			inline const file_part& part() const { return _part; }
+			inline const std::string& str() const { return _str; }
+			inline constexpr operator std::string() const & { return _str; }
+			inline constexpr operator std::string() const && { return std::move(_str); }
+		};
+
 		class parse_session {
 			std::istream& _stream;
 			std::vector<std::string> _lines;
@@ -224,15 +247,16 @@ namespace cobra {
 			std::optional<int> get();
 			void expect(int ch);
 			void expect_word_simple(std::string_view str);
-			std::string get_word();
-			std::string get_word_simple();
+			word get_word();
+			word get_word_simple();
 			void expect_word_simple(std::string_view str, std::string type);
-			std::string get_word(std::string type);
-			std::string get_word_simple(std::string type);
+			word get_word(std::string type);
+			word get_word_simple(std::string type);
 			void expect_word_simple(std::string_view str, std::string type, std::string hint);
-			std::string get_word(std::string type, std::string hint);
-			std::string get_word_simple(std::string type, std::string hint);
+			word get_word(std::string type, std::string hint);
+			word get_word_simple(std::string type, std::string hint);
 			std::size_t ignore_ws();
+			std::size_t ignore_line();
 
 			inline std::size_t column() const {
 				return _col_num;
@@ -273,7 +297,7 @@ namespace cobra {
 			}
 
 		private:
-			std::string get_word_quoted();
+			word get_word_quoted();
 			std::string_view get_line(std::size_t idx) const;
 			inline std::string_view cur_line() const {
 				return get_line(line());
@@ -281,13 +305,17 @@ namespace cobra {
 
 			std::optional<std::string> read_line();
 
+			inline bool is_simple_word_char(int ch) {
+				return std::isgraph(ch) && ch != '/' && ch != '*';
+			}
+
 			inline std::string_view remaining() const {
 				if (line() < _lines.size())
 					return std::string_view(cur_line().begin() + column(), cur_line().end());
 				return std::string_view();
 			}
 			std::string_view fill_buf();
-			void consume(std::size_t count);
+			std::size_t consume(std::size_t count);
 
 			inline diagnostic make_error(std::size_t line, std::size_t col, std::string message,
 										 std::string primary_label = std::string(),
@@ -378,34 +406,58 @@ namespace cobra {
 			return define<T>{std::move(def), std::move(part)};
 		}
 
-		struct config_path {
-			fs::path path;
+		class config_file {
+			fs::path _file;
 
-			inline static config_path parse(parse_session& session) {
-				return config_path{session.get_word("string", "path")};
+		protected:
+			config_file(fs::path file);
+
+		public:
+			static config_file parse(parse_session& session);
+
+			inline const fs::path& file() const { return _file; }
+
+			inline operator fs::path() noexcept {
+				return _file;
 			}
+		};
 
-			operator fs::path() noexcept {
-				return path;
+		class config_exec : public config_file {
+			config_exec(fs::path file);
+		public:
+			static config_exec parse(parse_session& session);
+		};
+
+		class config_dir {
+			fs::path _dir;
+
+			config_dir(fs::path dir);
+		public:
+			static config_dir parse(parse_session& session);
+
+			inline const fs::path& dir() const { return _dir; }
+
+			inline operator fs::path() noexcept {
+				return _dir;
 			}
 		};
 
 		struct static_file_config {
-			config_path root;
+			config_dir root;
 
 			inline static static_file_config parse(parse_session& session) {
-				return {config_path{session.get_word("string", "path")}};
+				return {config_dir::parse(session)};
 			}
 		};
 
 		struct cgi_config {
-			config_path root;
-			std::string command;
+			config_dir root;
+			config_exec command;
 
 			inline static cgi_config parse(parse_session& session) {
-				config_path root = config_path::parse(session);
+				config_dir root = config_dir::parse(session);
 				session.ignore_ws();
-				return {std::move(root), session.get_word("string", "command")};
+				return {std::move(root), config_exec::parse(session)};
 			}
 		};
 
@@ -439,11 +491,17 @@ namespace cobra {
 			}
 		};
 
-		struct ssl_config {
-			fs::path cert;
-			fs::path key;
+		class ssl_config {
+			config_file _cert;
+			config_file _key;
 
+			ssl_config(config_file cert, config_file key);
+
+		public:
 			static ssl_config parse(parse_session& session);
+
+			inline const fs::path& cert() const { return _cert.file(); }
+			inline const fs::path& key() const { return _key.file(); }
 		};
 
 		class server;
@@ -455,7 +513,7 @@ namespace cobra {
 			std::optional<filter_type> _filter;
 			std::optional<define<std::size_t>> _max_body_size;
 			std::unordered_map<http_header_key, define<http_header_value>> _headers;
-			std::optional<define<config_path>> _index;
+			std::optional<define<config_file>> _index;
 			std::optional<define<std::variant<static_file_config, cgi_config>>>
 				_handler; // TODO add other handlers (redirect, proxy...)
 			//std::map<filter_type, define<block_config>> _filters;
@@ -474,6 +532,13 @@ namespace cobra {
 			void parse_cgi(parse_session& session);
 			void parse_index(parse_session& session);
 			void parse_server_name(parse_session& session);
+			void parse_comment(parse_session& session);
+
+			template <class Container>
+			static void throw_undefined_directive(const Container& c, const word &w) {
+				throw error(diagnostic::error(w.part(), std::format("unknown directive `{}`", w.str()),
+											  std::format("did you mean `{}`?", get_suggestion(c, w.str()))));
+			}
 
 			template <class T>
 			define<T> parse_define(parse_session& session, const std::string& directive) {

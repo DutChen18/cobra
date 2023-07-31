@@ -19,12 +19,12 @@ namespace cobra {
 	}
 	
 	task<void> fastcgi_client_connection::write_header(fastcgi_record_type type, std::uint16_t request_id, std::uint16_t content_length) {
-		co_await write_u8_be(_ostream, FCGI_VERSION_1);
-		co_await write_u8_be(_ostream, static_cast<std::uint8_t>(type));
+		co_await write_u8(_ostream, FCGI_VERSION_1);
+		co_await write_u8(_ostream, static_cast<std::uint8_t>(type));
 		co_await write_u16_be(_ostream, request_id);
 		co_await write_u16_be(_ostream, content_length);
-		co_await write_u8_be(_ostream, 0);
-		co_await write_u8_be(_ostream, 0);
+		co_await write_u8(_ostream, 0);
+		co_await write_u8(_ostream, 0);
 	}
 
 	task<std::size_t> fastcgi_client_connection::write(std::uint16_t request_id, fastcgi_record_type type, const char* data, std::size_t size) {
@@ -68,8 +68,8 @@ namespace cobra {
 		_clients.emplace(request_id, client);
 		co_await write_header(fastcgi_record_type::fcgi_begin_request, request_id, 8);
 		co_await write_u16_be(_ostream, FCGI_RESPONDER);
-		co_await write_u8_be(_ostream, FCGI_KEEP_CONN);
-		co_await write_u8_be(_ostream, 0);
+		co_await write_u8(_ostream, FCGI_KEEP_CONN);
+		co_await write_u8(_ostream, 0);
 		co_await write_u32_be(_ostream, 0);
 		co_await _ostream.flush();
 		co_return client;
@@ -77,18 +77,18 @@ namespace cobra {
 
 	// TODO: error handling is shit
 	task<bool> fastcgi_client_connection::poll() {
-		co_await read_u8_be(_istream);
-		std::uint8_t type = co_await read_u8_be(_istream);
+		co_await read_u8(_istream);
+		std::uint8_t type = co_await read_u8(_istream);
 		std::uint16_t request_id = co_await read_u16_be(_istream);
 		std::uint16_t content_length = co_await read_u16_be(_istream);
-		std::uint8_t padding_length = co_await read_u8_be(_istream);
-		co_await read_u8_be(_istream);
+		std::uint8_t padding_length = co_await read_u8(_istream);
+		co_await read_u8(_istream);
 
 		if (type == static_cast<std::uint8_t>(fastcgi_record_type::fcgi_end_request)) {
 			std::shared_ptr<fastcgi_client> client = co_await get_client(request_id);
 			co_await read_u32_be(_istream);
-			co_await read_u8_be(_istream);
-			co_await read_u8_be(_istream);
+			co_await read_u8(_istream);
+			co_await read_u8(_istream);
 			co_await read_u16_be(_istream);
 			co_await client->fcgi_stdout().close();
 			co_await client->fcgi_stderr().close();
