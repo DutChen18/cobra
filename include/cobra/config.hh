@@ -12,9 +12,11 @@
 #include <charconv>
 #include <compare>
 #include <concepts>
+#include <deque>
 #include <exception>
 #include <filesystem>
 #include <format>
+#include <functional>
 #include <iostream>
 #include <istream>
 #include <limits>
@@ -67,6 +69,8 @@ namespace cobra {
 
 			buf_pos() = delete;
 			constexpr buf_pos(std::size_t line, std::size_t col) noexcept;
+
+			auto operator<=>(const buf_pos& other) const = default;
 		};
 
 		struct file_part {
@@ -81,6 +85,82 @@ namespace cobra {
 			file_part(std::size_t line, std::size_t col, std::size_t length);
 
 			inline bool is_multiline() const { return start.line != end.line; }
+
+			auto operator<=>(const file_part& other) const = default;
+		};
+
+		//replaces tabs with single space in formatter
+		struct config_line {
+			std::string_view data;
+		};
+
+		class line_printer {
+		protected:
+			std::ostream& _stream;
+			std::size_t _max_value;
+			std::size_t _max_width;
+
+		public:
+			line_printer(const line_printer& other);
+			line_printer(std::ostream& stream, std::size_t max_line);
+			virtual ~line_printer();
+
+			virtual line_printer& print();
+			virtual line_printer& print(std::size_t line_num);
+
+			template <class... Args>
+			line_printer& print(std::format_string<Args...> fmt, Args&&... args) {
+				this->print();
+				cobra::print(_stream, fmt, std::forward<Args>(args)...);
+				return *this;
+			}
+
+			template <class... Args>
+			line_printer& print(std::size_t line_num, std::format_string<Args...> fmt, Args&&... args) {
+				this->print(line_num);
+				cobra::print(_stream, fmt, std::forward<Args>(args)...);
+				return *this;
+			}
+
+			line_printer& println();
+			line_printer& println(std::size_t line_num);
+
+			template <class... Args>
+			line_printer& println(std::format_string<Args...> fmt, Args&&... args) {
+				this->print(fmt, std::forward<Args>(args)...);
+				return newline();
+			}
+
+			template <class... Args>
+			line_printer& println(std::size_t line_num, std::format_string<Args...> fmt, Args&&... args) {
+				this->print(line_num, fmt, std::forward<Args>(args)...);
+				return newline();
+			}
+
+			inline std::size_t max_value() const { return _max_value; }
+			inline std::ostream& stream() const { return _stream; }
+
+		private:
+			line_printer& newline();
+		};
+
+		class multiline_printer : public line_printer {
+			std::size_t _leading_spaces;
+			term::control _style;
+
+			multiline_printer(term::control style, std::span<const std::string> lines);
+		public:
+			multiline_printer(const line_printer& printer, term::control style, std::span<const std::string> lines);
+			multiline_printer(std::ostream& stream, std::size_t max_line, term::control style, std::span<const std::string> lines);
+
+			multiline_printer& print() override;
+			multiline_printer& print(std::size_t line_num) override;
+
+			inline config_line trim_line(std::string_view view) const {
+				return config_line{view.substr(_leading_spaces)};
+			}
+
+			inline line_printer& inner() { return *this; }
 		};
 
 		struct diagnostic {
@@ -105,7 +185,11 @@ namespace cobra {
 			std::ostream& print(std::ostream& out, const std::vector<std::string>& lines) const;
 		private:
 			std::ostream& print_single(std::ostream& out, const std::vector<std::string>& lines) const;
-			std::ostream& print_multi(std::ostream& out, const std::vector<std::string>& lines) const;
+			void print_single_diag(line_printer& printer, std::size_t offset = 0) const;
+			std::ostream& print_multi(std::ostream& out, const std::vector<std::string>& lines,
+									  std::deque<std::reference_wrapper<const diagnostic>> inline_diags =
+										  std::deque<std::reference_wrapper<const diagnostic>>()) const;
+
 		public:
 
 			inline static diagnostic error(file_part part, std::string message,
@@ -130,7 +214,7 @@ namespace cobra {
 			}
 
 		private:
-			static term::control get_control(level lvl);
+			static term::control get_color(level lvl);
 		};
 
 		std::ostream& operator<<(std::ostream& stream, const diagnostic::level& level);
@@ -229,6 +313,8 @@ namespace cobra {
 			inline const std::string& str() const { return _str; }
 			inline constexpr operator std::string() const & { return _str; }
 			inline constexpr operator std::string() const && { return std::move(_str); }
+
+			bool operator==(const word& other) const = default;
 		};
 
 		class parse_session {
@@ -345,11 +431,7 @@ namespace cobra {
 				return _service;
 			}
 
-			inline constexpr auto operator<=>(const listen_address& other) const {
-				if (node() == other.node())
-					return service() <=> other.service();
-				return node() <=> other.node();
-			}
+			auto operator<=>(const listen_address& other) const = default;
 
 			static listen_address parse(parse_session& session);
 		};
@@ -384,6 +466,13 @@ namespace cobra {
 				requires std::convertible_to<U, T>
 				: def(std::move(other.def)), part(std::move(other.part)) {}
 
+			static define parse(parse_session& session, const std::string& directive) {
+				file_part part(session.file(), session.line(), session.column() - directive.length(),
+							   directive.length());
+				session.ignore_ws();
+				return define<T>(T::parse(session), std::move(part));
+			}
+
 			constexpr operator T() const noexcept {
 				return def;
 			};
@@ -394,6 +483,10 @@ namespace cobra {
 
 			constexpr const T* operator->() const noexcept {
 				return &def;
+			}
+
+			inline bool operator==(const define& other) const requires std::equality_comparable<T> {
+				return def == other.def;
 			}
 
 			inline constexpr auto operator<=>(const define& other) const noexcept {
@@ -420,6 +513,8 @@ namespace cobra {
 			inline operator fs::path() noexcept {
 				return _file;
 			}
+
+			auto operator<=>(const config_file& other) const = default;
 		};
 
 		class config_exec : public config_file {
@@ -440,6 +535,8 @@ namespace cobra {
 			inline operator fs::path() noexcept {
 				return _dir;
 			}
+
+			auto operator<=>(const config_dir& other) const = default;
 		};
 
 		struct static_file_config {
@@ -448,6 +545,8 @@ namespace cobra {
 			inline static static_file_config parse(parse_session& session) {
 				return {config_dir::parse(session)};
 			}
+
+			auto operator<=>(const static_file_config& other) const = default;
 		};
 
 		struct cgi_config {
@@ -459,6 +558,8 @@ namespace cobra {
 				session.ignore_ws();
 				return {std::move(root), config_exec::parse(session)};
 			}
+
+			auto operator<=>(const cgi_config& other) const = default;
 		};
 
 		struct server_name {
@@ -467,6 +568,8 @@ namespace cobra {
 			inline static server_name parse(parse_session& session) {
 				return {session.get_word_simple("string", "host")};
 			}
+
+			auto operator<=>(const server_name& other) const = default;
 		};
 
 		struct location_filter {
@@ -502,6 +605,8 @@ namespace cobra {
 
 			inline const fs::path& cert() const { return _cert.file(); }
 			inline const fs::path& key() const { return _key.file(); }
+
+			auto operator<=>(const ssl_config& other) const = default;
 		};
 
 		class server;
@@ -516,14 +621,16 @@ namespace cobra {
 			std::optional<define<config_file>> _index;
 			std::optional<define<std::variant<static_file_config, cgi_config>>>
 				_handler; // TODO add other handlers (redirect, proxy...)
-			//std::map<filter_type, define<block_config>> _filters;
 			std::vector<std::pair<filter_type, define<block_config>>> _filters;
 			std::unordered_map<std::string, file_part> _server_names;
 
 		public:
-			static block_config parse(parse_session& session);
+			static define<block_config> parse(parse_session& session);
+
+			bool operator==(const block_config& other) const = default;
 
 			friend class config;
+			friend class server_config;
 
 		protected:
 			void parse_max_body_size(parse_session& session);
@@ -558,13 +665,17 @@ namespace cobra {
 			friend class server;
 
 		public:
-			static server_config parse(parse_session& session);
+			static define<server_config> parse(parse_session& session);
 			static std::vector<server_config> parse_servers(parse_session& session);
 
-			static void lint_configs(const std::vector<server_config>& configs, const parse_session& session);
+			bool operator==(const server_config& other) const = default;
+
+			static void lint_configs(const std::vector<define<server_config>>& configs, const parse_session& session);
 		private:
-			static void ssl_lint(const std::vector<server_config>& configs);
-			static void server_name_lint(const std::vector<server_config>& configs);
+			static void empty_filters_lint(const std::vector<define<server_config>>& configs, const parse_session& session);
+			static void empty_filters_lint(const define<block_config>& config, const parse_session& session);
+			static void ssl_lint(const std::vector<define<server_config>>& configs);
+			static void server_name_lint(const std::vector<define<server_config>>& configs);
 			void parse_listen(parse_session& session);
 			void parse_ssl(parse_session& session);
 		};
@@ -619,6 +730,37 @@ struct std::formatter<cobra::config::diagnostic::level, char> {
 		case diagnostic::level::note:
 			return std::format_to(fc.out(), "note");
 		}
+	}
+};
+
+template <>
+struct std::formatter<cobra::config::listen_address, char> {
+	constexpr auto parse(std::format_parse_context& fpc) {
+		return fpc.begin();
+	}
+
+	template <class FormatContext>
+	constexpr auto format(cobra::config::listen_address address, FormatContext& fc) const {
+		return std::format_to(fc.out(), "{}:{}", address.node(), address.service());
+	}
+};
+
+template <>
+struct std::formatter<cobra::config::config_line, char> {
+	constexpr auto parse(std::format_parse_context& fpc) {
+		return fpc.begin();
+	}
+
+	template <class FormatContext>
+	constexpr auto format(cobra::config::config_line line, FormatContext& fc) const {
+		for (auto& ch : line.data) {
+			if (ch == '\t') {
+				std::format_to(fc.out(), " ");
+			} else {
+				std::format_to(fc.out(), "{}", ch);
+			}
+		}
+		return fc.out();
 	}
 };
 

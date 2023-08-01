@@ -9,6 +9,7 @@
 #include <vector>
 #include <cstdint>
 #include <memory>
+#include <numeric>
 
 #define COBRA_DEFLATE_NONE 0
 #define COBRA_DEFLATE_FIXED 1
@@ -17,11 +18,16 @@
 namespace cobra {
 	enum class inflate_error {
 		not_finished,
+		short_buffer,
+		long_distance,
 		bad_block_type,
 		bad_len_check,
+		bad_size_code,
+		bad_dist_code,
+		bad_huffman_code,
 	};
 
-	// TODO: peek
+	// TODO: peek_bits?
 	template <AsyncInputStream Stream>
 	class bit_istream {
 		Stream _stream;
@@ -100,39 +106,66 @@ namespace cobra {
 	private:
 		std::unique_ptr<char_type[]> _buffer;
 		std::size_t _buffer_size;
-		std::size_t _buffer_begin;
-		std::size_t _buffer_end;
+		std::size_t _buffer_begin = 0;
+		std::size_t _buffer_end = 0;
 
 		std::pair<std::size_t, std::size_t> space(std::size_t from, std::size_t to) const {
 			std::size_t begin = from % _buffer_size;
-			std::size_t limit = _buffer_size - begin;
-			return { begin, std::min(limit, (limit + to) % _buffer_size) };
+			return { begin, std::min(_buffer_size - begin, to - from) };
 		}
 
 	protected:
 		template <class Stream>
 		task<std::size_t> write(Stream& stream, std::size_t size) {
-			auto [begin, limit] = space(_buffer_end, _buffer_begin);
+			auto [begin, limit] = space(_buffer_end, _buffer_begin + _buffer_size);
 			limit = std::min(limit, size);
-			co_await stream.read_all(_buffer.get() + begin, limit);
+			limit = std::min(limit, co_await stream.read(_buffer.get() + begin, limit));
+
+			if (limit == 0 && size != 0) {
+				throw stream_error::incomplete_read;
+			}
+
 			_buffer_end += limit;
 			co_return limit;
 		}
 
 		std::size_t write(const char_type* data, std::size_t size) {
-			auto [begin, limit] = space(_buffer_end, _buffer_begin);
+			auto [begin, limit] = space(_buffer_end, _buffer_begin + _buffer_size);
 			limit = std::min(limit, size);
 			std::copy(data, data + limit, _buffer.get() + begin);
 			_buffer_end += limit;
-			co_return limit;
+			return limit;
 		}
 
-		void copy(std::size_t distance, std::size_t length) {
-			// TODO
+		std::size_t copy(std::size_t dist, std::size_t size) {
+			if (dist > _buffer_size) {
+				throw inflate_error::short_buffer;
+			}
+
+			if (dist > _buffer_end) {
+				throw inflate_error::long_distance;
+			}
+
+			std::size_t first = (_buffer_end - dist) % _buffer_size;
+			auto [begin, limit] = space(_buffer_end, _buffer_begin + _buffer_size);
+			limit = std::min(limit, std::min(size, _buffer_size - first));
+			
+			char_type* buffer_out = _buffer.get() + begin;
+			char_type* buffer_in = _buffer.get() + first;
+
+			for (std::size_t i = 0; i < limit; i++) {
+				buffer_out[i] = buffer_in[i];
+			}
+
+			return limit;
 		}
 
 		bool empty() const {
 			return _buffer_begin >= _buffer_end;
+		}
+
+		bool full() const {
+			return _buffer_end >= _buffer_begin + _buffer_size;
 		}
 
 	public:
@@ -142,10 +175,7 @@ namespace cobra {
 		}
 		
 		task<std::pair<const char_type*, std::size_t>> fill_buf() {
-			if (_buffer_begin >= _buffer_end) {
-				co_await static_cast<Base*>(this)->fill_ringbuf();
-			}
-
+			co_await static_cast<Base*>(this)->fill_ringbuf();
 			auto [begin, limit] = space(_buffer_begin, _buffer_end);
 			co_return { _buffer.get() + begin, limit };
 		}
@@ -158,101 +188,196 @@ namespace cobra {
 	template <class Base>
 	using istream_ringbuffer = basic_istream_ringbuffer<Base, char>;
 
-	template <class T>
+	template <class T, std::size_t Size, std::size_t Bits>
 	class inflate_tree {
+		std::array<T, Size> _data;
+		std::array<T, Bits + 1> _count;
+
 	public:
+		// TODO: sanitize
+		inflate_tree(std::array<std::size_t, Size> size) {
+			std::array<T, Bits + 1> next;
+
+			std::fill(_count.begin(), _count.end(), 0);
+
+			for (T i = 0; i < Size; i++) {
+				if (size[i] != 0) {
+					_count[size[i]] += 1;
+				}
+			}
+
+			std::partial_sum(_count.begin(), std::prev(_count.end()), std::next(next.begin()));
+
+			for (T i = 0; i < Size; i++) {
+				if (size[i] != 0) {
+					_data[next[size[i]]++] = i;
+				}
+			}
+		}
+
 		template <AsyncInputStream Stream>
 		task<T> read(bit_istream<Stream>& stream) const {
-			co_return 0; // TODO
+			T offset = 0;
+			T value = 0;
+
+			for (std::size_t i = 0; i <= Bits; i++) {
+				if (value < _count[i]) {
+					co_return _data[value + offset];
+				}
+
+				offset += _count[i];
+				value -= _count[i];
+				value <<= 1;
+				value |= co_await stream.read_bits(1);
+			}
+
+			throw inflate_error::bad_huffman_code;
 		}
 	};
 
-	using inflate_ltree = inflate_tree<std::uint16_t>;
-	using inflate_dtree = inflate_tree<std::uint8_t>;
+	using inflate_ltree = inflate_tree<std::uint16_t, 288, 15>;
+	using inflate_dtree = inflate_tree<std::uint8_t, 30, 15>;
+
+	constexpr std::array<std::size_t, 288> inflate_fixed_tree {
+		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+		9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+		9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+		9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+		9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+		9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+		9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+		9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+		7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+		7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8,
+	};
 
 	template <AsyncInputStream Stream>
 	class inflate_istream : public istream_ringbuffer<inflate_istream<Stream>> {
 		using base = istream_ringbuffer<inflate_istream<Stream>>;
 
-		enum class state {
-			init,
-			read,
-			ref,
-			copy,
+		struct state_init {
+			bit_istream<Stream> stream;
 		};
 
-		state _state = state::init;
-		bit_istream<Stream> _bit_stream;
-		// istream_limit<Stream> _limit_stream;
-		std::size_t _distance;
-		std::size_t _length;
+		struct state_write {
+			Stream stream;
+			std::size_t limit;
+		};
+
+		struct state_read {
+			bit_istream<Stream> stream;
+			inflate_ltree lt;
+			std::optional<inflate_dtree> dt;
+			std::size_t dist;
+			std::size_t size;
+		};
+
+		std::variant<state_init, state_write, state_read> _state;
 		bool _final = false;
 
-		task<std::uint16_t> decode_length(std::uint16_t code) {
-
+		static task<std::uint16_t> decode(bit_istream<Stream>& stream, std::uint16_t code, std::uint16_t stride) {
+			std::uint16_t extra_bits = code / stride;
+			std::uint16_t block_offset = (stride << extra_bits) - stride;
+			std::uint16_t start_offset = (code % stride) << extra_bits;
+			co_return start_offset + block_offset + co_await stream.read_bits(extra_bits);
 		}
 
-		task<std::uint16_t> decode_distance(std::uint16_t code) {
-
-		}
-
-		task<void> inflate_none() {
-			Stream stream = std::move(_bit_stream).end();
-			std::uint16_t len = co_await read_u16_le(stream);
-			std::uint16_t nlen = co_await read_u16_le(stream);
-
-			if (len != static_cast<std::uint16_t>(~nlen)) {
-				throw inflate_error::bad_len_check;
+		static task<std::uint16_t> decode_size(bit_istream<Stream>& stream, std::uint16_t code) {
+			if (code >= 286) {
+				throw inflate_error::bad_size_code;
+			} else if (code == 285) {
+				co_return 258;
+			} else if (code < 261) {
+				co_return code - 257 + 3;
+			} else {
+				co_return co_await decode(stream, code - 261, 4) + 7;
 			}
-
-			co_await base::write(stream, len);
-			_bit_stream = std::move(stream);
 		}
 
-		task<void> inflate_fixed(const inflate_ltree* lt, const inflate_dtree* dt) {
-			while (true) {
-				std::uint16_t value = co_await lt->read(_bit_stream);
-
-				if (value < 256) {
-					char c = std::char_traits<char>::to_char_type(value);
-					base::write(&c, 1);
-				} else if (value == 256) {
-					break;
-				} else {
-					std::uint16_t length = co_await decode_length(value);
-					std::uint8_t code = dt ? co_await dt->read(_bit_stream) : co_await _bit_stream.read_bits(5);
-					std::uint16_t distance = co_await decode_distance(code);
-				}
-			};
+		static task<std::uint16_t> decode_dist(bit_istream<Stream>& stream, std::uint16_t code) {
+			if (code >= 30) {
+				throw inflate_error::bad_dist_code;
+			} else if (code < 2) {
+				co_return code + 1;
+			} else {
+				co_return co_await decode(stream, code - 2, 2) + 3;
+			}
 		}
 
 	public:
-		inflate_istream(Stream&& stream) : base(32768), _bit_stream(std::move(stream)) {
+		inflate_istream(Stream&& stream) : base(32768), _state(state_init { bit_istream(std::move(stream)) }) {
 		}
 
 		task<void> fill_ringbuf() {
-			while (base::empty() && !_final) {
-				_final = co_await _bit_stream.read_bits(1) == 1;
-				int type = co_await _bit_stream.read_bits(2);
+			while (!base::full()) {
+				if (auto* state = std::get_if<state_init>(&_state)) {
+					if (_final) {
+						co_return;
+					}
 
-				switch (type) {
-				case COBRA_DEFLATE_NONE:
-					co_await inflate_none();
-					break;
-				case COBRA_DEFLATE_FIXED:
-				case COBRA_DEFLATE_DYNAMIC:
-				default:
-					throw inflate_error::bad_block_type;
+					_final = co_await state->stream.read_bits(1) == 1;
+					int type = co_await state->stream.read_bits(2);
+
+					if (type == COBRA_DEFLATE_NONE) {
+						Stream stream = std::move(state->stream).end();
+						std::uint16_t len = co_await read_u16_le(stream);
+						std::uint16_t nlen = co_await read_u16_le(stream);
+
+						if (len != static_cast<std::uint16_t>(~nlen)) {
+							throw inflate_error::bad_len_check;
+						}
+
+						_state = state_write { std::move(stream), len };
+					} else if (type == COBRA_DEFLATE_FIXED) {
+						_state = state_read { std::move(state->stream), inflate_ltree(inflate_fixed_tree), std::nullopt, 0, 0 };
+					} else if (type == COBRA_DEFLATE_DYNAMIC) {
+						throw inflate_error::bad_block_type;
+					} else {
+						throw inflate_error::bad_block_type;
+					}
+				} else if (auto* state = std::get_if<state_write>(&_state)) {
+					state->limit -= co_await base::write(state->stream, state->limit);
+
+					if (state->limit == 0) {
+						_state = state_init { bit_istream(std::move(state->stream)) };
+					}
+				} else if (auto* state = std::get_if<state_read>(&_state)) {
+					if (state->size > 0) {
+						state->size -= base::copy(state->dist, state->size);
+					} else {
+						std::uint16_t code = co_await state->lt.read(state->stream);
+
+						if (code < 256) {
+							char c = std::char_traits<char>::to_char_type(code);
+							base::write(&c, 1);
+						} else if (code == 256) {
+							_state = state_init { std::move(state->stream) };
+						} else {
+							state->size = co_await decode_size(state->stream, code);
+							code = state->dt ? co_await state->dt->read(state->stream) : co_await state->stream.read_bits(5);
+							state->dist = co_await decode_dist(state->stream, code);
+						}
+					}
 				}
 			}
 		}
 
 		Stream end()&& {
-			if (base::empty() || !_final) {
-				throw inflate_error::not_finished;
+			if (_final) {
+				if (auto* state = std::get_if<state_init>(&_state)) {
+					return std::move(state->stream).end();
+				}
 			}
 
-			return std::move(_bit_stream).end();
+			throw inflate_error::not_finished;
 		}
 	};
 }

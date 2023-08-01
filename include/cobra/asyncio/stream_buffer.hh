@@ -186,6 +186,14 @@ namespace cobra {
 		task<void> flush() {
 			return _stream.flush();
 		}
+
+		Stream& inner() {
+			return _stream;
+		}
+
+		std::size_t limit() const {
+			return _limit;
+		}
 	};
 
 	template<AsyncOutputStream Stream>

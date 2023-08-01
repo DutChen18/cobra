@@ -1,18 +1,21 @@
 #include "cobra/config.hh"
 
 #include "cobra/exception.hh"
-#include "cobra/print.hh"
 #include "cobra/net/address.hh"
+#include "cobra/print.hh"
 
-//TODO check which headers aren't needed anymore
+// TODO check which headers aren't needed anymore
 #include <algorithm>
 #include <any>
+#include <cassert>
 #include <cctype>
 #include <cerrno>
 #include <compare>
 #include <cstddef>
 #include <cstring>
+#include <deque>
 #include <filesystem>
+#include <format>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -20,15 +23,12 @@
 #include <ostream>
 #include <ranges>
 #include <stdexcept>
+#include <string>
 #include <string_view>
-#include <type_traits>
-#include <format>
-#include <memory>
 #include <unordered_set>
 #include <utility>
 #include <variant>
 #include <vector>
-#include <cassert>
 
 namespace cobra {
 
@@ -44,7 +44,6 @@ namespace cobra {
 			COBRA_SERVER_KEYWORDS
 #undef X
 		};
-
 
 		std::size_t levenshtein_dist(const std::string& a, const std::string& b) {
 			if (a.length() == 0) {
@@ -73,7 +72,8 @@ namespace cobra {
 						sub_cost = 0;
 					}
 
-					dists[aidx][bidx] = std::min({dists[aidx-1][bidx] + 1, dists[aidx][bidx-1] + 1, dists[aidx -1][bidx -1] + sub_cost});
+					dists[aidx][bidx] = std::min(
+						{dists[aidx - 1][bidx] + 1, dists[aidx][bidx - 1] + 1, dists[aidx - 1][bidx - 1] + sub_cost});
 				}
 			}
 			return dists.back().back();
@@ -84,7 +84,8 @@ namespace cobra {
 		file_part::file_part(std::optional<fs::path> file, std::size_t line, std::size_t col)
 			: file_part(std::move(file), line, col, 1) {}
 
-		file_part::file_part(std::optional<fs::path> file, buf_pos start, buf_pos end) : file(std::move(file)), start(start), end(end) {}
+		file_part::file_part(std::optional<fs::path> file, buf_pos start, buf_pos end)
+			: file(std::move(file)), start(start), end(end) {}
 
 		file_part::file_part(std::optional<fs::path> file, std::size_t line, std::size_t col, std::size_t length)
 			: file_part(std::move(file), {line, col}, {line, col + length}) {}
@@ -93,6 +94,95 @@ namespace cobra {
 
 		file_part::file_part(std::size_t line, std::size_t col, std::size_t length)
 			: file_part(std::nullopt, line, col, length) {}
+
+		line_printer::line_printer(std::ostream& stream, std::size_t max_line)
+			: _stream(stream), _max_value(max_line), _max_width(std::format("{}", max_line).length()) {}
+
+		line_printer::line_printer(const line_printer& other)
+			: _stream(other._stream), _max_value(other._max_value), _max_width(other._max_value) {}
+
+		line_printer::~line_printer() {}
+
+		static std::ostream& print_empty_line_part(std::ostream& out, std::size_t width) {
+			cobra::print("{}{} |{} ", term::fg_blue() | term::set_bold(), std::string(width, ' '), term::reset());
+			return out;
+		}
+
+		static std::ostream& print_line_part(std::ostream& out, std::size_t line_num, std::size_t width) {
+			cobra::print("{}{:<{}} |{} ", term::fg_blue() | term::set_bold(), line_num, width, term::reset());
+			return out;
+		}
+
+		static std::string_view trim_begin(std::string_view view) {
+			std::size_t offset = 0;
+			for (auto& ch : view) {
+				if (!std::isspace(ch))
+					break;
+				++offset;
+			}
+			return view.substr(offset);
+		}
+
+		line_printer& line_printer::print() {
+			print_empty_line_part(_stream, _max_width);
+			return *this;
+		}
+
+		line_printer& line_printer::println() {
+			print_empty_line_part(_stream, _max_width);
+			return newline();
+		}
+
+		line_printer& line_printer::print(std::size_t line_num) {
+			if (line_num > _max_value && std::format("{}", line_num).length() > _max_width) {
+				throw std::logic_error("line_printer line_num > max_value");
+			}
+			print_line_part(_stream, line_num, _max_width);
+			return *this;
+		}
+
+		line_printer& line_printer::println(std::size_t line_num) {
+			print(line_num);
+			return newline();
+		}
+
+		line_printer& line_printer::newline() {
+			cobra::println(_stream, "{}", term::reset());
+			return *this;
+		}
+
+		multiline_printer::multiline_printer(std::ostream& stream, std::size_t max_line, term::control style,
+											 std::span<const std::string> lines) : line_printer(stream, max_line), _style(style) {
+			std::vector<std::size_t> leading_spaces;
+
+			for (auto& line : lines) {
+				std::size_t count = 0;
+
+				for (auto& ch : line) {
+					if (!std::isspace(ch))
+						break;
+					++count;
+				}
+				leading_spaces.push_back(count);
+			}
+			_leading_spaces = *std::min_element(leading_spaces.begin(), leading_spaces.end());
+		}
+
+		multiline_printer::multiline_printer(const line_printer& printer, term::control style,
+											 std::span<const std::string> lines)
+			: multiline_printer(printer.stream(), printer.max_value(), style, lines) {}
+
+		multiline_printer& multiline_printer::print() {
+			line_printer::print();
+			cobra::print(_stream, "{}|{} ", _style, term::reset());
+			return *this;
+		}
+
+		multiline_printer& multiline_printer::print(std::size_t line) {
+			line_printer::print(line);
+			cobra::print(_stream, "{}|{} ", _style, term::reset());
+			return *this;
+		}
 
 		diagnostic::diagnostic(level lvl, file_part part, std::string message) : diagnostic(lvl, part, message, "") {}
 
@@ -105,103 +195,101 @@ namespace cobra {
 			  secondary_label(std::move(secondary_label)) {}
 
 		std::ostream& diagnostic::print_single(std::ostream& out, const std::vector<std::string>& lines) const {
-			const std::size_t line_num = part.start.line;
-			const std::string line = std::format("{}", line_num + 1);
+			const std::size_t line_num = part.start.line + 1;
+			const auto line = lines.at(line_num - 1);
+			const auto trimmed_line = trim_begin(line);
 
-			cobra::println(out, "{}{} |{} ", term::fg_blue() | term::set_bold(), std::string(line.length(), ' '),
-						   term::reset());
-			cobra::print(out, "{}{} |{} ", term::fg_blue() | term::set_bold(), line, term::reset());
+			line_printer printer(out, line_num);
 
-			for (auto&& ch : lines.at(line_num)) {
-				if (ch == '\t') {
-					out << ' ';
-				} else {
-					out << ch;
+			printer.println().println(line_num, "{}", config_line{trimmed_line});
+			print_single_diag(printer, part.start.col - line.length() + trimmed_line.length());
+			return out;
+		}
+
+		void diagnostic::print_single_diag(line_printer& printer, std::size_t offset) const {
+			const std::size_t length = part.end.col - part.start.col;
+			const auto style = get_color(lvl) | term::set_bold();
+			const std::string spacing = std::string(offset, ' ');
+
+			printer.println("{}{}{} {}", spacing , style, std::string(length, '^'), secondary_label);
+			if (!primary_label.empty()) {
+				printer.println("{}{}|", spacing, style);
+				printer.println("{}{}{}", spacing, style, primary_label);
+			}
+		}
+
+		std::ostream& diagnostic::print_multi(std::ostream& out, const std::vector<std::string>& lines,
+											  std::deque<std::reference_wrapper<const diagnostic>> inline_diags) const {
+			const std::size_t start_line = part.start.line;
+			const std::size_t start_col = part.start.col;
+			const std::size_t end_line = part.end.line;
+			const std::size_t end_col = part.end.col;
+
+			std::span diag_lines = std::span(lines.begin() + start_line, lines.begin() + end_line + 1);
+			std::vector<std::size_t> leading_spaces;
+
+			for (auto line : diag_lines) {
+				std::size_t count = 0;
+
+				for (auto ch : line) {
+					if (!std::isspace(ch))
+						break;
+					++count;
+				}
+				leading_spaces.push_back(count);
+			}
+
+
+			std::size_t min_leading = *std::min_element(leading_spaces.begin(), leading_spaces.end());
+
+			std::size_t start_offset = 1;
+			std::size_t end_offset = end_line - start_line;
+
+			const auto style = get_color(lvl) | term::set_bold();
+
+			line_printer printer(out, end_line);
+			multiline_printer mprinter(printer, style, diag_lines);
+
+			if (start_col <= leading_spaces.front()) {
+				auto line = diag_lines.front().substr(min_leading);
+				printer.println(start_line, "{}/{} {}", style, term::reset(), config_line{line});
+			} else {
+				printer.println("{} {}v", style, std::string(start_col - min_leading + 1, '_'));
+				start_offset = 0;
+			}
+
+			if (end_col > leading_spaces.back() || !primary_label.empty()) {
+				end_offset += 1;
+			}
+
+			for (std::size_t offset = start_offset; offset < end_offset; ++offset) {
+				const auto line = lines[start_line + offset].substr(min_leading);
+				mprinter.println(start_line + offset, "{}", config_line{line});
+				//printer.println(start_line + offset, "{}|{} {}", style, term::reset(), config_line{line});
+
+				if (!inline_diags.empty() && inline_diags.front().get().part.start.line == start_line + offset) {
+					const diagnostic& diag = inline_diags.front();
+					diag.print_single_diag(mprinter, lines[start_line + offset].length() - line.length() + 1);
+					inline_diags.pop_front();
 				}
 			}
 
-			const std::size_t col = part.start.col;
-			const std::size_t length = part.end.col - part.start.col;
-
-			out << std::endl;
-			cobra::println(out, "{}{} |{} {}{}{}{}{}", term::fg_blue() | term::set_bold(),
-						   std::string(line.length(), ' '), term::reset(), std::string(col, ' '),
-						   get_control(lvl) | term::set_bold(), std::string(length, '^'), term::reset(),
-						   secondary_label);
-			if (!primary_label.empty()) {
-				cobra::println(out, "{}{} |{} {}{}|{}", term::fg_blue() | term::set_bold(),
-							   std::string(line.length(), ' '), term::reset(), std::string(col, ' '),
-							   get_control(lvl) | term::set_bold(), term::reset());
-				cobra::println(out, "{}{} |{} {}{}{}{}", term::fg_blue() | term::set_bold(),
-							   std::string(line.length(), ' '), term::reset(), std::string(col, ' '),
-							   get_control(lvl) | term::set_bold(), primary_label, term::reset());
+			if (primary_label.empty()) {
+				if (end_col <= leading_spaces.back()) {
+					auto line = diag_lines.back().substr(min_leading);
+					printer.println(end_line, "{}\\{} {}", style, term::reset(), config_line{line});
+				} else {
+					printer.println("{}|{}^", style, std::string(end_col - min_leading + 2, '_'));
+				}
+			} else {
+				printer.println("{}|{}^ {}", style, std::string(end_col - min_leading + 1, '_'), primary_label);
 			}
 			return out;
 		}
 
-		std::ostream& diagnostic::print_multi(std::ostream& out, const std::vector<std::string>& lines) const {
-                        std::vector<std::size_t> leading_spaces;
-
-                        const std::size_t start_line = part.start.line;
-                        const std::size_t end_line = part.end.line;
-
-                        for (auto line : std::span(lines.begin() + start_line, lines.begin() + end_line)) {
-                                std::size_t count = 0;
-
-                                for (auto ch : line) {
-                                        if (!std::isspace(ch))
-                                                break;
-                                        ++count;
-                                }
-                                leading_spaces.push_back(count);
-                        }
-
-                        std::size_t min_leading = *std::min_element(leading_spaces.begin(), leading_spaces.end());
-
-			const std::size_t line_length = std::format("{}", end_line).length();
-			const std::size_t max_col_length = 80;
-
-                        eprintln("leading spaces[0]: {}, min: {}", leading_spaces[0], min_leading);
-                        cobra::println(
-                            out, "{}{:{}} |{} {}{}{}{}",
-                            term::fg_blue() | term::set_bold(), start_line,
-                            line_length, term::reset(),
-                            get_control(lvl) | term::set_bold(),
-                            std::string(leading_spaces[0] - min_leading + 1, '-'),
-                            term::reset(),
-                            std::string_view(lines[start_line].begin() +
-                                                 leading_spaces[0],
-                                             lines[start_line].end()));
-
-                        for (std::size_t offset = 1; offset < (end_line - start_line); ++offset) {
-                                const std::string& line = lines[start_line + offset];
-                                cobra::println(
-                                    out, "{}{:{}} |{} {}{}{}{}",
-                                    term::fg_blue() | term::set_bold(),
-                                    start_line + offset, line_length,
-                                    term::reset(),
-                                    get_control(lvl) | term::set_bold(), "|",
-                                    term::reset(),
-                                    std::string_view(line.begin() + min_leading,
-                                                     line.end()));
-                        }
-
-                        cobra::println(
-                            out, "{}{:{}} |{} {}{}{}{}",
-                            term::fg_blue() | term::set_bold(), end_line,
-                            line_length, term::reset(),
-                            get_control(lvl) | term::set_bold(),
-                            std::string(leading_spaces.back() - min_leading + 1, '-'),
-                            term::reset(),
-                            std::string_view(lines[end_line].begin() +
-                                                 leading_spaces.back(),
-                                             lines[end_line].end()));
-			return out;
-                }
-
 		std::ostream& diagnostic::print(std::ostream& out, const std::vector<std::string>& lines) const {
-			cobra::println(out, "{}{}{}{}: {}{}", get_control(lvl) | term::set_bold(), lvl, term::reset(), term::set_bold(), message,
-						   term::reset());
+			const auto style = get_color(lvl) | term::set_bold();
+			cobra::println(out, "{}{}{}{}: {}{}", style, lvl, term::reset(), term::set_bold(), message, term::reset());
 
 			std::string file("<source>");
 			if (part.file) {
@@ -210,19 +298,38 @@ namespace cobra {
 			cobra::println(out, " {}-->{} {}:{}:{}", term::fg_blue() | term::set_bold(), term::reset(), file,
 						   part.start.line + 1, part.start.col + 1);
 
+			std::vector<std::reference_wrapper<const diagnostic>> sub_diags;
+
 			if (part.is_multiline()) {
-				print_multi(out, lines);
+				std::deque<std::reference_wrapper<const diagnostic>> inline_diags;
+
+				for (auto& diag : this->sub_diags) {
+					if (!diag.part.is_multiline()) {
+						std::size_t line = diag.part.start.line;
+						if (line > part.start.line && line < part.end.line) {
+							inline_diags.push_back(diag);
+						}
+					} else {
+						sub_diags.push_back(diag);
+					}
+				}
+
+				print_multi(out, lines, std::move(inline_diags));
 			} else {
 				print_single(out, lines);
+
+				for (auto& diag : this->sub_diags) {
+					sub_diags.push_back(diag);
+				}
 			}
 
-			for (auto&& diag : sub_diags) {
-				diag.print(out, lines);
+			for (auto& diag : sub_diags) {
+				diag.get().print(out, lines);
 			}
 			return out;
 		}
 
-		term::control diagnostic::get_control(level lvl) {
+		term::control diagnostic::get_color(level lvl) {
 			switch (lvl) {
 			case diagnostic::level::error:
 				return term::fg_red();
@@ -245,9 +352,8 @@ namespace cobra {
 		}
 
 		error::error(diagnostic diag) : std::runtime_error(diag.message), _diag(diag) {}
-		
-		basic_diagnostic_reporter::basic_diagnostic_reporter(bool print) : _print(print) {
-		}
+
+		basic_diagnostic_reporter::basic_diagnostic_reporter(bool print) : _print(print) {}
 
 		void basic_diagnostic_reporter::report(const diagnostic& diag, const parse_session& session) {
 			if (_print) {
@@ -256,15 +362,15 @@ namespace cobra {
 
 			_diags.push_back(diag);
 		}
-		
+
 		void basic_diagnostic_reporter::report_token(file_part part, std::string type, const parse_session& session) {
-			(void) session;
-			_tokens.push_back({ part, std::move(type) });
+			(void)session;
+			_tokens.push_back({part, std::move(type)});
 		}
-		
+
 		void basic_diagnostic_reporter::report_inlay_hint(buf_pos pos, std::string hint, const parse_session& session) {
-			(void) session;
-			_inlay_hints.push_back({ pos, std::move(hint) });
+			(void)session;
+			_inlay_hints.push_back({pos, std::move(hint)});
 		}
 
 		word::word(file_part part, std::string str) : _part(std::move(part)), _str(std::move(str)) {}
@@ -491,7 +597,8 @@ namespace cobra {
 			return true;
 		}
 
-		constexpr listen_address::listen_address(std::string node, port service) noexcept : _node(std::move(node)), _service(service) {}
+		constexpr listen_address::listen_address(std::string node, port service) noexcept
+			: _node(std::move(node)), _service(service) {}
 		constexpr listen_address::listen_address(port service) noexcept : _node(), _service(service) {}
 
 		static const char* get_filetype_name(fs::file_type type) {
@@ -515,31 +622,28 @@ namespace cobra {
 			}
 		}
 
-
 		config_file::config_file(fs::path file) : _file(std::move(file)) {}
 
-                static void report_fs_error(file_part part, const parse_session& session, const fs::filesystem_error &ex) {
-                        if (ex.code().value() != EACCES) {
-                                session.report(diagnostic::warn(
-                                    part, "failed to stat file",
-                                    ex.code().message()));
-                        }
-                }
+		static void report_fs_error(file_part part, const parse_session& session, const fs::filesystem_error& ex) {
+			if (ex.code().value() != EACCES) {
+				session.report(diagnostic::warn(part, "failed to stat file", ex.code().message()));
+			}
+		}
 
 		config_file config_file::parse(parse_session& session) {
 			word w = session.get_word("string", "path");
 			fs::path p(w);
-			
-			if (p.is_absolute()) {
-                                try {
-                                        fs::file_status stat = fs::status(p);
 
-                                        if (stat.type() == fs::file_type::directory) {
-                                                session.report(diagnostic::warn(w.part(), "not a normal file", "is a directory"));
-                                        }
-                                } catch (const fs::filesystem_error &ex) {
-                                        report_fs_error(w.part(), session, ex);
-                                }
+			if (p.is_absolute()) {
+				try {
+					fs::file_status stat = fs::status(p);
+
+					if (stat.type() == fs::file_type::directory) {
+						session.report(diagnostic::warn(w.part(), "not a normal file", "is a directory"));
+					}
+				} catch (const fs::filesystem_error& ex) {
+					report_fs_error(w.part(), session, ex);
+				}
 			}
 
 			return config_file{std::move(p)};
@@ -552,30 +656,22 @@ namespace cobra {
 			fs::path p(w);
 
 			if (p.is_absolute()) {
-                                try {
-                                        fs::file_status stat = fs::status(p);
-                                        fs::perms perms = stat.permissions();
+				try {
+					fs::file_status stat = fs::status(p);
+					fs::perms perms = stat.permissions();
 
-                                        if (stat.type() == fs::file_type::directory) {
-                                                session.report(diagnostic::warn(
-                                                    w.part(),
-                                                    "not a normal file",
-                                                    "is a directory"));
-                                        }
+					if (stat.type() == fs::file_type::directory) {
+						session.report(diagnostic::warn(w.part(), "not a normal file", "is a directory"));
+					}
 
-                                        if ((perms & fs::perms::owner_exec) ==
-                                                fs::perms::none &&
-                                            (perms & fs::perms::group_exec) ==
-                                                fs::perms::none &&
-                                            (perms & fs::perms::others_exec) ==
-                                                fs::perms::none) {
-                                                session.report(diagnostic::warn(
-                                                    w.part(),
-                                                    "not an executable file"));
-                                        }
-                                } catch (const fs::filesystem_error &ex) {
-                                        report_fs_error(w.part(), session, ex);
-                                }
+					if ((perms & fs::perms::owner_exec) == fs::perms::none &&
+						(perms & fs::perms::group_exec) == fs::perms::none &&
+						(perms & fs::perms::others_exec) == fs::perms::none) {
+						session.report(diagnostic::warn(w.part(), "not an executable file"));
+					}
+				} catch (const fs::filesystem_error& ex) {
+					report_fs_error(w.part(), session, ex);
+				}
 			}
 			return config_exec(std::move(p));
 		}
@@ -586,36 +682,38 @@ namespace cobra {
 			word w = session.get_word("string", "path");
 			fs::path p(w);
 
-                        if (p.is_absolute()) {
-                                try {
-                                        fs::file_status stat = fs::status(p);
+			if (p.is_absolute()) {
+				try {
+					fs::file_status stat = fs::status(p);
 
-                                        if (stat.type() != fs::file_type::directory) {
-                                                session.report(diagnostic::warn(
-                                                    w.part(), "not a directory",
-                                                    std::format(
-                                                        "is a {}",
-                                                        get_filetype_name(
-                                                            stat.type()))));
-                                        }
-                                } catch (const fs::filesystem_error &ex) {
-                                        report_fs_error(w.part(), session, ex);
-                                }
-                        }
+					if (stat.type() != fs::file_type::directory) {
+						session.report(diagnostic::warn(w.part(), "not a directory",
+														std::format("is a {}", get_filetype_name(stat.type()))));
+					}
+				} catch (const fs::filesystem_error& ex) {
+					report_fs_error(w.part(), session, ex);
+				}
+			}
 
-                        return config_dir{std::move(p)};
+			return config_dir{std::move(p)};
 		}
 
-		server_config server_config::parse(parse_session& session) {
+		define<server_config> server_config::parse(parse_session& session) {
+			const std::size_t start_line = session.line();
+			const std::size_t start_col = session.column() - std::string_view("server").length();
 			session.ignore_ws();
 			session.expect('{');
 
 			server_config config;
 
+			std::size_t end_line, end_col;
+
 			while (true) {
 				session.ignore_ws();
 
 				if (session.peek() == '}') {
+					end_line = session.line();
+					end_col = session.column();
 					session.get();
 					break;
 				} else if (session.peek() == '#') {
@@ -625,26 +723,23 @@ namespace cobra {
 
 				const word w = session.get_word_simple("keyword");
 
-#define X(name) \
-				if (w.str() == #name) {\
-					config.parse_##name(session);\
-					continue;\
-				}
+#define X(name)                                                                                                        \
+	if (w.str() == #name) {                                                                                            \
+		config.parse_##name(session);                                                                                  \
+		continue;                                                                                                      \
+	}
 				COBRA_SERVER_KEYWORDS
 #undef X
 
 				throw_undefined_directive(SERVER_KEYWORDS, w);
-				/*
-				throw error(
-					diagnostic::error(w.part(), std::format("unknown directive `{}`", w.str()),
-									  std::format("did you mean `{}`?", get_suggestion(SERVER_KEYWORDS, w.str()))));*/
 			}
 
-			return config;
+			return define<server_config>(std::move(config), file_part(session.file(), buf_pos(start_line, start_col),
+																	  buf_pos(end_line, end_col)));
 		}
 
 		std::vector<server_config> server_config::parse_servers(parse_session& session) {
-			std::vector<server_config> configs;
+			std::vector<define<server_config>> configs;
 
 			while (true) {
 				session.ignore_ws();
@@ -653,24 +748,53 @@ namespace cobra {
 					break;
 
 				session.expect_word_simple("server", "keyword");
+
 				configs.push_back(server_config::parse(session));
 			}
 
 			server_config::lint_configs(configs, session);
-			return configs;
+
+			std::vector<server_config> result;
+			result.reserve(configs.size());
+			for (auto&& cfg : configs) {
+				result.push_back(std::move(cfg));
+			}
+			return result;
 		}
 
-		void server_config::lint_configs(const std::vector<server_config>& configs, const parse_session& session) {
+
+		void server_config::lint_configs(const std::vector<define<server_config>>& configs, const parse_session& session) {
+			empty_filters_lint(configs, session);
 			ssl_lint(configs);
 			server_name_lint(configs);
 			(void)session;
 		}
 
-		void server_config::ssl_lint(const std::vector<server_config>& configs) {
+		void server_config::empty_filters_lint(const std::vector<define<server_config>>& configs, const parse_session& session) {
+			for (auto& cfg : configs) {
+				for (auto& [_,block_cfg] : cfg->_filters) {
+					empty_filters_lint(block_cfg, session);
+				}
+			}
+		}
+
+		void server_config::empty_filters_lint(const define<block_config>& config, const parse_session& session) {
+			if (!config->_handler && config->_filters.empty()) {
+				diagnostic diag = diagnostic::warn(config.part, "empty filter", "consider specifying a handler using: `root`, `cgi`, etc...");
+				session.report(diag);
+			} else {
+				for (auto& [_, block_cfg] : config->_filters) {
+					empty_filters_lint(block_cfg, session);
+				}
+			}
+		}
+
+		void server_config::ssl_lint(const std::vector<define<server_config>>& configs) {
 			std::map<listen_address, file_part> plain_ports;
 			std::map<listen_address, file_part> ssl_ports;
 
-			for (auto& config : configs) {
+			for (auto& define : configs) {
+				const auto& config = define.def;
 				if (config._ssl) {
 					for (auto& address : config._addresses) {
 						const auto it = plain_ports.find(address);
@@ -688,9 +812,9 @@ namespace cobra {
 					for (auto& address : config._addresses) {
 						const auto it = ssl_ports.find(address);
 						if (it != ssl_ports.end()) {
-							diagnostic diag = diagnostic::error(config._ssl->part,
-																"a ssl address cannot be listened without ssl",
-																"consider listening to another address");
+							diagnostic diag =
+								diagnostic::error(config._ssl->part, "a ssl address cannot be listened without ssl",
+												  "consider listening to another address");
 							diag.sub_diags.push_back(
 								diagnostic::note(it->second, "previously listened to here with ssl"));
 							throw error(diag);
@@ -701,33 +825,60 @@ namespace cobra {
 			}
 		}
 
-		void server_config::server_name_lint(const std::vector<server_config>& configs) {
-			std::map<listen_address, std::vector<std::reference_wrapper<const server_config>>> servers;
+		void server_config::server_name_lint(const std::vector<define<server_config>>& defines) {
+			std::map<listen_address, std::vector<std::reference_wrapper<const define<server_config>>>> servers;
 
-			for (auto& config : configs) {
-				for (auto& address : config._addresses) {
-					servers[address].push_back(config);
+			for (const auto& define : defines) {
+				for (auto& address : define.def._addresses) {
+					servers[address].push_back(define);
 				}
 			}
 
-			for (auto& [address, configs] : servers) {
-				if (configs.size() < 2)
+			for (const auto& [address, defines] : servers) {
+				if (defines.size() < 2)
 					continue;
 				std::unordered_map<std::string_view, file_part> names;
 
-				for (auto& config : configs) {
-					if (config.get()._server_names.empty()) {
-                                                diagnostic diag = diagnostic::error(file_part(std::nullopt, buf_pos(0, 0), buf_pos(5, 0)), "test");
+				for (const auto& define : defines) {
+					const auto& config = define.get().def;
+					if (config._server_names.empty()) {
+						diagnostic diag = diagnostic::error(define.get().part, "ambigious server",
+															"consider specifying a `server_name`");
+						auto address_define =
+							std::find_if(config._addresses.begin(), config._addresses.end(), [address](auto addr) {
+								return addr == address;
+							});
 
-                                                throw error(diag);
-                                                //TODO diagnostic error ambigious server
+						diag.sub_diags.push_back(
+							diagnostic::error(address_define->part, "ambigious server", "",
+											  std::format("another server is also listening to `{}`", address)));
+
+						for (const auto& ambigious_define : defines) {
+							if (ambigious_define.get().part == define.get().part)
+								continue;
+							diagnostic sub_diag =
+								diagnostic::note(ambigious_define.get().part, "also listened to here");
+
+							auto other_address_define =
+								std::find_if(ambigious_define.get().def._addresses.begin(),
+											 ambigious_define.get().def._addresses.end(), [address](auto addr) {
+												 return addr == address;
+											 });
+							sub_diag.sub_diags.push_back(
+								diagnostic::note(other_address_define->part, "also listened to here"));
+							diag.sub_diags.push_back(std::move(sub_diag));
+						}
+
+						throw error(diag);
 					}
 
-					for (auto& [name, part] : config.get()._server_names) {
+					for (auto& [name, part] : config._server_names) {
 						auto [it, inserted] = names.insert({name, part});
-						
+
 						if (!inserted) {
-							diagnostic diag = diagnostic::error(part, "ambigious server", "another config has the same server_name");
+							diagnostic diag = diagnostic::error(
+								part, "ambigious server",
+								"another server listening to the same address has the same `server_name`");
 							diag.sub_diags.push_back(diagnostic::note(it->second, "previously specified here"));
 							throw error(diag);
 						}
@@ -786,16 +937,22 @@ namespace cobra {
 			return {std::move(cert), std::move(key)};
 		}
 
-		block_config block_config::parse(parse_session& session) {
+		define<block_config> block_config::parse(parse_session& session) {
 			session.ignore_ws();
+			const std::size_t start_line = session.line();
+			const std::size_t start_col = session.column();
 			session.expect('{');
 
 			block_config config;
+
+			std::size_t end_line, end_col;
 
 			while (true) {
 				session.ignore_ws();
 
 				if (session.peek() == '}') {
+					end_line = session.line();
+					end_col = session.column();
 					session.get();
 					break;
 				} else if (session.peek() == '#') {
@@ -805,16 +962,17 @@ namespace cobra {
 
 				const word w = session.get_word_simple("keyword");
 
-#define X(name) \
-				if (w.str() == #name) {\
-					config.parse_##name(session);\
-					continue;\
-				}
+#define X(name)                                                                                                        \
+	if (w.str() == #name) {                                                                                            \
+		config.parse_##name(session);                                                                                  \
+		continue;                                                                                                      \
+	}
 				COBRA_BLOCK_KEYWORDS
 #undef X
 				throw_undefined_directive(BLOCK_KEYWORDS, w);
 			}
-			return config;
+			return define<block_config>(std::move(config), file_part(session.file(), buf_pos(start_line, start_col),
+																	  buf_pos(end_line, end_col)));
 		}
 
 		void block_config::parse_max_body_size(parse_session& session) {
@@ -826,7 +984,7 @@ namespace cobra {
 
 			std::string word;
 			try {
-				word  = session.get_word_simple("number", "size");
+				word = session.get_word_simple("number", "size");
 			} catch (error err) {
 				err.diag().message = "invalid number";
 				throw err;
@@ -842,7 +1000,8 @@ namespace cobra {
 					session.report(diag);
 				}
 
-				_max_body_size = define<std::size_t>(limit, file_part(session.file(), line, define_start, len));//TODO use parse_define
+				_max_body_size = define<std::size_t>(
+					limit, file_part(session.file(), line, define_start, len)); // TODO use parse_define
 			} catch (error err) {
 				err.diag().message = "invalid max_body_size";
 				err.diag().part = file_part(session.file(), line, col, word.length());
@@ -854,21 +1013,24 @@ namespace cobra {
 			auto def = parse_define<location_filter>(session, "location");
 			session.ignore_ws();
 
-			define<block_config> block = define<block_config>{block_config::parse(session), std::move(def.part)};
+			auto block = block_config::parse(session);
+			block.part.start = def.part.start;
+			//define<block_config> block = define<block_config>{block_config::parse(session), std::move(def.part)};
 			block->_filter = def;
 
 			auto it = std::find_if(_filters.begin(), _filters.end(), [&def](auto pair) {
-					if (!std::holds_alternative<location_filter>(pair.first))
-						return false;
-					const location_filter& other = std::get<location_filter>(pair.first);
+				if (!std::holds_alternative<location_filter>(pair.first))
+					return false;
+				const location_filter& other = std::get<location_filter>(pair.first);
 
-					return def->starts_with(other);
+				return def->starts_with(other);
 			});
 
 			if (it != _filters.end()) {
 				diagnostic diag = diagnostic::warn(block.part, "unreachable filter");
 				if (std::get<location_filter>(it->first) == def.def) {
-					diag.sub_diags.push_back(diagnostic::note(it->second.part, "because of an earlier definition here"));
+					diag.sub_diags.push_back(
+						diagnostic::note(it->second.part, "because of an earlier definition here"));
 				} else {
 					diag.sub_diags.push_back(
 						diagnostic::note(it->second.part, "because a less strict filter defined earlier here"));
@@ -881,7 +1043,7 @@ namespace cobra {
 
 		void block_config::parse_cgi(parse_session& session) {
 			define<cgi_config> def = parse_define<cgi_config>(session, "cgi");
-			if (_handler) {//TODO dry
+			if (_handler) { // TODO dry
 				diagnostic diag = diagnostic::warn(def.part, "redefinition of request handler");
 				diag.sub_diags.push_back(diagnostic::note(_handler->part, "previously defined here"));
 				session.report(diag);
@@ -933,7 +1095,7 @@ namespace cobra {
 
 		void block_config::parse_comment(parse_session& session) {
 			size_t start_line = session.line();
-			size_t start_col  = session.column();
+			size_t start_col = session.column();
 			size_t length = session.ignore_line();
 			session.report_token(file_part(session.file(), start_line, start_col, length), "comment");
 		}
@@ -947,7 +1109,7 @@ namespace cobra {
 			if (cfg._index)
 				index = cfg._index->def.file();
 
-			for (auto [name,_] : cfg._server_names) {
+			for (auto [name, _] : cfg._server_names) {
 				server_names.insert(name);
 			}
 
@@ -985,6 +1147,6 @@ namespace cobra {
 				addresses.push_back(address);
 			}
 		}
-	}
+	} // namespace config
 
-}
+} // namespace cobra

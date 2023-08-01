@@ -4,12 +4,11 @@ server {
 	#max_body_size 1000
 
 	location / {
-		root /
+		#root /
 	}
 
 	location / {
-		#cgi /home/codam/cobra/cgi /usr/bin/php-cgi
-		cgi /home/codam/cobra/cgi /home/codam/cobra/key.pem
+		cgi /home/codam/cobra/Makefile /usr/bin/php-cgi
 	}
 }
 
@@ -18,12 +17,11 @@ server {
 
 	#max_body_size 1000
 
-	location / {
+	location /src {
 		root /
 	}
 
 	location / {
-		#cgi /home/codam/cobra/cgi /usr/bin/php-cgi
-		cgi /home/codam/cobra/cgi /home/codam/cobra/key.pem
+		cgi /home/codam/cobra/cgi /usr/bin/php-cgi
 	}
 }
