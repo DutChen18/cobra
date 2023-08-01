@@ -152,7 +152,8 @@ namespace cobra {
 		}
 
 		multiline_printer::multiline_printer(std::ostream& stream, std::size_t max_line, term::control style,
-											 std::span<const std::string> lines) : line_printer(stream, max_line), _style(style) {
+											 std::span<const std::string> lines)
+			: line_printer(stream, max_line), _style(style) {
 			std::vector<std::size_t> leading_spaces;
 
 			for (auto& line : lines) {
@@ -211,7 +212,7 @@ namespace cobra {
 			const auto style = get_color(lvl) | term::set_bold();
 			const std::string spacing = std::string(offset, ' ');
 
-			printer.println("{}{}{} {}", spacing , style, std::string(length, '^'), secondary_label);
+			printer.println("{}{}{} {}", spacing, style, std::string(length, '^'), secondary_label);
 			if (!primary_label.empty()) {
 				printer.println("{}{}|", spacing, style);
 				printer.println("{}{}{}", spacing, style, primary_label);
@@ -239,7 +240,6 @@ namespace cobra {
 				leading_spaces.push_back(count);
 			}
 
-
 			std::size_t min_leading = *std::min_element(leading_spaces.begin(), leading_spaces.end());
 
 			std::size_t start_offset = 1;
@@ -265,7 +265,7 @@ namespace cobra {
 			for (std::size_t offset = start_offset; offset < end_offset; ++offset) {
 				const auto line = lines[start_line + offset].substr(min_leading);
 				mprinter.println(start_line + offset, "{}", config_line{line});
-				//printer.println(start_line + offset, "{}|{} {}", style, term::reset(), config_line{line});
+				// printer.println(start_line + offset, "{}|{} {}", style, term::reset(), config_line{line});
 
 				if (!inline_diags.empty() && inline_diags.front().get().part.start.line == start_line + offset) {
 					const diagnostic& diag = inline_diags.front();
@@ -762,17 +762,18 @@ namespace cobra {
 			return result;
 		}
 
-
-		void server_config::lint_configs(const std::vector<define<server_config>>& configs, const parse_session& session) {
+		void server_config::lint_configs(const std::vector<define<server_config>>& configs,
+										 const parse_session& session) {
 			empty_filters_lint(configs, session);
 			ssl_lint(configs);
 			server_name_lint(configs);
 			(void)session;
 		}
 
-		void server_config::empty_filters_lint(const std::vector<define<server_config>>& configs, const parse_session& session) {
+		void server_config::empty_filters_lint(const std::vector<define<server_config>>& configs,
+											   const parse_session& session) {
 			for (auto& cfg : configs) {
-				for (auto& [_,block_cfg] : cfg->_filters) {
+				for (auto& [_, block_cfg] : cfg->_filters) {
 					empty_filters_lint(block_cfg, session);
 				}
 			}
@@ -780,7 +781,8 @@ namespace cobra {
 
 		void server_config::empty_filters_lint(const define<block_config>& config, const parse_session& session) {
 			if (!config->_handler && config->_filters.empty()) {
-				diagnostic diag = diagnostic::warn(config.part, "empty filter", "consider specifying a handler using: `root`, `cgi`, etc...");
+				diagnostic diag = diagnostic::warn(config.part, "empty filter",
+												   "consider specifying a handler using: `root`, `cgi`, etc...");
 				session.report(diag);
 			} else {
 				for (auto& [_, block_cfg] : config->_filters) {
@@ -972,7 +974,7 @@ namespace cobra {
 				throw_undefined_directive(BLOCK_KEYWORDS, w);
 			}
 			return define<block_config>(std::move(config), file_part(session.file(), buf_pos(start_line, start_col),
-																	  buf_pos(end_line, end_col)));
+																	 buf_pos(end_line, end_col)));
 		}
 
 		void block_config::parse_max_body_size(parse_session& session) {
@@ -1015,7 +1017,7 @@ namespace cobra {
 
 			auto block = block_config::parse(session);
 			block.part.start = def.part.start;
-			//define<block_config> block = define<block_config>{block_config::parse(session), std::move(def.part)};
+			// define<block_config> block = define<block_config>{block_config::parse(session), std::move(def.part)};
 			block->_filter = def;
 
 			auto it = std::find_if(_filters.begin(), _filters.end(), [&def](auto pair) {
