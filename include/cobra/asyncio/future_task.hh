@@ -71,7 +71,7 @@ namespace cobra {
 
 	template<class Awaitable>
 	auto block_task(Awaitable awaitable) -> decltype(awaitable.await_resume()) {
-		return make_future_task(awaitable).get_future().get();
+		return make_future_task(std::move(awaitable)).get_future().get();
 	}
 } // namespace cobra
 

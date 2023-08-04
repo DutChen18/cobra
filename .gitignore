@@ -14,3 +14,5 @@
 /a.out
 /gmon.out
 /*.pem
+/*_CORPUS
+/*.br

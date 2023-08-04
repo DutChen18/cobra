@@ -6,6 +6,7 @@
 #include "cobra/serde.hh"
 #include "cobra/print.hh"
 
+#include <string>
 #include <vector>
 #include <cstdint>
 #include <memory>
@@ -25,6 +26,8 @@ namespace cobra {
 		bad_size_code,
 		bad_dist_code,
 		bad_huffman_code,
+		bad_trees,
+		tree_too_stupid,
 	};
 
 	// TODO: peek_bits?
@@ -157,6 +160,8 @@ namespace cobra {
 				buffer_out[i] = buffer_in[i];
 			}
 
+			_buffer_end += limit;
+
 			return limit;
 		}
 
@@ -195,12 +200,12 @@ namespace cobra {
 
 	public:
 		// TODO: sanitize
-		inflate_tree(std::array<std::size_t, Size> size) {
+		inflate_tree(const std::size_t* size, std::size_t count) {
 			std::array<T, Bits + 1> next;
 
 			std::fill(_count.begin(), _count.end(), 0);
 
-			for (T i = 0; i < Size; i++) {
+			for (T i = 0; i < count; i++) {
 				if (size[i] != 0) {
 					_count[size[i]] += 1;
 				}
@@ -208,15 +213,19 @@ namespace cobra {
 
 			std::partial_sum(_count.begin(), std::prev(_count.end()), std::next(next.begin()));
 
-			for (T i = 0; i < Size; i++) {
+			for (T i = 0; i < count; i++) {
 				if (size[i] != 0) {
+					if (next[size[i]] >= Size) {
+						throw inflate_error::tree_too_stupid;
+					}
+
 					_data[next[size[i]]++] = i;
 				}
 			}
 		}
 
 		template <AsyncInputStream Stream>
-		task<T> read(bit_istream<Stream>& stream) const {
+task<T> read(bit_istream<Stream>& stream) const {
 			T offset = 0;
 			T value = 0;
 
@@ -237,6 +246,11 @@ namespace cobra {
 
 	using inflate_ltree = inflate_tree<std::uint16_t, 288, 15>;
 	using inflate_dtree = inflate_tree<std::uint8_t, 30, 15>;
+	using inflate_ctree = inflate_tree<std::uint8_t, 19, 7>;
+
+	constexpr std::array<std::size_t, 19> frobnication_table {
+		16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15,
+	};
 
 	constexpr std::array<std::size_t, 288> inflate_fixed_tree {
 		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
@@ -290,6 +304,18 @@ namespace cobra {
 			co_return start_offset + block_offset + co_await stream.read_bits(extra_bits);
 		}
 
+		static task<std::size_t> decode_code(bit_istream<Stream>& stream, std::uint8_t code) {
+			if (code == 16) {
+				co_return co_await stream.read_bits(2) + 3;
+			} else if (code == 17) {
+				co_return co_await stream.read_bits(3) + 3;
+			} else if (code == 18) {
+				co_return co_await stream.read_bits(7) + 11;
+			} else {
+				co_return 1;
+			}
+		}
+
 		static task<std::uint16_t> decode_size(bit_istream<Stream>& stream, std::uint16_t code) {
 			if (code >= 286) {
 				throw inflate_error::bad_size_code;
@@ -337,9 +363,49 @@ namespace cobra {
 
 						_state = state_write { std::move(stream), len };
 					} else if (type == COBRA_DEFLATE_FIXED) {
-						_state = state_read { std::move(state->stream), inflate_ltree(inflate_fixed_tree), std::nullopt, 0, 0 };
+						inflate_ltree lt(inflate_fixed_tree.data(), inflate_fixed_tree.size());
+
+						_state = state_read { std::move(state->stream), lt, std::nullopt, 0, 0 };
 					} else if (type == COBRA_DEFLATE_DYNAMIC) {
-						throw inflate_error::bad_block_type;
+						std::size_t hl = co_await state->stream.read_bits(5) + 257;
+						std::size_t hd = co_await state->stream.read_bits(5) + 1;
+						std::size_t hc = co_await state->stream.read_bits(4) + 4;
+
+						std::array<std::size_t, 320> l;
+						std::array<std::size_t, 19> lc;
+
+						std::fill(l.begin(), l.end(), 0);
+						std::fill(lc.begin(), lc.end(), 0);
+
+						for (std::size_t i = 0; i < hc; i++) {
+							lc[frobnication_table[i]] = co_await state->stream.read_bits(3);
+						}
+
+						inflate_ctree ct(lc.data(), lc.size());
+
+						for (std::size_t i = 0; i < hl + hd;) {
+							std::uint8_t v = co_await ct.read(state->stream);
+							std::size_t n = co_await decode_code(state->stream, v);
+
+							if (i + n > hl + hd) {
+								throw inflate_error::bad_trees;
+							} else if (v == 16 && i == 0) {
+								throw inflate_error::bad_trees;
+							} else if (v == 16) {
+								v = l[i - 1];
+							} else if (v == 17 || v == 18) {
+								v = 0;
+							}
+
+							while (n-- > 0) {
+								l[i++] = v;
+							}
+						}
+
+						inflate_ltree lt(l.data(), hl);
+						inflate_dtree dt(l.data() + hl, hd);
+
+						_state = state_read { std::move(state->stream), lt, dt, 0, 0 };
 					} else {
 						throw inflate_error::bad_block_type;
 					}
@@ -378,6 +444,67 @@ namespace cobra {
 			}
 
 			throw inflate_error::not_finished;
+		}
+	};
+
+	//TODO use umlaut (brötli)
+	template <AsyncOutputStream Stream>
+	class brotli_ostream : public ostream_impl<brotli_ostream<Stream>> {
+	public:
+		using typename ostream_impl<brotli_ostream<Stream>>::char_type;
+
+	private:
+		bit_ostream<Stream> _stream;
+	
+	public:
+		brotli_ostream(Stream&& stream) : _stream(std::move(stream)) {}
+
+		task<std::size_t> write(const char_type* data, std::size_t size) {
+			if (size == 0) {
+				co_await write_byte(6);
+				co_return 0;
+			}
+
+			std::cout << "size: " << size << std::endl;
+			std::size_t i = 0;
+			co_await write_byte(12);
+			for (i = 0; i + 65535 < size; i += 65536) {
+				co_await write_byte(248);
+				co_await write_byte(255);
+				co_await write_byte(15);
+				co_await write_bytes(&data[i], 65536);
+			}
+			if (i < size) {
+				int r = size - i - 1;
+				co_await write_byte((r & 31) << 3);
+				co_await write_byte(r >> 5);
+				co_await write_byte(8 + (r >> 13));
+				co_await write_bytes(&data[i], r + 1);
+			}
+			co_await write_byte(3);
+			co_return size;
+		}
+
+		task<void> flush() {
+			auto inner = co_await std::move(_stream).end();
+			co_await inner.flush();
+			_stream = bit_ostream(std::move(inner));
+		}
+
+		task<Stream> end() && {
+			//TODO send end to brotli stream
+			return std::move(_stream).end();
+		}
+
+	private:
+		task<void> write_byte(char byte) {
+			co_await _stream.write_bits(byte, 8);
+		}
+
+		task<void> write_bytes(const char* bytes, std::size_t size) {
+			for (std::size_t i = 0; i < size; ++i) {
+				co_await write_byte(bytes[i]);
+			}
 		}
 	};
 }

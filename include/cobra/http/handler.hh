@@ -7,21 +7,17 @@
 
 namespace cobra {
 	class static_config {
-		std::string _root;
-
-	public:
-		static_config(std::string root);
-
-		const std::string& root() const;
 	};
 
 	class cgi_command {
 		std::string _cmd;
 
 	public:
-		cgi_command(std::string cmd);
+		cgi_command(std::string cmd) : _cmd(std::move(cmd)) {}
 
-		const std::string& cmd() const;
+		inline const std::string& cmd() const {
+			return _cmd;
+		}
 	};
 
 	class cgi_address {
@@ -29,26 +25,33 @@ namespace cobra {
 		std::string _service;
 
 	public:
-		cgi_address(std::string node, std::string service);
+		cgi_address(std::string node, std::string service) : _node(std::move(node)), _service(std::move(service)) {}
 
-		const std::string& node() const;
-		const std::string& service() const;
+		inline const std::string& node() const {
+			return _node;
+		}
+
+		inline const std::string& service() const {
+			return _service;
+		}
 	};
 
 	// TODO: unix sockets?
 	// TODO: named pipes?
 	class cgi_config {
-		std::string _root;
 		std::variant<cgi_command, cgi_address> _config;
 
 	public:
-		cgi_config(std::string root, cgi_command cmd);
-		cgi_config(std::string root, cgi_address addr);
+		cgi_config(cgi_command cmd) : _config(std::move(cmd)) {}
+		cgi_config(cgi_address addr) : _config(std::move(addr)) {}
 
-		const std::string& root() const;
+		inline const cgi_command* cmd() const {
+			return std::get_if<cgi_command>(&_config);
+		}
 
-		const cgi_command* cmd() const;
-		const cgi_address* addr() const;
+		inline const cgi_address* addr() const {
+			return std::get_if<cgi_address>(&_config);
+		}
 	};
 
 	class redirect_config {
@@ -56,10 +59,15 @@ namespace cobra {
 		std::string _root;
 
 	public:
-		redirect_config(http_response_code code, std::string root);
+		redirect_config(http_response_code code, std::string root) : _code(code), _root(root) {}
 
-		http_response_code code() const;
-		const std::string& root() const;
+		inline http_response_code code() const {
+			return _code;
+		}
+
+		inline const std::string& root() const {
+			return _root;
+		}
 	};
 
 	class proxy_config {
@@ -67,25 +75,32 @@ namespace cobra {
 		std::string _service;
 
 	public:
-		proxy_config(std::string node, std::string service);
+		inline proxy_config(std::string node, std::string service) : _node(std::move(node)), _service(std::move(service)) {}
 
-		const std::string& node() const;
-		const std::string& service() const;
+		inline const std::string& node() const {
+			return _node;
+		}
+
+		inline const std::string& service() const {
+			return _service;
+		}
 	};
 
 	template <class T>
 	class handle_context {
 		event_loop* _loop;
 		executor* _exec;
+		std::string _root;
 		std::string _file;
+		std::vector<std::string> _index;
 		std::reference_wrapper<const T> _config;
 		std::reference_wrapper<const http_request> _request;
 		buffered_istream_reference _istream;
 
 	public:
-		handle_context(event_loop* loop, executor* exec, std::string file, const T& config, const http_request& request,
+		handle_context(event_loop* loop, executor* exec, std::string root, std::string file, std::vector<std::string> index, const T& config, const http_request& request,
 					   buffered_istream_reference istream)
-			: _loop(loop), _exec(exec), _file(std::move(file)), _config(config), _request(request), _istream(istream) {}
+			: _loop(loop), _exec(exec), _root(std::move(root)), _file(std::move(file)), _index(std::move(index)), _config(config), _request(request), _istream(istream) {}
 
 		event_loop* loop() const {
 			return _loop;
@@ -95,8 +110,16 @@ namespace cobra {
 			return _exec;
 		}
 
+		const std::string& root() const {
+			return _root;
+		}
+
 		const std::string& file() const {
 			return _file;
+		}
+
+		const std::vector<std::string>& index() const {
+			return _index;
 		}
 
 		const T& config() const {
@@ -109,6 +132,18 @@ namespace cobra {
 
 		buffered_istream_reference istream() const {
 			return _istream;
+		}
+
+		std::vector<std::string> try_files() const {
+			std::vector<std::string> files;
+
+			files.push_back(root() + file());
+
+			for (const std::string& f : index()) {
+				files.push_back(root() + file() + "/" + f);
+			}
+
+			return files;
 		}
 	};
 

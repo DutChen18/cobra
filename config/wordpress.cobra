@@ -1,0 +1,14 @@
+server {
+	listen 127.0.0.1:8080
+	root /home/codam/wordpress
+
+	location /wp-includes {
+		root /home/codam/wordpress/wp-includes
+		static
+	}
+
+	location / {
+		index index.php
+		fast_cgi 127.0.0.1:9000
+	}
+}

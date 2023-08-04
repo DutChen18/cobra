@@ -1,0 +1,17 @@
+server {
+	listen 127.0.0.1:8080
+	root /home/codam/cobra/cgi
+	index index.php
+
+	location /static {
+		static
+	}
+
+	location /cgi {
+		cgi /usr/bin/php-cgi
+	}
+
+	location /fast_cgi {
+		fast_cgi 127.0.0.1:9000
+	}
+}

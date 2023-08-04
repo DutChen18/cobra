@@ -26,23 +26,25 @@ namespace cobra {
 		http_filter(std::shared_ptr<const config::config> config);
 		http_filter(std::shared_ptr<const config::config> config, std::vector<http_filter> filters);
 
-		http_filter* match(const http_request& request, const uri_abs_path& normalized);
+		http_filter* match(const basic_socket_stream& socket, const http_request& request, const uri_abs_path& normalized);
 
 		inline const config::config& config() const { return *_config.get(); }
 		inline std::size_t match_count() const { return _match_count; }
 
 	protected:
-		bool eval(const http_request& request, const uri_abs_path& normalized) const;
+		bool eval(const basic_socket_stream& socket, const http_request& request, const uri_abs_path& normalized) const;
 	};
 
 	class server : public http_filter {
 		config::listen_address _address;
-		std::optional<ssl_ctx> _ssl_ctx;
+		std::unordered_map<std::string, ssl_ctx> _contexts;
 		executor* _exec;
 		event_loop* _loop;
 
 		server() = delete;
-		server(config::listen_address address, std::optional<ssl_ctx> ctx, std::vector<http_filter> handlers, executor* exec, event_loop* loop);
+		server(config::listen_address address, std::unordered_map<std::string, ssl_ctx> contexts,
+			   std::vector<http_filter> handlers, executor* exec, event_loop* loop);
+
 	public:
 		task<void> start(executor* exec, event_loop *loop);
 

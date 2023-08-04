@@ -4,9 +4,12 @@
 #include "cobra/print.hh"
 #include "cobra/net/address.hh"
 
+#include <memory>
 #include <mutex>
 #include <numeric>
 #include <stdexcept>
+#include <string_view>
+#include <unordered_map>
 #include <utility>
 
 extern "C" {
@@ -66,6 +69,10 @@ namespace cobra {
 		socklen_t len = sizeof addr;
 		check_return(getpeername(_file.fd(), reinterpret_cast<sockaddr*>(&addr), &len));
 		return address(reinterpret_cast<sockaddr*>(&addr), len);
+	}
+
+	std::optional<std::string_view> socket_stream::server_name() const {
+		return std::nullopt;
 	}
 
 	ssl_error::ssl_error(const std::string& what, std::vector<error_type> errors)
@@ -140,7 +147,7 @@ namespace cobra {
 		}
 	}
 
-	ssl_ctx::ssl_ctx(const ssl_ctx& other) : _ctx(other._ctx) {
+	ssl_ctx::ssl_ctx(const ssl_ctx& other) : _ctx(other._ctx), _ext(other._ext) {
 		ref_up(_ctx);
 	}
 
@@ -148,13 +155,57 @@ namespace cobra {
 		ref_down(_ctx);
 	}
 
+	ssl_ctx::tlsext_ctx::tlsext_ctx(std::unordered_map<std::string, ssl_ctx> server_names)
+		: _mtx(), _server_names(std::move(server_names)) {}
+
+	ssl_ctx::tlsext_ctx::tlsext_ctx(tlsext_ctx&& other) : _mtx(), _server_names(std::move(other._server_names)) {}
+
+	ssl_ctx::tlsext_ctx& ssl_ctx::tlsext_ctx::operator=(tlsext_ctx&& other) {
+		if (this != &other) {
+			_server_names = std::move(other._server_names);
+		}
+		return *this;
+	}
+
 	ssl_ctx& ssl_ctx::operator=(const ssl_ctx& other) {
 		if (this != &other) {
 			ref_down(_ctx);
 			_ctx = other._ctx;
+			_ext = other._ext;
 			ref_up(_ctx);
 		}
 		return *this;
+	}
+
+	ssl_ctx ssl_ctx::server() {
+		const SSL_METHOD *method = TLS_server_method();
+		if (method == nullptr) {
+			throw std::runtime_error("TLS_server_method failed");
+		}
+		return ssl_ctx(method);
+	}
+
+	int ssl_ctx::ssl_servername_callback(SSL* s, int*, void* arg) {
+		tlsext_ctx* ctx = static_cast<tlsext_ctx*>(arg);
+		auto& mtx = ctx->mtx();
+		const auto& server_names = ctx->server_names();
+
+		if (server_names.empty()) {
+			return SSL_TLSEXT_ERR_OK;
+		}
+
+		const char* servername = SSL_get_servername(s, TLSEXT_NAMETYPE_host_name);
+
+		if (servername != NULL) {
+			for (auto& [name, ctx] : server_names) {
+				if (OPENSSL_strcasecmp(servername, name.c_str()) == 0) {
+					std::lock_guard guard(mtx);
+					SSL_set_SSL_CTX(s, ctx._ctx);
+					return SSL_TLSEXT_ERR_OK;
+				}
+			}
+		}
+		return SSL_TLSEXT_ERR_NOACK;
 	}
 
 	void ssl_ctx::ref_up(SSL_CTX* ctx) {
@@ -167,13 +218,28 @@ namespace cobra {
 		SSL_CTX_free(ctx);
 	}
 
-	ssl_ctx ssl_ctx::server(const std::filesystem::path& cert, const std::filesystem::path& key) {
-		const SSL_METHOD *method = TLS_server_method();
-		if (method == nullptr) {
-			throw std::runtime_error("TLS_server_method failed");
-		}
+	ssl_ctx ssl_ctx::server(std::unordered_map<std::string, ssl_ctx> server_names) {
+		ssl_ctx ctx = server();
 
-		ssl_ctx ctx(method);
+		ctx._ext = std::shared_ptr<tlsext_ctx>(new tlsext_ctx(std::move(server_names)));
+
+		SSL_CTX_set_tlsext_servername_callback(ctx._ctx, ssl_ctx::ssl_servername_callback);
+		SSL_CTX_set_tlsext_servername_arg(ctx._ctx, ctx._ext.get());
+
+		/*
+		if (SSL_CTX_use_certificate_file(ctx._ctx, "cert.pem", SSL_FILETYPE_PEM) <= 0) {
+			throw std::runtime_error("ssl_ctx_use_cert_file failed");
+		}
+		if (SSL_CTX_use_PrivateKey_file(ctx._ctx, "key.pem", SSL_FILETYPE_PEM) <= 0) {
+			throw std::runtime_error("ssl_ctx_use_privkey_file failed");
+		}*/
+
+		return ctx;
+	}
+
+	ssl_ctx ssl_ctx::server(const std::filesystem::path& cert, const std::filesystem::path& key) {
+		ssl_ctx ctx = server();
+
 		if (SSL_CTX_use_certificate_file(ctx._ctx, cert.c_str(), SSL_FILETYPE_PEM) <= 0) {
 			throw std::runtime_error("ssl_ctx_use_cert_file failed");
 		}
@@ -286,6 +352,7 @@ namespace cobra {
 				break;
 			}
 		}
+		//eprintln("read: {}", std::string_view(data, nread));
 		co_return nread;
 	}
 
@@ -309,6 +376,15 @@ namespace cobra {
 		socklen_t len = sizeof addr;
 		check_return(getpeername(_file.fd(), reinterpret_cast<sockaddr*>(&addr), &len));
 		return address(reinterpret_cast<sockaddr*>(&addr), len);
+	}
+
+	std::optional<std::string_view> ssl_socket_stream::server_name() const {
+		const char* name = SSL_get_servername(_ssl.ptr(), TLSEXT_NAMETYPE_host_name);
+
+		if (name) {
+			return name;
+		}
+		return std::nullopt;
 	}
 
 	task<void> ssl_socket_stream::shutdown(shutdown_how how) {
@@ -421,6 +497,16 @@ namespace cobra {
 
 	task<void> start_ssl_server(ssl_ctx ctx, executor* exec, event_loop* loop, const char* node, const char* service,
 								std::function<task<void>(ssl_socket_stream)> cb) {
+		co_await start_server(
+			exec, loop, node, service, [ctx, exec, loop, cb](socket_stream socket) mutable -> task<void> {
+				co_await cb(co_await ssl_socket_stream::accept(exec, loop, std::move(socket), ssl(ctx)));
+			});
+	}
+
+	task<void> start_ssl_server(std::unordered_map<std::string, ssl_ctx> server_names, executor* exec,
+								event_loop* loop, const char* node, const char* service,
+								std::function<task<void>(ssl_socket_stream)> cb) {
+		ssl_ctx ctx = ssl_ctx::server(std::move(server_names));
 		co_await start_server(
 			exec, loop, node, service, [ctx, exec, loop, cb](socket_stream socket) mutable -> task<void> {
 				co_await cb(co_await ssl_socket_stream::accept(exec, loop, std::move(socket), ssl(ctx)));

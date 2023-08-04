@@ -274,6 +274,7 @@ namespace cobra {
 				}
 			}
 
+			//TODO secondary labels
 			if (primary_label.empty()) {
 				if (end_col <= leading_spaces.back()) {
 					auto line = diag_lines.back().substr(min_leading);
@@ -767,6 +768,8 @@ namespace cobra {
 			empty_filters_lint(configs, session);
 			ssl_lint(configs);
 			server_name_lint(configs);
+			not_listening_server_lint(configs, session);
+			unrooted_handler_lint(configs);
 			(void)session;
 		}
 
@@ -802,7 +805,7 @@ namespace cobra {
 						const auto it = plain_ports.find(address);
 						if (it != plain_ports.end()) {
 							diagnostic diag = diagnostic::error(config._ssl->part,
-																"a non-ssl address cannot be listened to using ssl",
+																"a address cannot be listened to with and without ssl at the same time",
 																"consider listening to another address");
 							diag.sub_diags.push_back(
 								diagnostic::note(it->second, "previously listened to here without ssl"));
@@ -815,7 +818,7 @@ namespace cobra {
 						const auto it = ssl_ports.find(address);
 						if (it != ssl_ports.end()) {
 							diagnostic diag =
-								diagnostic::error(config._ssl->part, "a ssl address cannot be listened without ssl",
+								diagnostic::error(address.part, "a address cannot be listened to with and without ssl at the same time",
 												  "consider listening to another address");
 							diag.sub_diags.push_back(
 								diagnostic::note(it->second, "previously listened to here with ssl"));
@@ -886,6 +889,23 @@ namespace cobra {
 						}
 					}
 				}
+			}
+		}
+
+		void server_config::not_listening_server_lint(const std::vector<define<server_config>>& defines,
+													  const parse_session& session) {
+			for (const auto& define : defines) {
+				if (define.def._addresses.size() == 0) {
+					diagnostic diag = diagnostic::warn(define.part, "server not listening to an address",
+													   "consider specifying an address using: `listen`");
+					session.report(diag);
+				}
+			}
+		}
+
+		void server_config::unrooted_handler_lint(const std::vector<define<server_config>>& configs) {
+			for (auto& server : configs) {
+				unrooted_handler_lint(server);
 			}
 		}
 
@@ -1043,34 +1063,54 @@ namespace cobra {
 			_filters.push_back({std::move(def.def), std::move(block)});
 		}
 
-		void block_config::parse_cgi(parse_session& session) {
-			define<cgi_config> def = parse_define<cgi_config>(session, "cgi");
-			if (_handler) { // TODO dry
-				diagnostic diag = diagnostic::warn(def.part, "redefinition of request handler");
-				diag.sub_diags.push_back(diagnostic::note(_handler->part, "previously defined here"));
-				session.report(diag);
+		static void warn_reassign(file_part cur, file_part prev, const std::string& name,
+								  const parse_session& session) {
+			diagnostic diag = diagnostic::warn(cur, std::format("redefinition of {}", name));
+			diag.sub_diags.push_back(diagnostic::note(prev, "previously defined here"));
+			session.report(diag);
+		}
+
+		template <class T, class U>
+		static void assign_warn_reassign(std::optional<define<T>>& var, define<U>&& val, const std::string& name,
+										 const parse_session& session) {
+			if (var) {
+				warn_reassign(val.part, var->part, name, session);
 			}
-			_handler = std::move(def);
+			var = std::move(val);
+		}
+
+		template <class T>
+		static void parse_and_assign_warn_reassign(std::optional<define<T>>& var, const std::string& name,
+												   parse_session& session) {
+			assign_warn_reassign(var, define<T>::parse(session, name), name, session);
+		}
+
+		void block_config::parse_cgi(parse_session& session) {
+			assign_warn_reassign(_handler, parse_define<cgi_config>(session, "cgi"), "request handler", session);
+		}
+
+		void block_config::parse_fast_cgi(parse_session& session) {
+			assign_warn_reassign(_handler, parse_define<fast_cgi_config>(session, "fast_cgi"), "request handler",
+								 session);
+		}
+
+		void block_config::parse_static(parse_session& session) {
+			assign_warn_reassign(_handler, parse_define<static_file_config>(session, "static"), "request handler",
+								 session);
 		}
 
 		void block_config::parse_root(parse_session& session) {
-			define<static_file_config> def = parse_define<static_file_config>(session, "root");
-			if (_handler) {
-				diagnostic diag = diagnostic::warn(def.part, "redefinition of request handler");
-				diag.sub_diags.push_back(diagnostic::note(_handler->part, "previously defined here"));
-				session.report(diag);
-			}
-			_handler = std::move(def);
+			parse_and_assign_warn_reassign(_root, "root", session);
 		}
 
 		void block_config::parse_index(parse_session& session) {
-			auto def = parse_define<config_file>(session, "index");
-			if (_index) {
-				diagnostic diag = diagnostic::warn(def.part, "redefinition of index");
-				diag.sub_diags.push_back(diagnostic::note(_index->part, "previously defined here"));
-				session.report(diag);
-			}
-			_index = std::move(def);
+			parse_and_assign_warn_reassign(_index, "index", session);
+		}
+
+		static void warn_duplicate(file_part cur, file_part prev, const std::string& name, const parse_session& session) {
+			diagnostic diag = diagnostic::warn(cur, std::format("duplicate {}", name));
+			diag.sub_diags.push_back(diagnostic::note(prev, "previously defined here"));
+			session.report(diag);
 		}
 
 		void server_config::parse_listen(parse_session& session) {
@@ -1078,9 +1118,7 @@ namespace cobra {
 
 			auto [it, inserted] = _addresses.insert(def);
 			if (!inserted) {
-				diagnostic diag = diagnostic::warn(def.part, "duplicate listen");
-				diag.sub_diags.push_back(diagnostic::note(it->part, "previously defined here"));
-				session.report(diag);
+				warn_duplicate(def.part, it->part, "listen", session);
 			}
 		}
 
@@ -1089,9 +1127,7 @@ namespace cobra {
 
 			auto [it, inserted] = _server_names.insert({def.def.name, def.part});
 			if (!inserted) {
-				diagnostic diag = diagnostic::warn(def.part, "duplicate server_name");
-				diag.sub_diags.push_back(diagnostic::note(it->second, "previously defined here"));
-				session.report(diag);
+				warn_duplicate(def.part, it->second, "server_name", session);
 			}
 		}
 
@@ -1110,6 +1146,8 @@ namespace cobra {
 			: parent(parent), max_body_size(cfg._max_body_size), handler(cfg._handler) {
 			if (cfg._index)
 				index = cfg._index->def.file();
+			if (cfg._root)
+				root = cfg._root->def.dir();
 
 			for (auto [name, _] : cfg._server_names) {
 				server_names.insert(name);
@@ -1132,6 +1170,8 @@ namespace cobra {
 			if (parent) {
 				if (!index)
 					index = parent->index;
+				if (!root)
+					root = parent->root;
 				if (!max_body_size)
 					max_body_size = parent->max_body_size;
 				if (!handler)
@@ -1144,10 +1184,67 @@ namespace cobra {
 		config::config(const block_config& cfg) : config(nullptr, cfg) {}
 		config::~config() {}
 
+		void config::debug_print(std::ostream& stream, std::size_t depth) const {
+			std::string spacing(depth, '\t');
+			println(stream, "{}location: {}", spacing, location.string());
+
+			if (!methods.empty())
+				print(stream, "{}methods: ", spacing);
+
+			for (auto method : methods) {
+				print(stream, "{} ", method);
+			}
+			println(stream, "");
+
+			if (max_body_size)
+				println(stream, "{}max_body_size: {}", spacing, *max_body_size);
+			if (index)
+				println(stream, "{}index: {}", spacing, index->string());
+
+			if (!server_names.empty())
+				print(stream, "{}server_names: ", spacing);
+
+			for (auto server_name : server_names) {
+				print(stream, "\"{}\" ", server_name);
+			}
+			println(stream, "");
+
+			if (handler) {
+				print(stream, "{}handler: ", spacing);
+
+				if (std::holds_alternative<static_file_config>(*handler)) {
+					println(stream, "static");
+				} else {
+					println(stream, "cgi");
+				}
+			}
+
+			for (auto sub_cfg : sub_configs) {
+				sub_cfg->debug_print(stream, depth + 1);
+			}
+		}
+
 		server::server(const server_config& cfg) : config(cfg), ssl(cfg._ssl) {
 			for (auto& address : cfg._addresses) {
 				addresses.push_back(address);
 			}
+		}
+
+		void server::debug_print(std::ostream& stream, std::size_t depth) const {
+			std::string spacing(depth, '\t');
+			println(stream, "{}server", spacing);
+
+			print(stream, "{}listening: ", spacing);
+			for (auto addr : addresses) {
+				print(stream, "{}  ", addr);
+			}
+			println(stream, "");
+
+			if (ssl) {
+				println(stream, "{}cert: \"{}\"", spacing, ssl->cert().string());
+				println(stream, "{}key: \"{}\"", spacing, ssl->key().string());
+			}
+			config::debug_print(stream, depth);
 		}
 	} // namespace config
 

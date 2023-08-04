@@ -1,27 +1,16 @@
 server {
 	listen 127.0.0.1:7070
 
-	#max_body_size 1000
+	#ssl cert.pem key.pem
 
 	location / {
-		#root /
+		root /home/codam/cobra
 	}
 
-	location / {
-		cgi /home/codam/cobra/Makefile /usr/bin/php-cgi
-	}
-}
-
-server {
-	listen 127.0.0.1:7070
+	root /
 
 	#max_body_size 1000
-
-	location /src {
-		root /
-	}
-
-	location / {
-		cgi /home/codam/cobra/cgi /usr/bin/php-cgi
-	}
+	#location / { TODO FIX
+	#	root /home/codem/cobra
+	#}
 }

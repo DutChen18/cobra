@@ -1,5 +1,6 @@
 #include "cobra/http/parse.hh"
 #include "cobra/http/util.hh"
+#include "cobra/print.hh"
 
 #include <concepts>
 #include <functional>
@@ -171,9 +172,16 @@ namespace cobra {
 				value = value.substr(begin, end - begin);
 			}
 
+			// php sometimes sends the same header field multiple times, this is non-standard
+			if (!map.contains(key)) {
+				map.insert(std::move(key), std::move(value));
+			}
+
+			/*
 			if (!map.insert(std::move(key), std::move(value))) {
 				throw http_parse_error::header_map_duplicate;
 			}
+			*/
 		}
 
 		assert(co_await parse_cgi_eol(stream), http_parse_error::bad_header);

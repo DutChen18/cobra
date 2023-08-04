@@ -39,8 +39,8 @@ endif
 
 ifdef san
 	ifeq ($(san), addr)
-		CXXFLAGS += -fsanitize=address,undefined
-		LDFLAGS += -fsanitize=address,undefined
+		CXXFLAGS += -fsanitize=address,undefined -fsanitize-trap=all
+		LDFLAGS += -fsanitize=address,undefined -fsanitize-trap=all
 	else ifeq ($(san), mem)
 		CXXFLAGS += -fsanitize=memory,undefined -fsanitize-memory-track-origins
 		LDFLAGS += -fsanitize=memory,undefined -fsanitize-memory-track-origins
@@ -52,11 +52,29 @@ ifdef san
 	endif
 endif
 
+ifndef fuzz_target
+
+else ifeq ($(fuzz_target), config)
+	CXXFLAGS += -DCOBRA_FUZZ_CONFIG -DCOBRA_FUZZ -fsanitize=fuzzer
+	LDFLAGS += -fsanitize=fuzzer
+else ifeq ($(fuzz_target), request)
+	CXXFLAGS += -DCOBRA_FUZZ_REQUEST -DCOBRA_FUZZ -fsanitize=fuzzer
+	LDFLAGS += -fsanitize=fuzzer
+else ifeq ($(fuzz_target), uri)
+	CXXFLAGS += -DCOBRA_FUZZ_URI -DCOBRA_FUZZ -fsanitize=fuzzer
+	LDFLAGS += -fsanitize=fuzzer
+else ifeq ($(fuzz_target), inflate)
+	CXXFLAGS += -DCOBRA_FUZZ_INFLATE -DCOBRA_FUZZ -fsanitize=fuzzer
+	LDFLAGS += -fsanitize=fuzzer
+else
+$(error "unknown fuzz target $(fuzz_target)")
+endif
+
 SRC_DIR := src
 OBJ_DIR := build
 DEP_DIR := build
 # SRC_FILES = $(shell find $(SRC_DIR) -type f -name "*.cc")
-SRC_FILES := src/main.cc src/asyncio/executor.cc src/exception.cc src/asyncio/event_loop.cc src/exception.cc src/file.cc src/net/address.cc src/net/stream.cc src/http/parse.cc src/process.cc src/http/message.cc src/http/writer.cc src/http/uri.cc src/http/util.cc src/http/handler.cc src/http/server.cc src/config.cc src/fastcgi.cc src/serde.cc src/asyncio/mutex.cc
+SRC_FILES := src/main.cc src/asyncio/executor.cc src/exception.cc src/asyncio/event_loop.cc src/exception.cc src/file.cc src/net/address.cc src/net/stream.cc src/http/parse.cc src/process.cc src/http/message.cc src/http/writer.cc src/http/uri.cc src/http/util.cc src/http/handler.cc src/http/server.cc src/config.cc src/fastcgi.cc src/serde.cc src/asyncio/mutex.cc src/fuzz_config.cc src/fuzz_request.cc src/fuzz_uri.cc src/fuzz_inflate.cc
 OBJ_FILES := $(patsubst $(SRC_DIR)/%.cc,$(OBJ_DIR)/%.o,$(SRC_FILES))
 DEP_FILES := $(patsubst $(SRC_DIR)/%.cc,$(DEP_DIR)/%.d,$(SRC_FILES))
 NAME := webserv
@@ -67,10 +85,10 @@ all: $(NAME)
 
 fuzz: CXXFLAGS += -DCOBRA_FUZZ -fsanitize=fuzzer
 fuzz: LDFLAGS += -fsanitize=fuzzer
-fuzz: $(FUZZ_NAME)
+fuzz: $(NAME)
 
 $(FUZZ_NAME): $(OBJ_FILES)
-	$(CXX) -o $(FUZZ_NAME) -Iinclude fuzz/request.cc $(OBJ_FILES) $(LDFLAGS) $(CXXFLAGS) -MMD
+	$(CXX) -o $(FUZZ_NAME) -Iinclude fuzz/main.cc $(OBJ_FILES) $(LDFLAGS) $(CXXFLAGS) -MMD
 
 $(NAME): $(NAME).out
 	mv $(NAME).out $(NAME)

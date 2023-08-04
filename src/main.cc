@@ -7,11 +7,12 @@
 #include "cobra/asyncio/deflate.hh"
 #include "cobra/http/writer.hh"
 #include "cobra/http/parse.hh"
+#include "cobra/http/server.hh"
 #include "cobra/net/stream.hh"
 #include "cobra/process.hh"
 #include "cobra/print.hh"
 #include "cobra/config.hh"
-#include "cobra/http/server.hh"
+#include "cobra/args.hh"
 
 #include <cstdlib>
 #include <iomanip>
@@ -50,21 +51,45 @@ static void print_json_diags(const std::vector<cobra::config::diagnostic>& diags
 	print("]");
 }
 
+struct args_type {
+	std::string program_name;
+	std::optional<std::string> config_file;
+	bool json = false;
+	bool check = false;
+	bool help = false;
+};
+
+#ifndef COBRA_FUZZ
 int main(int argc, char **argv) {
 	using namespace cobra;
 	sequential_executor exec;
 	epoll_event_loop loop(exec);
+	std::fstream file;
+	std::istream* input = &std::cin;
 
 	assert(signal(SIGPIPE, SIG_IGN) != SIG_ERR);
 
-	if (argc == 3) {
-		std_istream_reference cin_istream(std::cin);
-		std_ostream_reference cout_ostream(std::cout);
-		inflate_istream istream(std::move(cin_istream));
-		make_future_task(cobra::pipe(buffered_istream_reference(istream), ostream_reference(cout_ostream))).get_future().get();
-	} else if (argc == 1) {
+	auto parser = argument_parser<args_type>()
+		.add_program_name(&args_type::program_name)
+		.add_argument(&args_type::config_file, "f", "config-file", "path to configuration file")
+		.add_flag(&args_type::json, true, "j", "json", "write diagnostics in json format")
+		.add_flag(&args_type::check, true, "c", "check", "exit after reading configuration file")
+		.add_flag(&args_type::help, true, "h", "help", "display this help message");
+	auto args = parser.parse(argv, argv + argc);
+
+	if (args.help) {
+		parser.help();
+		return EXIT_SUCCESS;
+	}
+
+	if (args.config_file) {
+		file = std::fstream(*args.config_file, std::ios::in);
+		input = &file;
+	}
+
+	if (args.json) {
 		config::basic_diagnostic_reporter reporter(false);
-		config::parse_session session(std::cin, reporter);
+		config::parse_session session(*input, reporter);
 		const char* delim = "";
 
 		try {
@@ -106,9 +131,8 @@ int main(int argc, char **argv) {
 		print("]");
 		print("}}");
 	} else {
-		std::fstream stream(argv[1], std::ios::in);
 		config::basic_diagnostic_reporter reporter(true);
-		config::parse_session session(stream, reporter);
+		config::parse_session session(*input, reporter);
 
 		try {
 			std::vector<std::shared_ptr<config::server>> srvs;
@@ -126,16 +150,18 @@ int main(int argc, char **argv) {
 			eprintln("setup {} server(s)", servers.size());
 			std::vector<future_task<void>> jobs;
 
-			for (auto&& server : servers) {
-				jobs.push_back(make_future_task(server.start(&exec, &loop)));
-			}
+			if (!args.check) {
+				for (auto&& server : servers) {
+					jobs.push_back(make_future_task(server.start(&exec, &loop)));
+				}
 
-			while (true) {
-				loop.poll();
-			}
+				while (true) {
+					loop.poll();
+				}
 
-			for (auto&& job : jobs) {
-				job.get_future().wait();
+				for (auto&& job : jobs) {
+					job.get_future().wait();
+				}
 			}
 		} catch (const config::error& err) {
 			session.report(err.diag());
@@ -144,5 +170,6 @@ int main(int argc, char **argv) {
 	
 	return EXIT_SUCCESS;
 }
+#endif
 
 #endif

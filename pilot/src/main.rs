@@ -73,6 +73,7 @@ impl Backend {
 
         let output = if let Some(text) = text {
             let mut child = Command::new(&self.args.cobra_path)
+                .arg("-j")
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .spawn()?;
@@ -94,6 +95,7 @@ impl Backend {
             let path = uri.to_file_path().map_err(|_| "bad uri")?;
 
             Command::new(&self.args.cobra_path)
+                .arg("-j")
                 .stdin(File::open(path)?)
                 .output()
                 .await?

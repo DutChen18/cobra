@@ -31,7 +31,7 @@ namespace cobra {
 	}
 
 	bool is_uri_segment(char ch) {
-		return is_unreserved(ch) || is_delim(ch) || ch == '@' || ch == ',' || ch == '(' || ch == ')' || ch == ':' || ch == ';';
+		return is_unreserved(ch) || is_delim(ch) || ch == '@' || ch == ',' || ch == '(' || ch == ')' || ch == ':' || ch == ';' || ch == '=';
 	}
 
 	bool is_uri_query(char ch) {
