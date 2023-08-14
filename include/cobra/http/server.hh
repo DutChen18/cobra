@@ -26,7 +26,7 @@ namespace cobra {
 		http_filter(std::shared_ptr<const config::config> config);
 		http_filter(std::shared_ptr<const config::config> config, std::vector<http_filter> filters);
 
-		http_filter* match(const basic_socket_stream& socket, const http_request& request, const uri_abs_path& normalized);
+		generator<std::pair<http_filter*, uri_abs_path>> match(const basic_socket_stream& socket, const http_request& request, const uri_abs_path& normalized);
 
 		inline const config::config& config() const { return *_config.get(); }
 		inline std::size_t match_count() const { return _match_count; }

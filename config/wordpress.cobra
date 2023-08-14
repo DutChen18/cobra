@@ -1,14 +1,15 @@
 server {
 	listen 127.0.0.1:8080
 	root /home/codam/wordpress
+	index index.php
 
-	location /wp-includes {
-		root /home/codam/wordpress/wp-includes
-		static
+	location / {
+		extension .php
+		fast_cgi 127.0.0.1:9000
+		# cgi /usr/bin/php-cgi
 	}
 
 	location / {
-		index index.php
-		fast_cgi 127.0.0.1:9000
+		static
 	}
 }

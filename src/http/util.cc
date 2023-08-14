@@ -35,7 +35,7 @@ namespace cobra {
 	}
 
 	bool is_uri_query(char ch) {
-		return is_uri_segment(ch) || ch == '/' || ch == '?';
+		return is_uri_segment(ch) || ch == '/' || ch == '?' || ch == '%';
 	}
 
 	bool is_http_token(char ch) {
@@ -51,7 +51,7 @@ namespace cobra {
 	}
 
 	bool is_http_uri(char ch) {
-		return is_uri_query(ch) || ch == '%';
+		return is_uri_query(ch);
 	}
 
 	bool is_http_reason(char ch) {

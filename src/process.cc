@@ -11,7 +11,7 @@ namespace cobra {
 	process::process(event_loop* loop, int pid, file&& in, file&& out, file&& err) : process_ostream<process_stream_type::in> { {}, std::move(in) }, process_istream<process_stream_type::out> { {}, std::move(out) }, process_istream<process_stream_type::err> { {}, std::move(err) }, _pid(pid), _loop(loop) {
 	}
 
-	process::process(process&& other) : process_ostream<process_stream_type::in>(std::move<process_ostream<process_stream_type::in>&>(other)), process_istream<process_stream_type::out>(std::move<process_istream<process_stream_type::out>&>(other)), process_istream<process_stream_type::err>(std::move<process_istream<process_stream_type::err>&>(other)), _pid(std::exchange(other._pid, 1)), _loop(other._loop) {
+	process::process(process&& other) : process_ostream<process_stream_type::in>(std::move<process_ostream<process_stream_type::in>&>(other)), process_istream<process_stream_type::out>(std::move<process_istream<process_stream_type::out>&>(other)), process_istream<process_stream_type::err>(std::move<process_istream<process_stream_type::err>&>(other)), _pid(std::exchange(other._pid, -1)), _loop(other._loop) {
 	}
 
 	process::~process() {

@@ -32,16 +32,29 @@ namespace cobra {
 	http_filter::http_filter(std::shared_ptr<const config::config> config, std::vector<http_filter> filters)
 		: _config(config), _sub_filters(std::move(filters)) , _match_count(0) {}
 
-	http_filter* http_filter::match(const basic_socket_stream& socket, const http_request& request, const uri_abs_path& normalized) {
+	generator<std::pair<http_filter*, uri_abs_path>> http_filter::match(const basic_socket_stream& socket, const http_request& request, const uri_abs_path& normalized) {
 		if (eval(socket, request, normalized)) {
 			for (auto& filter : _sub_filters) {
-				auto m = filter.match(socket, request, normalized);
-				if (m)
-					return m;
+				for (auto& result : filter.match(socket, request, normalized)) {
+					co_yield std::move(result);
+				}
 			}
-			return this;
+			
+			co_yield { this, normalized };
+
+			if (config().index.has_value()) {
+				uri_abs_path normalized_clone = normalized;
+				normalized_clone.push_back(config().index->string());
+
+				for (auto& filter : _sub_filters) {
+					for (auto& result : filter.match(socket, request, normalized_clone)) {
+						co_yield std::move(result);
+					}
+				}
+
+				co_yield { this, normalized_clone };
+			}
 		}
-		return nullptr;
 	}
 
 	bool http_filter::eval(const basic_socket_stream& socket, const http_request& request, const uri_abs_path& normalized) const {
@@ -63,6 +76,7 @@ namespace cobra {
 		if (!config().location.empty()) {
 			const std::size_t already_matched = match_count() - config().location.size();
 
+			// TODO: what if already_matched is greater than size of normalized?
 			auto it = normalized.begin() + already_matched;
 
 			for (auto& part : config().location) {
@@ -81,6 +95,24 @@ namespace cobra {
 			eprintln("other method");
 			return false;
 		}
+
+		if (!config().extensions.empty()) {
+			bool matched = false;
+
+			if (!normalized.empty()) {
+				for (const std::string& extension : config().extensions) {
+					if (normalized.back().ends_with(extension)) {
+						matched = true;
+						break;
+					}
+				}
+			}
+
+			if (!matched) {
+				return false;
+			}
+		}
+
 		return true;
 	}
 
@@ -92,57 +124,66 @@ namespace cobra {
 		istream_buffer socket_istream(make_istream_ref(socket), 1024);
 		ostream_buffer socket_ostream(make_ostream_ref(socket), 1024);
 		http_server_logger logger;
-		http_response_writer writer(socket_ostream, &logger);
 		logger.set_socket(socket);
 
 		http_request request("GET", parse_uri("/", "GET"));
-		bool bad_request = false;
-		bool unknown_error = false;
+		std::optional<http_response_code> error;
 
 		try {
-			request = co_await parse_http_request(socket_istream);
-			logger.set_request(request);
+			try {
+				request = co_await parse_http_request(socket_istream);
+				logger.set_request(request);
+			} catch (http_parse_error err) {
+				throw HTTP_BAD_REQUEST;
+			} catch (uri_parse_error err) {
+				throw HTTP_BAD_REQUEST;
+			}
 
 			const uri_origin* org = request.uri().get<uri_origin>();
+
 			if (!org) {
 				eprintln("request did not contain uri_origin");
-				co_await std::move(writer).send(HTTP_BAD_REQUEST);
-				co_return;
+				throw HTTP_BAD_REQUEST;
 			}
+
 			const uri_abs_path normalized = org->path().normalize();
 
-			auto filter = match(socket, request, normalized);
+			for (auto [filter, normalized] : match(socket, request, normalized)) {
+				try {
+					if (!filter || !filter->config().handler) {
+						if (!filter)
+							std::cerr << "no filter matched" << std::endl;
+						else if (!filter->config().handler)
+							std::cerr << "no handler" << std::endl;
+						continue;
+					}
 
-			if (!filter || !filter->config().handler) {
-				if (!filter)
-					std::cerr << "no filter matched" << std::endl;
-				else if (!filter->config().handler)
-					std::cerr << "no handler" << std::endl;
-				co_await std::move(writer).send(HTTP_NOT_FOUND);
-				co_return;
+					// co_await (*handler)(std::move(writer), std::move(request), buffered_istream_reference(socket_istream));
+					// TODO limit socket_istream to client content-length
+					http_response_writer writer(socket_ostream, &logger);
+					co_await handle_request(*filter, request, normalized, socket_istream, std::move(writer));
+					co_return;
+				} catch (int code) {
+					if (code != HTTP_NOT_FOUND) {
+						throw code;
+					}
+				}
 			}
 
-			co_await handle_request(*filter, request, normalized, socket_istream, std::move(writer));
-			// co_await (*handler)(std::move(writer), std::move(request), buffered_istream_reference(socket_istream));
-			// TODO limit socket_istream to client content-length
-		} catch (http_parse_error err) {
-			bad_request = true;
-		} catch (uri_parse_error err) {
-			bad_request = true;
+			throw HTTP_NOT_FOUND;
+		} catch (int code) {
+			error = code;
 		} catch (const std::exception& ex) {
-			unknown_error = true;
+			error = HTTP_INTERNAL_SERVER_ERROR;
 			std::cerr << ex.what() << std::endl;
 		} catch (...) {
-			unknown_error = true;
+			error = HTTP_INTERNAL_SERVER_ERROR;
 			std::cerr << "something went very very wrong" << std::endl;
 		}
 
-		if (bad_request) {
-			co_await std::move(writer).send(HTTP_BAD_REQUEST);
-			co_return;
-		} else if (unknown_error) {
-			co_await std::move(writer).send(HTTP_INTERNAL_SERVER_ERROR);
-			co_return;
+		if (error.has_value()) {
+			http_response_writer writer(socket_ostream, &logger);
+			co_await std::move(writer).send(*error);
 		}
 	}
 
@@ -167,17 +208,17 @@ namespace cobra {
 
 		if (auto cfg = std::get_if<config::cgi_config>(&*filt.config().handler)) {
 			co_await handle_cgi(std::move(writer),
-								{_loop, _exec, root, file.string(), index, // TODO avoid duplicating strings
+								{_loop, _exec, root, file.string(), // TODO avoid duplicating strings
 								 cgi_config(cgi_command(cfg->command.file())), request, limited_stream});
 		} else if (auto cfg = std::get_if<config::fast_cgi_config>(&*filt.config().handler)) {
 			auto service = std::format("{}", cfg->address.service());
 			co_await handle_cgi(std::move(writer),
-								{_loop, _exec, root, file.string(), index,
+								{_loop, _exec, root, file.string(),
 								 cgi_config(cgi_address(cfg->address.node(), service)),
 								 request, limited_stream});
 		} else if (auto cfg = std::get_if<config::static_file_config>(&*filt.config().handler)) {
 			co_await handle_static(std::move(writer),
-								   {_loop, _exec, root, file.string(), index, {}, request, limited_stream});
+								   {_loop, _exec, root, file.string(), {}, request, limited_stream});
 		} else {
 			assert(0 && "unimplemented");
 		}

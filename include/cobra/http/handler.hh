@@ -92,15 +92,14 @@ namespace cobra {
 		executor* _exec;
 		std::string _root;
 		std::string _file;
-		std::vector<std::string> _index;
 		std::reference_wrapper<const T> _config;
 		std::reference_wrapper<const http_request> _request;
 		buffered_istream_reference _istream;
 
 	public:
-		handle_context(event_loop* loop, executor* exec, std::string root, std::string file, std::vector<std::string> index, const T& config, const http_request& request,
+		handle_context(event_loop* loop, executor* exec, std::string root, std::string file, const T& config, const http_request& request,
 					   buffered_istream_reference istream)
-			: _loop(loop), _exec(exec), _root(std::move(root)), _file(std::move(file)), _index(std::move(index)), _config(config), _request(request), _istream(istream) {}
+			: _loop(loop), _exec(exec), _root(std::move(root)), _file(std::move(file)), _config(config), _request(request), _istream(istream) {}
 
 		event_loop* loop() const {
 			return _loop;
@@ -118,10 +117,6 @@ namespace cobra {
 			return _file;
 		}
 
-		const std::vector<std::string>& index() const {
-			return _index;
-		}
-
 		const T& config() const {
 			return _config;
 		}
@@ -132,18 +127,6 @@ namespace cobra {
 
 		buffered_istream_reference istream() const {
 			return _istream;
-		}
-
-		std::vector<std::string> try_files() const {
-			std::vector<std::string> files;
-
-			files.push_back(root() + file());
-
-			for (const std::string& f : index()) {
-				files.push_back(root() + file() + "/" + f);
-			}
-
-			return files;
 		}
 	};
 

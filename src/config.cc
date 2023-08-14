@@ -1040,6 +1040,7 @@ namespace cobra {
 			// define<block_config> block = define<block_config>{block_config::parse(session), std::move(def.part)};
 			block->_filter = def;
 
+			/*
 			auto it = std::find_if(_filters.begin(), _filters.end(), [&def](auto pair) {
 				if (!std::holds_alternative<location_filter>(pair.first))
 					return false;
@@ -1048,6 +1049,7 @@ namespace cobra {
 				return def->starts_with(other);
 			});
 
+			// TODO: unreachable filter is not true if config block has an extension, for example
 			if (it != _filters.end()) {
 				diagnostic diag = diagnostic::warn(block.part, "unreachable filter");
 				if (std::get<location_filter>(it->first) == def.def) {
@@ -1059,6 +1061,7 @@ namespace cobra {
 				}
 				session.report(diag);
 			}
+			*/
 
 			_filters.push_back({std::move(def.def), std::move(block)});
 		}
@@ -1085,6 +1088,12 @@ namespace cobra {
 			assign_warn_reassign(var, define<T>::parse(session, name), name, session);
 		}
 
+		static void warn_duplicate(file_part cur, file_part prev, const std::string& name, const parse_session& session) {
+			diagnostic diag = diagnostic::warn(cur, std::format("duplicate {}", name));
+			diag.sub_diags.push_back(diagnostic::note(prev, "previously defined here"));
+			session.report(diag);
+		}
+
 		void block_config::parse_cgi(parse_session& session) {
 			assign_warn_reassign(_handler, parse_define<cgi_config>(session, "cgi"), "request handler", session);
 		}
@@ -1098,6 +1107,15 @@ namespace cobra {
 			assign_warn_reassign(_handler, parse_define<static_file_config>(session, "static"), "request handler",
 								 session);
 		}
+		
+		void block_config::parse_extension(parse_session& session) {
+			auto def = parse_define<extension>(session, "extension");
+
+			auto [it, inserted] = _extensions.insert(def);
+			if (!inserted) {
+				warn_duplicate(def.part, it->part, "extension", session);
+			}
+		}
 
 		void block_config::parse_root(parse_session& session) {
 			parse_and_assign_warn_reassign(_root, "root", session);
@@ -1105,12 +1123,6 @@ namespace cobra {
 
 		void block_config::parse_index(parse_session& session) {
 			parse_and_assign_warn_reassign(_index, "index", session);
-		}
-
-		static void warn_duplicate(file_part cur, file_part prev, const std::string& name, const parse_session& session) {
-			diagnostic diag = diagnostic::warn(cur, std::format("duplicate {}", name));
-			diag.sub_diags.push_back(diagnostic::note(prev, "previously defined here"));
-			session.report(diag);
 		}
 
 		void server_config::parse_listen(parse_session& session) {
@@ -1153,6 +1165,10 @@ namespace cobra {
 				server_names.insert(name);
 			}
 
+			for (auto extension : cfg._extensions) {
+				extensions.insert(extension.def.ext);
+			}
+
 			if (cfg._filter) {
 				if (std::holds_alternative<location_filter>(*cfg._filter)) {
 					location = std::get<location_filter>(*cfg._filter).path;
@@ -1168,8 +1184,6 @@ namespace cobra {
 			}
 
 			if (parent) {
-				if (!index)
-					index = parent->index;
 				if (!root)
 					root = parent->root;
 				if (!max_body_size)

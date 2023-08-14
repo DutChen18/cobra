@@ -173,15 +173,7 @@ namespace cobra {
 			}
 
 			// php sometimes sends the same header field multiple times, this is non-standard
-			if (!map.contains(key)) {
-				map.insert(std::move(key), std::move(value));
-			}
-
-			/*
-			if (!map.insert(std::move(key), std::move(value))) {
-				throw http_parse_error::header_map_duplicate;
-			}
-			*/
+			map.insert_or_assign(std::move(key), std::move(value));
 		}
 
 		assert(co_await parse_cgi_eol(stream), http_parse_error::bad_header);

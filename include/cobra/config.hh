@@ -43,8 +43,9 @@ extern "C" {
 	X(index)                                                                                                           \
 	X(cgi)                                                                                                             \
 	X(fast_cgi)                                                                                                        \
-	X(root)                                                                                                        \
-	X(static)
+	X(root)                                                                                                            \
+	X(static)                                                                                                          \
+	X(extension)
 
 #define COBRA_SERVER_KEYWORDS                                                                                          \
 	X(listen)                                                                                                          \
@@ -550,6 +551,16 @@ namespace cobra {
 			auto operator<=>(const static_file_config& other) const = default;
 		};
 
+		struct extension {
+			std::string ext;
+
+			inline static extension parse(parse_session& session) {
+				return { session.get_word_simple("string", "extension") };
+			}
+
+			auto operator<=>(const extension& other) const = default;
+		};
+
 		struct cgi_config {
 			config_exec command;
 
@@ -632,6 +643,7 @@ namespace cobra {
 				_handler; // TODO add other handlers (redirect, proxy...)
 			std::vector<std::pair<filter_type, define<block_config>>> _filters;
 			std::unordered_map<std::string, file_part> _server_names;
+			std::set<define<extension>> _extensions;
 
 		public:
 			static define<block_config> parse(parse_session& session);
@@ -645,6 +657,7 @@ namespace cobra {
 			void parse_max_body_size(parse_session& session);
 			void parse_location(parse_session& session);
 			void parse_static(parse_session& session);
+			void parse_extension(parse_session& session);
 			void parse_cgi(parse_session& session);
 			void parse_fast_cgi(parse_session& session);
 			void parse_index(parse_session& session);
@@ -726,6 +739,7 @@ namespace cobra {
 			std::optional<fs::path> root;
 			std::optional<std::variant<static_file_config, cgi_config, fast_cgi_config>> handler;//TODO use configs from handler.hh
 			std::unordered_set<http_request_method> methods;
+			std::unordered_set<std::string> extensions;
 			std::unordered_set<std::string> server_names;
 			std::vector<std::shared_ptr<config>> sub_configs;
 
