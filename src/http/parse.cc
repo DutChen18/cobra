@@ -116,15 +116,14 @@ namespace cobra {
 			length += 1;
 			size += value.size();
 
-			if (message.has_header(key)) {
-				value = std::format("{}, {}", message.header(key), std::move(value));
-			} else {
+			// TODO: Set-Cookie size
+			if (!message.has_header(key)) {
 				size += key.size();
 			}
 
 			assert(length <= http_header_map_max_length, http_parse_error::header_map_too_long);
 			assert(size <= http_header_map_max_size, http_parse_error::header_map_too_large);
-			message.set_header(std::move(key), std::move(value));
+			message.add_header(std::move(key), std::move(value));
 		}
 
 		assert(co_await parse_http_eol(stream), http_parse_error::bad_header);
@@ -154,9 +153,8 @@ namespace cobra {
 			length += 1;
 			size += value.size();
 
-			if (map.contains(key)) {
-				value = std::format("{}, {}", map.at(key), std::move(value));
-			} else {
+			// TODO: Set-Cookie size
+			if (!map.contains(key)) {
 				size += key.size();
 			}
 
@@ -173,7 +171,7 @@ namespace cobra {
 			}
 
 			// php sometimes sends the same header field multiple times, this is non-standard
-			map.insert_or_assign(std::move(key), std::move(value));
+			map.insert(std::move(key), std::move(value));
 		}
 
 		assert(co_await parse_cgi_eol(stream), http_parse_error::bad_header);

@@ -4,6 +4,7 @@
 #include "cobra/http/message.hh"
 #include "cobra/http/uri.hh"
 #include "cobra/print.hh"
+#include "cobra/text.hh"
 
 //TODO check which headers aren't needed anymore
 #include <algorithm>
@@ -244,13 +245,13 @@ namespace cobra {
 			const std::from_chars_result result = std::from_chars(first, last, value);
 
 			if (result.ec == std::errc::invalid_argument)
-				throw error(diagnostic::error(file_part(0, 1), "not a number", "a number must only contain digits"));
+				throw error(diagnostic::error(file_part(0, 1), COBRA_TEXT("not a number"), COBRA_TEXT("a number must only contain digits")));
 			if (result.ec == std::errc::result_out_of_range || value > max_value)
-				throw error(diagnostic::error(file_part(0, last - first), "number too large",
-											  std::format("maximum accepted value is {}", max_value)));
+				throw error(diagnostic::error(file_part(0, last - first), COBRA_TEXT("number too large"),
+											  COBRA_TEXT("maximum accepted value is {}", max_value)));
 			if (result.ptr == first)
 				throw error(
-					diagnostic::error(file_part(0, 1), "not a number", "a number must contain at least one digit"));
+					diagnostic::error(file_part(0, 1), COBRA_TEXT("not a number"), COBRA_TEXT("a number must contain at least one digit")));
 			if (strend)
 				*strend = result.ptr;
 
@@ -263,8 +264,8 @@ namespace cobra {
 			const char* end = nullptr;
 			const auto result = parse_unsigned<UnsignedType>(view.data(), view.data() + view.length(), max_value, &end);
 			if (end != view.data() + view.length())
-				throw error(diagnostic::error(file_part(end - view.begin(), 1), "not a number",
-											  "a number must only contain digits"));
+				throw error(diagnostic::error(file_part(end - view.begin(), 1), COBRA_TEXT("not a number"),
+											  COBRA_TEXT("a number must only contain digits")));
 			return result;
 		}
 
@@ -667,8 +668,8 @@ namespace cobra {
 
 			template <class Container>
 			static void throw_undefined_directive(const Container& c, const word &w) {
-				throw error(diagnostic::error(w.part(), std::format("unknown directive `{}`", w.str()),
-											  std::format("did you mean `{}`?", get_suggestion(c, w.str()))));
+				throw error(diagnostic::error(w.part(), COBRA_TEXT("unknown directive `{}`", w.str()),
+											  COBRA_TEXT("did you mean `{}`?", get_suggestion(c, w.str()))));
 			}
 
 			template <class T>
@@ -713,8 +714,8 @@ namespace cobra {
 
 				if (config->_handler && !config->_root) {
 					// TODO this should not trigger for reverse proxy
-					diagnostic diag = diagnostic::error(config->_handler->part, "unrooted handler",
-														"consider rooting it using: `root`");
+					diagnostic diag = diagnostic::error(config->_handler->part, COBRA_TEXT("unrooted handler"),
+														COBRA_TEXT("consider rooting it using: `root`"));
 					throw error(diag);
 				}
 
@@ -775,6 +776,7 @@ struct std::formatter<cobra::config::diagnostic::level, char> {
 		return fpc.begin();
 	}
 
+	// TODO: translate
 	template <class FormatContext>
 	constexpr auto format(cobra::config::diagnostic::level lvl, FormatContext& fc) const {
 		using namespace cobra::config;

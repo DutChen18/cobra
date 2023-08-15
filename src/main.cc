@@ -54,6 +54,7 @@ static void print_json_diags(const std::vector<cobra::config::diagnostic>& diags
 struct args_type {
 	std::string program_name;
 	std::optional<std::string> config_file;
+	std::optional<std::string> compress_file;
 	bool json = false;
 	bool check = false;
 	bool help = false;
@@ -72,6 +73,7 @@ int main(int argc, char **argv) {
 	auto parser = argument_parser<args_type>()
 		.add_program_name(&args_type::program_name)
 		.add_argument(&args_type::config_file, "f", "config-file", "path to configuration file")
+		.add_argument(&args_type::compress_file, "l", "ls", "test lempel-ziv")
 		.add_flag(&args_type::json, true, "j", "json", "write diagnostics in json format")
 		.add_flag(&args_type::check, true, "c", "check", "exit after reading configuration file")
 		.add_flag(&args_type::help, true, "h", "help", "display this help message");
@@ -79,6 +81,17 @@ int main(int argc, char **argv) {
 
 	if (args.help) {
 		parser.help();
+		return EXIT_SUCCESS;
+	}
+
+	if (args.compress_file) {
+		std::fstream f = std::fstream(*args.compress_file, std::ios::in);
+		auto stream = istream_buffer<std_istream<std::fstream>>(std_istream<std::fstream>(std::move(f)), 1024);
+		unsigned short window_size = 1 << 8;
+		auto debug_stream = lz_istream<unsigned short, char>(window_size);
+		auto lz_stream = lz_ostream<lz_istream<unsigned short, char>, unsigned short, char>(std::move(debug_stream), window_size);
+		block_task(pipe(buffered_istream_reference(stream), ostream_reference(lz_stream)));
+
 		return EXIT_SUCCESS;
 	}
 

@@ -2,6 +2,7 @@
 #define COBRA_HTTP_MESSAGE_HH
 
 #include "cobra/http/uri.hh"
+#include "cobra/asyncio/generator.hh"
 
 #include <string>
 #include <unordered_map>
@@ -70,7 +71,7 @@ namespace cobra {
 	};
 
 	class http_header_map {
-		using map_type = std::unordered_map<http_header_key, http_header_value>;
+		using map_type = std::unordered_multimap<http_header_key, http_header_value>;
 
 		map_type _map;
 
@@ -79,8 +80,9 @@ namespace cobra {
 		using const_iterator = map_type::const_iterator;
 
 		const http_header_value& at(const http_header_key& key) const;
+		std::pair<const_iterator, const_iterator> equal_range(const http_header_key& key) const;
 		bool contains(const http_header_key& key) const;
-		bool insert(http_header_key key, http_header_value value);
+		void insert(http_header_key key, http_header_value value);
 		void insert_or_assign(http_header_key key, http_header_value value);
 
 		iterator begin();
@@ -103,6 +105,9 @@ namespace cobra {
 		const http_header_value& header(const http_header_key& key) const;
 		bool has_header(const http_header_key& key) const;
 		void set_header(http_header_key key, http_header_value value);
+		void set_header(http_header_key key, const http_header_map& map);
+		void add_header(http_header_key key, http_header_value value);
+		void add_header(http_header_key key, const http_header_map& map);
 	};
 
 	class http_request : public http_message {

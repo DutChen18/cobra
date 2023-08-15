@@ -104,17 +104,9 @@ namespace cobra {
 
 		http_response response(code);
 
-		if (header_map.contains("Location")) {
-			response.set_header("Location", header_map.at("Location"));
-		}
-
-		if (header_map.contains("Content-Type")) {
-			response.set_header("Content-Type", header_map.at("Content-Type"));
-		}
-
-		if (header_map.contains("Set-Cookie")) {
-			response.set_header("Set-Cookie", header_map.at("Set-Cookie"));
-		}
+		response.set_header("Location", header_map);
+		response.set_header("Content-Type", header_map);
+		response.add_header("Set-Cookie", header_map);
 
 		if (code != 404) {
 			http_ostream sock = co_await std::move(writer).send(response);

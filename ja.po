@@ -1,0 +1,214 @@
+# Japanese translations for PACKAGE package.
+# Copyright (C) 2023 THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+#  <dutchen18@gmail.com>, 2023.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-08-15 13:12+0200\n"
+"PO-Revision-Date: 2023-08-15 14:05+0200\n"
+"Last-Translator:  <dutchen18@gmail.com>\n"
+"Language-Team: Japanese <translation-team-ja@lists.sourceforge.net>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=ASCII\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: src/config.cc:406
+msgid "unexpected EOF"
+msgstr "予想されていないEOFです"
+
+#: src/config.cc:406 src/config.cc:409 src/config.cc:420
+#, c++-format
+msgid "expected `{}`"
+msgstr "`{}`が予想されます"
+
+#: src/config.cc:408
+#, c++-format
+msgid "unexpected `{}`"
+msgstr "予想されていない`{}`"
+
+#: src/config.cc:420
+msgid "unexpected word"
+msgstr "予想されていないワード"
+
+#: src/config.cc:421
+#, c++-format
+msgid "consider replacing `{}` with `{}`"
+msgstr "`{}`を`{}`に変更されてはどうですか？"
+
+#: src/config.cc:475
+msgid "unclosed quote"
+msgstr "終端の\"文字がありません"
+
+#: src/config.cc:480 src/config.cc:496
+msgid "invalid word"
+msgstr "無効なワードです"
+
+#: src/config.cc:480
+msgid "expected at least one character"
+msgstr "少なとも一つの文字が予想されます"
+
+#: src/config.cc:496
+msgid "expected at least one graphical character"
+msgstr "表示できる文字が予想されます"
+
+#: src/config.cc:633
+msgid "failed to stat file"
+msgstr "ファイルをstatできませんでした"
+
+#: src/config.cc:646 src/config.cc:668
+msgid "not a normal file"
+msgstr "普通のファイルではありません"
+
+#: src/config.cc:646 src/config.cc:668
+msgid "is a directory"
+msgstr "ディレクトリです"
+
+#: src/config.cc:674
+msgid "not an executable file"
+msgstr "実行形式的なファールではありません"
+
+#: src/config.cc:694
+msgid "not a directory"
+msgstr "ディレクトリではありません"
+
+#: src/config.cc:695
+#, c++-format
+msgid "is a {}"
+msgstr "{} です"
+
+#: src/config.cc:790
+msgid "empty filter"
+msgstr "フィルターが空っぽです"
+
+#: src/config.cc:791
+msgid "consider specifying a handler using: `root`, `cgi`, etc..."
+msgstr "`root'、 `cgi` というハンドラーをお使いになってはどうですか？"
+
+#: src/config.cc:811 src/config.cc:824
+msgid "a address cannot be listened to with and without ssl at the same time"
+msgstr "一つのアドレスは同時にSSLなしとSSLを使ってリスニングできません"
+
+#: src/config.cc:812 src/config.cc:825
+msgid "consider listening to another address"
+msgstr "他のアドラスをお使いになってはどうですか？"
+
+#: src/config.cc:814
+msgid "previously listened to here without ssl"
+msgstr "すでにここにSSLなし使っています"
+
+#: src/config.cc:827
+msgid "previously listened to here with ssl"
+msgstr "すでにここにSSLを使っています"
+
+#: src/config.cc:853 src/config.cc:861 src/config.cc:888
+msgid "ambigious server"
+msgstr "定義されたサーバーが曖昧です"
+
+#: src/config.cc:854
+msgid "consider specifying a `server_name`"
+msgstr "`server_name`をお使いになってはどうですか？"
+
+#: src/config.cc:862
+#, c++-format
+msgid "another server is also listening to `{}`"
+msgstr "他のサーバはすでに`{}`にリスニングされています"
+
+#: src/config.cc:868 src/config.cc:876
+msgid "also listened to here"
+msgstr "ここにもリスニングされています"
+
+#: src/config.cc:889
+msgid "another server listening to the same address has the same `server_name`"
+msgstr "すでに同じ`server_name`を使っているサーバーがあります"
+
+#: src/config.cc:890
+msgid "previously specified here"
+msgstr "すでにここに定義されました"
+
+#: src/config.cc:902
+msgid "server not listening to an address"
+msgstr "サーバーはリスニングされていません"
+
+#: src/config.cc:903
+msgid "consider specifying an address using: `listen`"
+msgstr "`listen`を使ってアドラスにリスニングされてはどうですか？"
+
+#: src/config.cc:942
+msgid "invalid port"
+msgstr "無効なポートです"
+
+#: src/config.cc:1014
+msgid "invalid number"
+msgstr "無効な数字です"
+
+#: src/config.cc:1023
+msgid "redefinition of max_body_size"
+msgstr "max_body_sizeが再定義されました"
+
+#: src/config.cc:1024 src/config.cc:1075 src/config.cc:1096
+msgid "previously defined here"
+msgstr "すでにここで定義された"
+
+#: src/config.cc:1031
+msgid "invalid max_body_size"
+msgstr "無効なmax_body_size"
+
+#: src/config.cc:1074
+#, c++-format
+msgid "redefinition of {}"
+msgstr "{}が再定義されました"
+
+#: src/config.cc:1095
+#, c++-format
+msgid "duplicate {}"
+msgstr "複数の`{}`"
+
+#: src/config.cc:1101 src/config.cc:1105 src/config.cc:1110
+msgid "request handler"
+msgstr "ハンドラー"
+
+#: include/cobra/config.hh:248 include/cobra/config.hh:254
+#: include/cobra/config.hh:267
+msgid "not a number"
+msgstr "数字ではありません"
+
+#: include/cobra/config.hh:248 include/cobra/config.hh:268
+msgid "a number must only contain digits"
+msgstr "数は数字だけでできます"
+
+#: include/cobra/config.hh:250
+msgid "number too large"
+msgstr "数字が大きすぎます"
+
+#: include/cobra/config.hh:251
+#, c++-format
+msgid "maximum accepted value is {}"
+msgstr "{}以上は無効です"
+
+#: include/cobra/config.hh:254
+msgid "a number must contain at least one digit"
+msgstr "数字は少なくとも数字文字の一つで出来ていなくてはなりません"
+
+#: include/cobra/config.hh:671
+#, c++-format
+msgid "unknown directive `{}`"
+msgstr "不明な命令`{}`です"
+
+#: include/cobra/config.hh:672
+#, c++-format
+msgid "did you mean `{}`?"
+msgstr "`{}`を使おうとされましたか？"
+
+#. TODO this should not trigger for reverse proxy
+#: include/cobra/config.hh:717
+msgid "unrooted handler"
+msgstr "元のないハンドラー"
+
+#: include/cobra/config.hh:718
+msgid "consider rooting it using: `root`"
+msgstr "`root`をお使いになってはどうですか？"

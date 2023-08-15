@@ -6,6 +6,7 @@
 #include "cobra/serde.hh"
 #include "cobra/print.hh"
 
+#include <cassert>
 #include <algorithm>
 #include <concepts>
 #include <cstddef>
@@ -482,13 +483,13 @@ task<T> read(bit_istream<Stream>& stream) const {
 
 	using lz_command = lz_basic_command<unsigned short, unsigned char>;
 
-	template <class T>
+	template <class T, class Allocator = std::allocator<T>>
 	class ringbuffer;
 
 	template <class T, class Pointer, class Reference>
 	class ringbuffer_iterator {
 	public:
-		using iterator_category = std::bidirectional_iterator_tag;
+		using iterator_category = std::random_access_iterator_tag;
 		using value_type = T;
 		using difference_type = std::ptrdiff_t;
 		using pointer = Pointer;
@@ -496,61 +497,190 @@ task<T> read(bit_istream<Stream>& stream) const {
 		using size_type = typename ringbuffer<value_type>::size_type;
 
 	private:
-		ringbuffer<value_type>* _buffer;
-		size_type _start;
-		size_type _offset = 0;
+		ringbuffer<value_type>* _buffer = nullptr;
+		size_type _index = 0;
 
 	public:
-		constexpr ringbuffer_iterator(ringbuffer<value_type>* buffer, size_type start) : _buffer(buffer), _start(start) {}
+		constexpr ringbuffer_iterator() noexcept {}
+		constexpr ringbuffer_iterator(const ringbuffer<value_type>* buffer, size_type index)
+			: _buffer(const_cast<ringbuffer<value_type>*>(buffer)), _index(index) {}
 		constexpr ringbuffer_iterator(const ringbuffer_iterator& other) noexcept = default;
 
 		constexpr ringbuffer_iterator& operator=(const ringbuffer_iterator& other) noexcept = default;
+		constexpr bool operator==(const ringbuffer_iterator& other) const noexcept = default;
+		constexpr bool operator!=(const ringbuffer_iterator& other) const noexcept = default;
 
-		reference operator*() const { return _buffer->_buffer[(_start + _offset) % _buffer->capacity()]; }
-		pointer operator->() const { return &(this->operator*()); }
+		constexpr reference operator*() const noexcept { return _buffer->data()[_index % _buffer->actual_capacity()]; }
+		constexpr pointer operator->() const noexcept { return &(this->operator*()); }
 
-		ringbuffer_iterator& operator++() {
-			if (_offset < _buffer->size())//TODO not needed, just set offset for end iterator to be _start + size()
-				++_offset;
+		constexpr ringbuffer_iterator& operator++() noexcept {
+			++_index;
 			return *this;
+		}
+		
+		constexpr ringbuffer_iterator operator++(int) noexcept {
+			ringbuffer_iterator tmp(*this);
+			++_index;
+			return tmp;
+		}
+
+		constexpr ringbuffer_iterator& operator--() noexcept {
+			_index = (_index - 1) % _buffer->capacity();
+			return *this;
+		}
+
+		constexpr ringbuffer_iterator operator--(int) noexcept {
+			ringbuffer_iterator tmp(*this);
+			_index = (_index - 1) % _buffer->capacity();
+			return tmp;
+		}
+
+		constexpr ringbuffer_iterator operator+(difference_type n) const noexcept {
+			return ringbuffer_iterator(_buffer, _index + n);
+		}
+
+		constexpr ringbuffer_iterator& operator+=(difference_type n) noexcept {
+			_index += n;
+			return *this;
+		}
+
+		constexpr ringbuffer_iterator operator-(difference_type n) const noexcept {
+			return ringbuffer_iterator(_buffer, (_index - n) % _buffer->capacity());
+		}
+
+		constexpr difference_type operator-(const ringbuffer_iterator& other) const noexcept {
+			const size_type actual_cap = _buffer->actual_capacity();
+			const size_type a = pos();
+			const size_type b = other.pos();
+			const size_type begin = _buffer->buffer_begin();
+			
+			if (a < begin && b >= begin) {
+				return static_cast<difference_type>(-a) - static_cast<difference_type>(actual_cap - b);
+			} else if (b < begin && a >= begin) {
+				return actual_cap - a + b;
+			}
+			return a - b;
+		}
+
+		constexpr ringbuffer_iterator& operator-=(difference_type n) const noexcept {
+			_index = (_index - n) % _buffer->capacity();
+			return *this;
+		}
+
+		constexpr bool operator<(const ringbuffer_iterator& other) const noexcept {
+			return (*this - other) < 0;
+		}
+
+		constexpr bool operator>(const ringbuffer_iterator& other) const noexcept {
+			return other < *this;
+		}
+
+		constexpr bool operator>=(const ringbuffer_iterator& other) const noexcept {
+			return !(*this < other);
+		}
+
+		constexpr bool operator<=(const ringbuffer_iterator& other) const noexcept {
+			return !(*this > other);
+		}
+
+		constexpr reference operator[](size_type n) const noexcept {
+			return _buffer->data()[(_index + n) % _buffer->actual_capacity];
+		}
+
+		constexpr void swap(ringbuffer_iterator& other) noexcept {
+			std::swap(_buffer, other._buffer);
+			std::swap(_index, other._index);
+		}
+
+	private:
+		constexpr size_type pos() const noexcept {
+			return _index % _buffer->actual_capacity();
 		}
 	};
 
-	template <class T>
+	template <class T, class Allocator>
 	class ringbuffer {
 	public:
 		using value_type = T;
+		using allocator_type = Allocator;
 		using size_type = std::size_t;
 		using difference_type = std::ptrdiff_t;
 		using reference = value_type&;
 		using const_reference = const value_type&;
 		using pointer = value_type*;
 		using const_pointer = const value_type*;
-		using iterator = pointer;
-		using const_iterator = const_pointer;
+		using iterator = ringbuffer_iterator<value_type, pointer, reference>;
+		using const_iterator = ringbuffer_iterator<value_type, const_pointer, const_reference>;
+		using reverse_iterator = std::reverse_iterator<iterator>;
+		using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
 	private:
-		std::unique_ptr<value_type[]> _buffer;
 		size_type _buffer_capacity;
 		size_type _buffer_begin = 0;
 		size_type _buffer_size = 0;
+		allocator_type _allocator;
+		value_type* _buffer;
 
 	public:
-		constexpr ringbuffer(std::size_t buffer_capacity) : _buffer_capacity(buffer_capacity) {
-			_buffer = std::make_unique<value_type[]>(buffer_capacity);
+		constexpr ringbuffer(std::size_t buffer_capacity) : _buffer_capacity(buffer_capacity), _allocator(), _buffer(_allocator.allocate(buffer_capacity)) {
+			if (_buffer_capacity == 0)
+				throw std::logic_error("ringbuffer too large");
+			//_buffer = std::make_unique<value_type[]>(_buffer_capacity + 1);
 		}
 
-		iterator begin();
-		iterator end();
-		const_iterator begin() const;
-		const_iterator end() const;
+		constexpr ~ringbuffer() {
+			clear();
+			_allocator.deallocate(data(), actual_capacity());
+		}
 
+		constexpr iterator begin() noexcept {
+			return iterator(this, _buffer_begin);
+		}
+
+		constexpr iterator end() noexcept {
+			return iterator(this, _buffer_begin + _buffer_size % actual_capacity());
+		}
+
+		constexpr const_iterator begin() const noexcept {
+			return const_iterator(this, _buffer_begin);
+		}
+
+		constexpr const_iterator end() const noexcept {
+			return const_iterator(this, _buffer_begin + _buffer_size % actual_capacity());
+		}
+
+		constexpr reverse_iterator rbegin() noexcept {
+			return reverse_iterator(end());
+		}
+
+		constexpr reverse_iterator rend() noexcept {
+			return reverse_iterator(begin());
+		}
+
+		constexpr const_reverse_iterator rbegin() const noexcept {
+			return const_reverse_iterator(end());
+		}
+
+		constexpr const_reverse_iterator rend() const noexcept {
+			return const_reverse_iterator(begin());
+		}
+
+		constexpr size_type buffer_begin() const noexcept { return _buffer_begin; }
 		constexpr size_type size() const noexcept { return _buffer_size; }
 		constexpr size_type capacity() const noexcept { return _buffer_capacity; }
+		constexpr size_type actual_capacity() const noexcept { return capacity() + 1; }
 		constexpr bool empty() const noexcept { return size() == 0; }
-		constexpr pointer data() { return _buffer.get(); }
-		constexpr const_pointer data() const { return _buffer.get(); }
-		//constexpr size_type max_size() const noexcept { return std::numeric_limits<size_type>::max(); }
+		constexpr size_type remaining() const noexcept { return capacity() - size() - 1; }
+		constexpr bool full() const noexcept { return remaining() == 0; }
+		constexpr pointer data() noexcept { return _buffer; }
+		constexpr const_pointer data() const noexcept { return _buffer; }
+		constexpr size_type max_size() const noexcept { return std::numeric_limits<size_type>::max() + 1; }
+
+		constexpr void clear() noexcept {
+			for (auto& v : *this) {
+				std::destroy_at(&v);
+			}
+		}
 
 		constexpr const value_type& front() const noexcept {
 			assert(!empty() && "tried to get front of empty ringbuffer");
@@ -570,39 +700,35 @@ task<T> read(bit_istream<Stream>& stream) const {
 			return const_cast<value_type&>(static_cast<const ringbuffer*>(this)->back());
 		}
 
-		constexpr void push_back(const value_type& value) {
-			if (size() >= capacity()) {
-				throw std::logic_error("push_back on full ringbuffer");
-			}
+		constexpr void push_back(const value_type& value) noexcept {
+			assert(size() + 1 < actual_capacity() && "push_back on full ringbuffer");
 
-			new (_buffer.get() + size()) value_type(value);
+			std::construct_at(data() + size(), value);
 			++_buffer_size;
 		}
 
-		constexpr value_type pop_front() {
-			if (empty()) {
-				throw std::logic_error("pop_front on empty ringbuffer");
-			}
+		constexpr value_type pop_front() noexcept {
+			assert(!empty() && "pop_front on empty ringbuffer");
 
 			value_type result = std::move(back());
+			//value_type result = back();
 
-			_buffer_begin = (_buffer_begin + 1) % capacity();
+			_buffer_begin = (_buffer_begin + 1) % actual_capacity();
 			--_buffer_size;
 
 			return std::move(result);
 		}
 
 		template <class InputIt>
-		constexpr void insert(InputIt first, InputIt last) {
+		constexpr void insert(InputIt first, InputIt last) noexcept {
 			for (; first != last; ++first) {
-				push_back(first);
+				//TODO optimize
+				push_back(*first);
 			}
 		}
 
-		constexpr void erase_front(size_type count) {
-			if (count >= size()) {
-				throw std::logic_error("tried to erase more than available");
-			}
+		constexpr void erase_front(size_type count) noexcept {
+			assert(count < size() && "tried to erase more than available");
 
 			//TODO optimize
 			while (count--) {
@@ -611,7 +737,117 @@ task<T> read(bit_istream<Stream>& stream) const {
 		}
 	};
 
-	template <class Stream, class UnsignedT, std::equality_comparable CharT>
+	template <class T>
+	class window {
+	public:
+		using value_type = typename ringbuffer<T>::value_type;
+		using size_type = typename ringbuffer<T>::size_type;
+		using difference_type = typename ringbuffer<T>::difference_type;
+		using reference = typename ringbuffer<T>::reference;
+		using pointer = typename ringbuffer<T>::pointer;
+		using const_pointer = typename ringbuffer<T>::const_pointer;
+		using iterator = typename ringbuffer<T>::iterator;
+		using const_iterator = typename ringbuffer<T>::const_iterator;
+		using reverse_iterator = typename ringbuffer<T>::reverse_iterator;
+		using const_reverse_iterator = typename ringbuffer<T>::const_reverse_iterator;
+
+	private:
+		ringbuffer<T> _buffer;
+	
+	public:
+		constexpr window(size_type buffer_size) : _buffer(buffer_size) {}
+
+		constexpr iterator begin() noexcept { return _buffer.begin(); }
+		constexpr iterator end() noexcept { return _buffer.end(); }
+		constexpr const_iterator begin() const noexcept { return _buffer.begin(); }
+		constexpr const_iterator end() const noexcept { return _buffer.end(); }
+		constexpr reverse_iterator rbegin() noexcept { return _buffer.rbegin(); }
+		constexpr reverse_iterator rend() noexcept { return _buffer.rend(); }
+		constexpr const_reverse_iterator rbegin() const noexcept { return _buffer.rbegin(); }
+		constexpr const_reverse_iterator rend() const noexcept { return _buffer.rend(); }
+
+		constexpr size_type capacity() const noexcept { return _buffer.capacity(); }
+		constexpr bool empty() const noexcept { return _buffer.empty(); }
+		constexpr size_type remaining() const noexcept { return _buffer.remaining(); }
+		constexpr bool full() const noexcept { return _buffer.full(); }
+		constexpr pointer data() noexcept { return _buffer.data(); }
+		constexpr const_pointer data() const noexcept { return _buffer.data(); }
+		constexpr size_type max_size() const noexcept { return std::numeric_limits<size_type>::max() + 1; }
+
+		constexpr const value_type& front() const noexcept {
+			return _buffer.front();
+		}
+
+		constexpr const value_type& back() const noexcept {
+			return _buffer.back();
+		}
+
+		constexpr value_type& front() noexcept {
+			return _buffer.front();
+		}
+
+		constexpr value_type& back() noexcept {
+			return _buffer.back();
+		}
+
+		constexpr void push_back(const value_type& value) noexcept {
+			if (full()) {
+				pop_front();
+				push_back(value);
+			} else {
+				_buffer.push_back(value);
+			}
+		}
+
+		constexpr value_type pop_front() noexcept {
+			return _buffer.pop_front();
+		}
+
+		template <class InputIt>
+		constexpr void insert(InputIt first, InputIt last) noexcept {
+			for (; first != last; ++first) {
+				//TODO optimize
+				push_back(first);
+			}
+		}
+
+		constexpr void erase_front(size_type count) noexcept {
+			_buffer.erase_front(count);
+		}
+	};
+
+	template <class UnsignedT, class CharT>
+	class lz_istream {
+		using char_type = CharT;
+		using command_type = lz_basic_command<UnsignedT, CharT>; 
+		window<char_type> _window;
+
+	public:
+		lz_istream(std::size_t buffer_size) : _window(buffer_size) {}
+
+		task<void> write(const command_type& command) {
+			if (command.is_literal()) {
+				std::cout << command.ch();
+				write_char(command.ch());
+			} else {
+				print("({},{})", command.length(), command.dist());
+				auto it = _window.rbegin() + command.dist();
+				auto end = it + command.length();
+
+				for (; it != end; ++it) {
+					write_char(*it);
+				}
+			}
+			co_return;
+		}
+
+		void write_char(char_type ch) {
+			//std::cout << ch;
+			_window.push_back(ch);
+		}
+	};
+
+	template <class Stream, class UnsignedT, class CharT>
 	class lz_ostream : public ostream_impl<lz_ostream<Stream, UnsignedT, CharT>> {
 	public:
 		using base_type = ostream_impl<lz_ostream<Stream, UnsignedT, CharT>>;
@@ -649,46 +885,70 @@ task<T> read(bit_istream<Stream>& stream) const {
 				return _ch == ch;
 			}
 
-			inline buffer_iterator_type pos() { _pos; };
-			inline const_buffer_iterator_type pos() const { _pos; };
+			inline buffer_iterator_type pos() { return _pos; };
+			inline const_buffer_iterator_type pos() const { return _pos; };
 
 			inline chain* next() { _next; };
 			inline const chain* next() const { _pos; };
 		};
 
 		Stream _stream;
-		std::size_t _window_size;
+		std::size_t _table_size;
 		ringbuffer<char_type> _buffer;
-		ringbuffer<char_type> _prev;
-		ringbuffer<chain> _window;
+		ringbuffer<char_type> _window;//TODO use window type
+		ringbuffer<chain> _table;
 
 		static constexpr length_type max_length = std::numeric_limits<length_type>::max();
 		static constexpr distance_type max_dist = std::numeric_limits<distance_type>::max();
 		static constexpr length_type min_backref_length = 3;
 
 	public:
-		lz_ostream(Stream&& stream, std::size_t window_size) : _stream(std::move(stream)), _window_size(window_size) {}
+		lz_ostream(Stream&& stream, std::size_t window_size)
+			: _stream(std::move(stream)), _table_size(window_size), _buffer(_table_size), _window(_table_size),
+			  _table(_table_size) {}
 
-		task<std::size_t> write(const char_type* data, std::size_t size) {
-
+		task<std::size_t> write(const char_type* data, const std::size_t size) {
+			if (_buffer.remaining() >= size) {
+				_buffer.insert(data, data + size);
+			} else if (size < _buffer.size()) {
+				co_await flush_atleast(size);
+				co_return co_await write(data, size);
+			} else {
+				for (std::size_t index = 0; index < size; index += _buffer.capacity()) {
+					co_await flush();
+					_buffer.insert(data, data + std::min(size - index, _buffer.capacity()));
+				}
+			}
+			co_return size;
 		}
 
 		task<Stream> end() && {
-			return std::move(_stream);
+			co_await flush();
+			co_return std::move(_stream);
 		}
 
 		task<void> flush() {
-			while (_buffer.size() > 0) {
+			co_return co_await flush_atleast(_buffer.size());
+		}
+
+	private:
+		task<void> flush_atleast(size_t at_least) {
+			assert(at_least <= _buffer.size() && "tried to flush more than available");
+			while (at_least > 0) {
 				if (_buffer.size() < min_backref_length) {
+					eprintln("buffer to small");
 					co_await write_literal();
+					--at_least;
 					continue;
 				}
 
-				auto it = find(_buffer.begin());
+				auto it = std::find(_table.begin(), _table.end(), *_buffer.begin());
 
-				if (it == _buffer.end()) {
+				if (it == _table.end()) {
+					eprintln("no backreferences found");
 					//No backreferences available
 					co_await write_literal();
+					--at_least;
 					continue;
 				}
 
@@ -696,7 +956,8 @@ task<T> read(bit_istream<Stream>& stream) const {
 				length_type best_len = 0;
 
 				for (chain& cur : *it) {
-					const std::size_t len = std::mismatch(cur.pos(), _prev.end(), _buffer.begin(), _buffer.end());
+					auto [start, end]= std::mismatch(cur.pos(), _window.end(), _buffer.begin(), _buffer.end());
+					auto len = end - start;
 					if (len > min_backref_length && len > best_len) {
 						best = &cur;
 						best_len = len;
@@ -708,18 +969,23 @@ task<T> read(bit_istream<Stream>& stream) const {
 				}
 
 				if (best == nullptr) {
+					eprintln("no backreferenced long enough found");
 					co_await write_literal();
+					--at_least;
 					continue;
 				}
 
 				co_await write_backref(best_len, best->pos() - _buffer.begin());
+				at_least -= best_len;
 			}
 		}
-
-	private:
 		task<length_type> write_literal() {
 			CharT ch = _buffer.pop_front();
-			_prev.push_back(ch);
+
+			if (_window.full())
+				_window.pop_front();
+
+			_window.push_back(ch);
 			co_await _stream.write(command_type(ch));
 			co_return 1;
 		}
@@ -728,14 +994,14 @@ task<T> read(bit_istream<Stream>& stream) const {
 			auto beg = _buffer.begin();
 			auto end = beg + len;
 
-			_prev.insert(_prev.end(), beg, end);
-			_buffer.erase(beg, end);
+			_window.insert(beg, end);
+			_buffer.erase_front(len);
 			co_await _stream.write(command_type(len, dist));
 			co_return len;
 		}
 
 		auto find(CharT ch) {
-			return std::find(_window.begin(), _window.end(), ch);
+			return std::find(_table.begin(), _table.end(), ch);
 		}
 
 		//task<std::size_t> write(const

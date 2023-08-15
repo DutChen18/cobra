@@ -1,4 +1,5 @@
 #include "cobra/http/message.hh"
+#include "cobra/print.hh"
 
 namespace cobra {
 	http_version::http_version(http_version_type major, http_version_type minor) : _major(major), _minor(minor) {
@@ -29,26 +30,39 @@ namespace cobra {
 	}
 
 	const http_header_value& http_header_map::at(const http_header_key& key) const {
-		return _map.at(key_case(key));
+		return _map.find(key_case(key))->second;
+	}
+	
+	std::pair<http_header_map::const_iterator, http_header_map::const_iterator> http_header_map::equal_range(const http_header_key& key) const {
+		return _map.equal_range(key_case(key));
 	}
 
 	bool http_header_map::contains(const http_header_key& key) const {
 		return _map.contains(key_case(key));
 	}
 
-	bool http_header_map::insert(http_header_key key, http_header_value value) {
+	void http_header_map::insert(http_header_key key, http_header_value value) {
 		key = key_case(std::move(key));
 
-		if (_map.contains(key)) {
-			return false;
+		auto it = _map.find(key);
+
+		if (it != _map.end() && key != "Set-Cookie") {
+			it->second = std::format("{}, {}", it->second, std::move(value));
 		} else {
 			_map.emplace(std::move(key), std::move(value));
-			return true;
 		}
 	}
 
 	void http_header_map::insert_or_assign(http_header_key key, http_header_value value) {
-		_map.insert_or_assign(key_case(std::move(key)), std::move(value));
+		key = key_case(std::move(key));
+
+		auto it = _map.find(key);
+
+		if (it != _map.end()) {
+			it->second = value;
+		} else {
+			_map.emplace(std::move(key), std::move(value));
+		}
 	}
 
 	http_header_map::iterator http_header_map::begin() {
@@ -96,6 +110,26 @@ namespace cobra {
 
 	void http_message::set_header(http_header_key key, http_header_value value) {
 		_header_map.insert_or_assign(std::move(key), std::move(value));
+	}
+
+	void http_message::set_header(http_header_key key, const http_header_map& map) {
+		auto [begin, end] = map.equal_range(key);
+
+		for (auto it = begin; it != end; ++it) {
+			set_header(it->first, it->second);
+		}
+	}
+
+	void http_message::add_header(http_header_key key, http_header_value value) {
+		_header_map.insert(std::move(key), std::move(value));
+	}
+
+	void http_message::add_header(http_header_key key, const http_header_map& map) {
+		auto [begin, end] = map.equal_range(key);
+
+		for (auto it = begin; it != end; ++it) {
+			add_header(it->first, it->second);
+		}
 	}
 
 	http_request::http_request(http_version version, http_request_method method, http_request_uri uri) : http_message(std::move(version)), _method(std::move(method)), _uri(std::move(uri)) {

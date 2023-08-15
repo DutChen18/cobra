@@ -3,6 +3,7 @@
 #include "cobra/exception.hh"
 #include "cobra/net/address.hh"
 #include "cobra/print.hh"
+#include "cobra/text.hh"
 
 // TODO check which headers aren't needed anymore
 #include <algorithm>
@@ -341,6 +342,7 @@ namespace cobra {
 			}
 		}
 
+		// TODO: translate
 		std::ostream& operator<<(std::ostream& stream, diagnostic::level lvl) {
 			switch (lvl) {
 			case diagnostic::level::error:
@@ -401,10 +403,10 @@ namespace cobra {
 
 			if (!got) {
 				throw error(
-					make_error(line(), col, "unexpected EOF", std::format("expected `{}`", static_cast<char>(ch))));
+					make_error(line(), col, COBRA_TEXT("unexpected EOF"), COBRA_TEXT("expected `{}`", static_cast<char>(ch))));
 			} else if (got != ch) {
-				throw error(make_error(line(), col, std::format("unexpected `{}`", static_cast<char>(*got)),
-									   std::format("expected `{}`", static_cast<char>(ch))));
+				throw error(make_error(line(), col, COBRA_TEXT("unexpected `{}`", static_cast<char>(*got)),
+									   COBRA_TEXT("expected `{}`", static_cast<char>(ch))));
 			}
 		}
 
@@ -415,8 +417,8 @@ namespace cobra {
 			const std::string word = get_word_simple();
 
 			if (word != str) {
-				throw error(make_error(line_num, col_num, "unexpected word", std::format("expected `{}`", str),
-									   std::format("consider replacing `{}` with `{}`", word, str)));
+				throw error(make_error(line_num, col_num, COBRA_TEXT("unexpected word"), COBRA_TEXT("expected `{}`", str),
+									   COBRA_TEXT("consider replacing `{}` with `{}`", word, str)));
 			}
 		}
 
@@ -470,12 +472,12 @@ namespace cobra {
 
 					res.push_back(*ch);
 				} else {
-					throw error(make_error(start_line, start_col, "unclosed quote"));
+					throw error(make_error(start_line, start_col, COBRA_TEXT("unclosed quote")));
 				}
 			}
 
 			if (res.empty())
-				throw error(make_error(start_line, start_col, 2, "invalid word", "expected at least one character"));
+				throw error(make_error(start_line, start_col, 2, COBRA_TEXT("invalid word"), COBRA_TEXT("expected at least one character")));
 			return word(file_part(file(), buf_pos(start_line, start_col), buf_pos(end_line, end_col)), std::move(res));
 		}
 
@@ -491,7 +493,7 @@ namespace cobra {
 			}
 
 			if (res.empty())
-				throw error(make_error("invalid word", "expected at least one graphical character"));
+				throw error(make_error(COBRA_TEXT("invalid word"), COBRA_TEXT("expected at least one graphical character")));
 			consume(res.length());
 			return word(file_part(file(), start_line, start_col, res.length()), std::move(res));
 		}
@@ -602,6 +604,7 @@ namespace cobra {
 			: _node(std::move(node)), _service(service) {}
 		constexpr listen_address::listen_address(port service) noexcept : _node(), _service(service) {}
 
+		// TODO: translate
 		static const char* get_filetype_name(fs::file_type type) {
 			switch (type) {
 			case fs::file_type::regular:
@@ -627,7 +630,7 @@ namespace cobra {
 
 		static void report_fs_error(file_part part, const parse_session& session, const fs::filesystem_error& ex) {
 			if (ex.code().value() != EACCES) {
-				session.report(diagnostic::warn(part, "failed to stat file", ex.code().message()));
+				session.report(diagnostic::warn(part, COBRA_TEXT("failed to stat file"), ex.code().message()));
 			}
 		}
 
@@ -640,7 +643,7 @@ namespace cobra {
 					fs::file_status stat = fs::status(p);
 
 					if (stat.type() == fs::file_type::directory) {
-						session.report(diagnostic::warn(w.part(), "not a normal file", "is a directory"));
+						session.report(diagnostic::warn(w.part(), COBRA_TEXT("not a normal file"), COBRA_TEXT("is a directory")));
 					}
 				} catch (const fs::filesystem_error& ex) {
 					report_fs_error(w.part(), session, ex);
@@ -662,13 +665,13 @@ namespace cobra {
 					fs::perms perms = stat.permissions();
 
 					if (stat.type() == fs::file_type::directory) {
-						session.report(diagnostic::warn(w.part(), "not a normal file", "is a directory"));
+						session.report(diagnostic::warn(w.part(), COBRA_TEXT("not a normal file"), COBRA_TEXT("is a directory")));
 					}
 
 					if ((perms & fs::perms::owner_exec) == fs::perms::none &&
 						(perms & fs::perms::group_exec) == fs::perms::none &&
 						(perms & fs::perms::others_exec) == fs::perms::none) {
-						session.report(diagnostic::warn(w.part(), "not an executable file"));
+						session.report(diagnostic::warn(w.part(), COBRA_TEXT("not an executable file")));
 					}
 				} catch (const fs::filesystem_error& ex) {
 					report_fs_error(w.part(), session, ex);
@@ -688,8 +691,8 @@ namespace cobra {
 					fs::file_status stat = fs::status(p);
 
 					if (stat.type() != fs::file_type::directory) {
-						session.report(diagnostic::warn(w.part(), "not a directory",
-														std::format("is a {}", get_filetype_name(stat.type()))));
+						session.report(diagnostic::warn(w.part(), COBRA_TEXT("not a directory"),
+														COBRA_TEXT("is a {}", get_filetype_name(stat.type()))));
 					}
 				} catch (const fs::filesystem_error& ex) {
 					report_fs_error(w.part(), session, ex);
@@ -784,8 +787,8 @@ namespace cobra {
 
 		void server_config::empty_filters_lint(const define<block_config>& config, const parse_session& session) {
 			if (!config->_handler && config->_filters.empty()) {
-				diagnostic diag = diagnostic::warn(config.part, "empty filter",
-												   "consider specifying a handler using: `root`, `cgi`, etc...");
+				diagnostic diag = diagnostic::warn(config.part, COBRA_TEXT("empty filter"),
+												   COBRA_TEXT("consider specifying a handler using: `root`, `cgi`, etc..."));
 				session.report(diag);
 			} else {
 				for (auto& [_, block_cfg] : config->_filters) {
@@ -805,10 +808,10 @@ namespace cobra {
 						const auto it = plain_ports.find(address);
 						if (it != plain_ports.end()) {
 							diagnostic diag = diagnostic::error(config._ssl->part,
-																"a address cannot be listened to with and without ssl at the same time",
-																"consider listening to another address");
+																COBRA_TEXT("a address cannot be listened to with and without ssl at the same time"),
+																COBRA_TEXT("consider listening to another address"));
 							diag.sub_diags.push_back(
-								diagnostic::note(it->second, "previously listened to here without ssl"));
+								diagnostic::note(it->second, COBRA_TEXT("previously listened to here without ssl")));
 							throw error(diag);
 						}
 						ssl_ports.insert({address, config._ssl->part});
@@ -818,10 +821,10 @@ namespace cobra {
 						const auto it = ssl_ports.find(address);
 						if (it != ssl_ports.end()) {
 							diagnostic diag =
-								diagnostic::error(address.part, "a address cannot be listened to with and without ssl at the same time",
-												  "consider listening to another address");
+								diagnostic::error(address.part, COBRA_TEXT("a address cannot be listened to with and without ssl at the same time"),
+												  COBRA_TEXT("consider listening to another address"));
 							diag.sub_diags.push_back(
-								diagnostic::note(it->second, "previously listened to here with ssl"));
+								diagnostic::note(it->second, COBRA_TEXT("previously listened to here with ssl")));
 							throw error(diag);
 						}
 						plain_ports.insert({address, address.part});
@@ -847,22 +850,22 @@ namespace cobra {
 				for (const auto& define : defines) {
 					const auto& config = define.get().def;
 					if (config._server_names.empty()) {
-						diagnostic diag = diagnostic::error(define.get().part, "ambigious server",
-															"consider specifying a `server_name`");
+						diagnostic diag = diagnostic::error(define.get().part, COBRA_TEXT("ambigious server"),
+															COBRA_TEXT("consider specifying a `server_name`"));
 						auto address_define =
 							std::find_if(config._addresses.begin(), config._addresses.end(), [address](auto addr) {
 								return addr == address;
 							});
 
 						diag.sub_diags.push_back(
-							diagnostic::error(address_define->part, "ambigious server", "",
-											  std::format("another server is also listening to `{}`", address)));
+							diagnostic::error(address_define->part, COBRA_TEXT("ambigious server"), "",
+											  COBRA_TEXT("another server is also listening to `{}`", address)));
 
 						for (const auto& ambigious_define : defines) {
 							if (ambigious_define.get().part == define.get().part)
 								continue;
 							diagnostic sub_diag =
-								diagnostic::note(ambigious_define.get().part, "also listened to here");
+								diagnostic::note(ambigious_define.get().part, COBRA_TEXT("also listened to here"));
 
 							auto other_address_define =
 								std::find_if(ambigious_define.get().def._addresses.begin(),
@@ -870,7 +873,7 @@ namespace cobra {
 												 return addr == address;
 											 });
 							sub_diag.sub_diags.push_back(
-								diagnostic::note(other_address_define->part, "also listened to here"));
+								diagnostic::note(other_address_define->part, COBRA_TEXT("also listened to here")));
 							diag.sub_diags.push_back(std::move(sub_diag));
 						}
 
@@ -882,9 +885,9 @@ namespace cobra {
 
 						if (!inserted) {
 							diagnostic diag = diagnostic::error(
-								part, "ambigious server",
-								"another server listening to the same address has the same `server_name`");
-							diag.sub_diags.push_back(diagnostic::note(it->second, "previously specified here"));
+								part, COBRA_TEXT("ambigious server"),
+								COBRA_TEXT("another server listening to the same address has the same `server_name`"));
+							diag.sub_diags.push_back(diagnostic::note(it->second, COBRA_TEXT("previously specified here")));
 							throw error(diag);
 						}
 					}
@@ -896,8 +899,8 @@ namespace cobra {
 													  const parse_session& session) {
 			for (const auto& define : defines) {
 				if (define.def._addresses.size() == 0) {
-					diagnostic diag = diagnostic::warn(define.part, "server not listening to an address",
-													   "consider specifying an address using: `listen`");
+					diagnostic diag = diagnostic::warn(define.part, COBRA_TEXT("server not listening to an address"),
+													   COBRA_TEXT("consider specifying an address using: `listen`"));
 					session.report(diag);
 				}
 			}
@@ -936,7 +939,7 @@ namespace cobra {
 			try {
 				p = parse_unsigned<port>(port_str);
 			} catch (error err) {
-				err.diag().message = "invalid port";
+				err.diag().message = COBRA_TEXT("invalid port");
 				err.diag().part = file_part(session.file(), w.part().start.line, port_start, port_length);
 				throw err;
 			}
@@ -1008,7 +1011,7 @@ namespace cobra {
 			try {
 				word = session.get_word_simple("number", "size");
 			} catch (error err) {
-				err.diag().message = "invalid number";
+				err.diag().message = COBRA_TEXT("invalid number");
 				throw err;
 			}
 
@@ -1017,15 +1020,15 @@ namespace cobra {
 				const std::size_t limit = parse_unsigned<std::size_t>(word);
 
 				if (_max_body_size) {
-					diagnostic diag = session.make_warn(line, define_start, len, "redefinition of max_body_size");
-					diag.sub_diags.push_back(diagnostic::note(_max_body_size->part, "previously defined here"));
+					diagnostic diag = session.make_warn(line, define_start, len, COBRA_TEXT("redefinition of max_body_size"));
+					diag.sub_diags.push_back(diagnostic::note(_max_body_size->part, COBRA_TEXT("previously defined here")));
 					session.report(diag);
 				}
 
 				_max_body_size = define<std::size_t>(
 					limit, file_part(session.file(), line, define_start, len)); // TODO use parse_define
 			} catch (error err) {
-				err.diag().message = "invalid max_body_size";
+				err.diag().message = COBRA_TEXT("invalid max_body_size");
 				err.diag().part = file_part(session.file(), line, col, word.length());
 				throw err;
 			}
@@ -1051,13 +1054,13 @@ namespace cobra {
 
 			// TODO: unreachable filter is not true if config block has an extension, for example
 			if (it != _filters.end()) {
-				diagnostic diag = diagnostic::warn(block.part, "unreachable filter");
+				diagnostic diag = diagnostic::warn(block.part, COBRA_TEXT("unreachable filter"));
 				if (std::get<location_filter>(it->first) == def.def) {
 					diag.sub_diags.push_back(
-						diagnostic::note(it->second.part, "because of an earlier definition here"));
+						diagnostic::note(it->second.part, COBRA_TEXT("because of an earlier definition here")));
 				} else {
 					diag.sub_diags.push_back(
-						diagnostic::note(it->second.part, "because a less strict filter defined earlier here"));
+						diagnostic::note(it->second.part, COBRA_TEXT("because a less strict filter defined earlier here")));
 				}
 				session.report(diag);
 			}
@@ -1068,8 +1071,8 @@ namespace cobra {
 
 		static void warn_reassign(file_part cur, file_part prev, const std::string& name,
 								  const parse_session& session) {
-			diagnostic diag = diagnostic::warn(cur, std::format("redefinition of {}", name));
-			diag.sub_diags.push_back(diagnostic::note(prev, "previously defined here"));
+			diagnostic diag = diagnostic::warn(cur, COBRA_TEXT("redefinition of {}", name));
+			diag.sub_diags.push_back(diagnostic::note(prev, COBRA_TEXT("previously defined here")));
 			session.report(diag);
 		}
 
@@ -1089,22 +1092,22 @@ namespace cobra {
 		}
 
 		static void warn_duplicate(file_part cur, file_part prev, const std::string& name, const parse_session& session) {
-			diagnostic diag = diagnostic::warn(cur, std::format("duplicate {}", name));
-			diag.sub_diags.push_back(diagnostic::note(prev, "previously defined here"));
+			diagnostic diag = diagnostic::warn(cur, COBRA_TEXT("duplicate {}", name));
+			diag.sub_diags.push_back(diagnostic::note(prev, COBRA_TEXT("previously defined here")));
 			session.report(diag);
 		}
 
 		void block_config::parse_cgi(parse_session& session) {
-			assign_warn_reassign(_handler, parse_define<cgi_config>(session, "cgi"), "request handler", session);
+			assign_warn_reassign(_handler, parse_define<cgi_config>(session, "cgi"), COBRA_TEXT("request handler"), session);
 		}
 
 		void block_config::parse_fast_cgi(parse_session& session) {
-			assign_warn_reassign(_handler, parse_define<fast_cgi_config>(session, "fast_cgi"), "request handler",
+			assign_warn_reassign(_handler, parse_define<fast_cgi_config>(session, "fast_cgi"), COBRA_TEXT("request handler"),
 								 session);
 		}
 
 		void block_config::parse_static(parse_session& session) {
-			assign_warn_reassign(_handler, parse_define<static_file_config>(session, "static"), "request handler",
+			assign_warn_reassign(_handler, parse_define<static_file_config>(session, "static"), COBRA_TEXT("request handler"),
 								 session);
 		}
 		
