@@ -4,7 +4,8 @@ ANALYZER	:=
 #SANITIZERS	:= -fsanitize=address,undefined,integer
 SANITIZERS	:= -fsanitize=address,undefined
 CXXFLAGS	:= -std=c++20 $(WARNINGS) $(ANALYZER) $(SANITIZERS) -I../include \
-			-Isupport -MMD -MP -DFT_TEST -O0 -g3 -DCOBRA_DEBUG -I. -DCOBRA_TEST
+			-Isupport -MMD -MP -DFT_TEST -O0 -g3 -DCOBRA_DEBUG -I. -DCOBRA_TEST \
+			-lssl -lcrypto
 
 OBJ_DIR		:= build
 
@@ -63,7 +64,7 @@ testdrivers: $(TSTFILES)
 -include $(COBRA_DEPS)
 $(OBJ_DIR)/%.o: $(COBRA_SRC)/%.cc Makefile
 	@mkdir -p $(@D)
-	$(SILENT)$(CXX) -o $@ $< $(CXXFLAGS) -c -MMD
+	$(SILENT)$(CXX) -o $@ $<  -c -MMD $(CXXFLAGS)
 
 .PHONY: clean
 clean:

@@ -1,0 +1,213 @@
+# Language tok translations for PACKAGE package.
+# Copyright (C) 2023 THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+#  <dutchen18@gmail.com>, 2023.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-08-15 13:12+0200\n"
+"PO-Revision-Date: 2023-08-15 14:06+0200\n"
+"Last-Translator:  <dutchen18@gmail.com>\n"
+"Language-Team: Language tok\n"
+"Language: tok\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=ASCII\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: src/config.cc:406
+msgid "unexpected EOF"
+msgstr "pini lipu li ike"
+
+#: src/config.cc:406 src/config.cc:409 src/config.cc:420
+#, c++-format
+msgid "expected `{}`"
+msgstr "`{}` li pona"
+
+#: src/config.cc:408
+#, c++-format
+msgid "unexpected `{}`"
+msgstr "`{}` li ike"
+
+#: src/config.cc:420
+msgid "unexpected word"
+msgstr "nimi li ike"
+
+#: src/config.cc:421
+#, c++-format
+msgid "consider replacing `{}` with `{}`"
+msgstr "`{}` la, `{}` li pona"
+
+#: src/config.cc:475
+msgid "unclosed quote"
+msgstr "sitelen pi nimi mute li jo ala e pini"
+
+#: src/config.cc:480 src/config.cc:496
+msgid "invalid word"
+msgstr "nimi li ike"
+
+#: src/config.cc:480
+msgid "expected at least one character"
+msgstr "sitelen wan li pona"
+
+#: src/config.cc:496
+msgid "expected at least one graphical character"
+msgstr "sitelen lukin wan li pona"
+
+#: src/config.cc:633
+msgid "failed to stat file"
+msgstr "sona lipu li pakala"
+
+#: src/config.cc:646 src/config.cc:668
+msgid "not a normal file"
+msgstr "lipu nasa"
+
+#: src/config.cc:646 src/config.cc:668
+msgid "is a directory"
+msgstr "ona li kulupu lipu"
+
+#: src/config.cc:674
+msgid "not an executable file"
+msgstr "lipu pali ala"
+
+#: src/config.cc:694
+msgid "not a directory"
+msgstr "kulupu lipu ala"
+
+#: src/config.cc:695
+#, c++-format
+msgid "is a {}"
+msgstr "ona li {}"
+
+#: src/config.cc:790
+msgid "empty filter"
+msgstr "ilo pali li jo ala"
+
+#: src/config.cc:791
+msgid "consider specifying a handler using: `root`, `cgi`, etc..."
+msgstr "sina o sin e ilo pali kepeken `root` kepeken `cgi` kepeken ante..."
+
+#: src/config.cc:811 src/config.cc:824
+msgid "a address cannot be listened to with and without ssl at the same time"
+msgstr "ilo li ken ala kute tawa nimi ma wan kepeken \"ssl\" kepeken ala \"ssl\" lon tenpo wan"
+
+#: src/config.cc:812 src/config.cc:825
+msgid "consider listening to another address"
+msgstr "sina o kute tawa nimi ma ante"
+
+#: src/config.cc:814
+msgid "previously listened to here without ssl"
+msgstr "tenpo pini la, ona li kute lon ma ni kepeken ala \"ssl\""
+
+#: src/config.cc:827
+msgid "previously listened to here with ssl"
+msgstr "tenpo pini la, ona li kute lon ma ni kepeken \"ssl\""
+
+#: src/config.cc:853 src/config.cc:861 src/config.cc:888
+msgid "ambigious server"
+msgstr "ilo pi nasin mute"
+
+#: src/config.cc:854
+msgid "consider specifying a `server_name`"
+msgstr "sina o sin e `server_name`"
+
+#: src/config.cc:862
+#, c++-format
+msgid "another server is also listening to `{}`"
+msgstr "ilo ante li kute tawa `{}`"
+
+#: src/config.cc:868 src/config.cc:876
+msgid "also listened to here"
+msgstr "lon ma ni"
+
+#: src/config.cc:889
+msgid "another server listening to the same address has the same `server_name`"
+msgstr "ilo ante li kute tawa nimi ma sama li jo e `server_name` sama"
+
+#: src/config.cc:890
+msgid "previously specified here"
+msgstr "tenpo pini la, ona li lon ma ni"
+
+#: src/config.cc:902
+msgid "server not listening to an address"
+msgstr "ilo li kute ala tawa nimi ma"
+
+#: src/config.cc:903
+msgid "consider specifying an address using: `listen`"
+msgstr "sina o sin e nimi ma kepeken `listen`"
+
+#: src/config.cc:942
+msgid "invalid port"
+msgstr "nanpa ma li ike"
+
+#: src/config.cc:1014
+msgid "invalid number"
+msgstr "nanpa li ike"
+
+#: src/config.cc:1023
+msgid "redefinition of max_body_size"
+msgstr "\"max_body_size\" tu"
+
+#: src/config.cc:1024 src/config.cc:1075 src/config.cc:1096
+msgid "previously defined here"
+msgstr "tenpo pini la, ona li lon ma ni"
+
+#: src/config.cc:1031
+msgid "invalid max_body_size"
+msgstr "\"max_body_size\" li ike"
+
+#: src/config.cc:1074
+#, c++-format
+msgid "redefinition of {}"
+msgstr "\"{}\" tu"
+
+#: src/config.cc:1095
+#, c++-format
+msgid "duplicate {}"
+msgstr "{} tu"
+
+#: src/config.cc:1101 src/config.cc:1105 src/config.cc:1110
+msgid "request handler"
+msgstr "ilo pali"
+
+#: include/cobra/config.hh:248 include/cobra/config.hh:254
+#: include/cobra/config.hh:267
+msgid "not a number"
+msgstr "nanpa ala"
+
+#: include/cobra/config.hh:248 include/cobra/config.hh:268
+msgid "a number must only contain digits"
+msgstr "nanpa li wile jo e sitelen nanpa taso"
+
+#: include/cobra/config.hh:250
+msgid "number too large"
+msgstr "nanpa suli li ike"
+
+#: include/cobra/config.hh:251
+#, c++-format
+msgid "maximum accepted value is {}"
+msgstr "nanpa {} li suli"
+
+#: include/cobra/config.hh:254
+msgid "a number must contain at least one digit"
+msgstr "nanpa li wile jo e sitelen nanpa wan"
+
+#: include/cobra/config.hh:671
+#, c++-format
+msgid "unknown directive `{}`"
+msgstr "nimi `{}` pi sona ala"
+
+#: include/cobra/config.hh:672
+#, c++-format
+msgid "did you mean `{}`?"
+msgstr "sina wile e `{}` anu seme?"
+
+#. TODO this should not trigger for reverse proxy
+#: include/cobra/config.hh:717
+msgid "unrooted handler"
+msgstr "lo pali li jo ala e open"
+
+#: include/cobra/config.hh:718
+msgid "consider rooting it using: `root`"
+msgstr "sina o pana e open tawa ona kepeken `root`"

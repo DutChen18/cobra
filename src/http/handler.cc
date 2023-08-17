@@ -6,7 +6,6 @@
 #include "cobra/print.hh"
 #include "cobra/fastcgi.hh"
 #include "cobra/serde.hh"
-#include "cobra/asyncio/deflate.hh"
 
 #include <fstream>
 

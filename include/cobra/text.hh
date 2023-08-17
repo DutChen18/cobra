@@ -20,7 +20,7 @@ namespace cobra {
 
 		std::call_once(flag, []() {
 			//loc = std::locale("nl_NL.UTF-8");
-			loc = std::locale("ja_JP.UTF-8");
+			loc = std::locale("");
 			facet = &std::use_facet<std::messages<char>>(loc);
 			cat = facet->open("cobra", loc);
 		});

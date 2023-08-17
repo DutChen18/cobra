@@ -1,3 +1,4 @@
+#ifdef COBRA_FUZZ_INFLATE
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -9,7 +10,6 @@
 #include "cobra/asyncio/deflate.hh"
 #include "cobra/asyncio/future_task.hh"
 
-#ifdef COBRA_FUZZ_INFLATE
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 	std::stringstream stream(std::string(reinterpret_cast<const char*>(data), size));

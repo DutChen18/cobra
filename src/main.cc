@@ -4,7 +4,7 @@
 #include "cobra/asyncio/stream.hh"
 #include "cobra/asyncio/stream_buffer.hh"
 #include "cobra/asyncio/std_stream.hh"
-#include "cobra/asyncio/deflate.hh"
+#include "cobra/compress/lz.hh"
 #include "cobra/http/writer.hh"
 #include "cobra/http/parse.hh"
 #include "cobra/http/server.hh"
@@ -88,8 +88,8 @@ int main(int argc, char **argv) {
 		std::fstream f = std::fstream(*args.compress_file, std::ios::in);
 		auto stream = istream_buffer<std_istream<std::fstream>>(std_istream<std::fstream>(std::move(f)), 1024);
 		unsigned short window_size = 1 << 8;
-		auto debug_stream = lz_istream<unsigned short, char>(window_size);
-		auto lz_stream = lz_ostream<lz_istream<unsigned short, char>, unsigned short, char>(std::move(debug_stream), window_size);
+		auto debug_stream = lz_debug_istream(window_size);
+		auto lz_stream = lz_ostream<lz_debug_istream>(std::move(debug_stream), window_size);
 		block_task(pipe(buffered_istream_reference(stream), ostream_reference(lz_stream)));
 
 		return EXIT_SUCCESS;
