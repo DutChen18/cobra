@@ -4,8 +4,10 @@
 #include "cobra/asyncio/task.hh"
 #include "cobra/asyncio/stream.hh"
 #include "cobra/ringbuffer.hh"
+#include "cobra/chained_iterator.hh"
 
 #include <cstdint>
+#include <iterator>
 #include <utility>
 #include <unordered_map>
 #include <algorithm>
@@ -233,8 +235,13 @@ namespace cobra {
 			zchain& best_link = *first;
 
 			for (auto& link : *first) {
-				auto [win_it, buf_it] = std::mismatch(link.pos(), _window.end(), _buffer.begin(), _buffer.end()); 
-				std::size_t length = buf_it - _buffer.begin();
+				//auto [win_it, buf_it] = std::mismatch(link.pos(), _window.end(), _buffer.begin(), _buffer.end()); 
+				//std::size_t length = buf_it - _buffer.begin();
+
+				chained_iterator cmp_it = chained_iterator(link.pos(), _window.end(), _buffer.begin(), _buffer.end());
+				auto [win_it, buf_it] = std::mismatch(cmp_it.begin(), cmp_it.end(), _buffer.begin(), _buffer.end()); 
+				std::size_t length = std::distance(buf_it, win_it.end());
+				//std::size_t length = buf_it - _buffer.begin();
 
 				if (length >= best_length) {
 					best_link = link;
