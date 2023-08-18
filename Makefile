@@ -25,8 +25,8 @@ ifeq ($(config), debug)
 		san := addr
 	endif
 else ifeq ($(config), release)
-	CXXFLAGS += -g3 -O2 -DCOBRA_DEBUG
-	LDFLAGS += -g3 -O2 -DCOBRA_DEBUG
+	CXXFLAGS += -g3 -O1 -DCOBRA_DEBUG
+	LDFLAGS += -g3 -O1 -DCOBRA_DEBUG
 else ifeq ($(config), profile)
 	CXXFLAGS += -g3 -Ofast -flto -march=native -pg
 	LDFLAGS += -g3 -Ofast -flto -march=native -pg
@@ -47,6 +47,7 @@ ifdef san
 	else ifeq ($(san), thread)
 		CXXFLAGS += -fsanitize=thread,undefined
 		LDFLAGS += -fsanitize=thread,undefined
+	else ifeq ($(san), none)
 	else
 	$(error "unknown sanitizer $(san)")
 	endif

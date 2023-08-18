@@ -2,6 +2,7 @@
 #define COBRA_COMPRESS_BIT_STREAM_HH
 
 #include "cobra/asyncio/stream.hh"
+#include "cobra/serde.hh"
 
 #include <cstdint>
 

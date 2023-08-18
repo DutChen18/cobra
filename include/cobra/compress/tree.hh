@@ -4,6 +4,7 @@
 #include "cobra/asyncio/stream.hh"
 #include "cobra/compress/bit_stream.hh"
 #include "cobra/compress/error.hh"
+#include "cobra/print.hh"
 
 #include <array>
 #include <numeric>
@@ -33,10 +34,6 @@ namespace cobra {
 
 			for (T i = 0; i < n; i++) {
 				if (size[i] != 0) {
-					if (next[size[i]] >= Size) {
-						throw compress_error::tree_too_stupid;
-					}
-
 					_data[next[size[i]]++] = i;
 				}
 			}
@@ -114,29 +111,27 @@ namespace cobra {
 				}
 			}
 
+			next[0] = 0;
+
 			for (std::size_t i = 1; i < Bits; i++) {
 				next[i] = (next[i - 1] + count[i - 1]) << 1;
 			}
 
 			for (T i = 0; i < n; i++) {
 				if (size[i] != 0) {
-					if (next[size[i]] >= Size) {
-						throw compress_error::tree_too_stupid;
-					}
-
 					_data[i] = reverse(next[size[i]]++, size[i]);
 				}
 			}
 		}
 
 		std::size_t get_size(std::size_t* size, const std::size_t* frobnication_table) {
-			std::size_t max;
+			std::size_t max = 0;
 
 			for (std::size_t i = 0; i < Size; i++) {
 				std::size_t j = frobnication_table ? frobnication_table[i] : i;
 
 				if (size) {
-					size[j] = _size[j];
+					size[i] = _size[j];
 				}
 
 				if (_size[j] != 0) {
@@ -174,6 +169,8 @@ namespace cobra {
 			for (std::size_t i = 1; i <= Bits; i++) {
 				std::size_t pair_index = 0;
 				std::size_t leaf_index = 0;
+
+				lists[i].size = 0;
 
 				if (i == Bits) {
 					leaf_index = lists[0].size;
@@ -213,7 +210,7 @@ namespace cobra {
 				plant_find_size(lists, size, Bits, i);
 			}
 
-			if (lists[Bits - 1].size == 0) {
+			if (lists[Bits].size == 0) {
 				if (lists[0].size == 0) {
 					size[0] += 1;
 				} else {

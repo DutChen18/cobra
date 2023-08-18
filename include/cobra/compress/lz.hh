@@ -1,6 +1,12 @@
 #ifndef COBRA_COMPRESS_LZ_HH
 #define COBRA_COMPRESS_LZ_HH
 
+#ifdef COBRA_DEBUG
+#define FORCE_INLINE __attribute__((always_inline))
+#else
+#define FORCE_INLINE
+#endif
+
 #include "cobra/asyncio/task.hh"
 #include "cobra/asyncio/stream.hh"
 #include "cobra/ringbuffer.hh"
@@ -21,10 +27,6 @@
 #include <vector>
 #include "cobra/print.hh"
 #include "cobra/compress/stream_ringbuffer.hh"
-
-extern "C" {
-#include <sys/signal.h>
-}
 
 namespace cobra {
 
@@ -201,6 +203,10 @@ namespace cobra {
 			}
 			co_return;
 		}
+
+		task<void> flush() {
+			co_return;
+		}
 	};
 
 	class lz_istream : public basic_istream_ringbuffer<lz_istream, char> {
@@ -239,6 +245,10 @@ namespace cobra {
 					}
 				}
 			}
+			co_return;
+		}
+
+		task<void> flush() {
 			co_return;
 		}
 	};
@@ -283,11 +293,11 @@ namespace cobra {
 			if (_buffer.remaining() >= size) {
 				_buffer.insert(data, data + size);
 			} else if (size < _buffer.size()) {
-				co_await flush_atleast(size);
+				co_await produce_atleast(size);
 				co_return co_await write(data, size);
 			} else {
 				for (std::size_t index = 0; index < size; index += _buffer.capacity()) {
-					co_await flush();
+					co_await produce_atleast(_buffer.size());
 					_buffer.insert(data + index, data + index + std::min(size - index, _buffer.capacity()));
 				}
 			}
@@ -295,12 +305,13 @@ namespace cobra {
 		}
 
 		task<Stream> end() && {
-			co_await flush();
+			co_await produce_atleast(_buffer.size());
 			co_return std::move(_stream);
 		}
 
 		task<void> flush() {
-			co_return co_await flush_atleast(_buffer.size());
+			co_await produce_atleast(_buffer.size());
+			co_await _stream.flush();
 		}
 
 	private:
@@ -308,6 +319,7 @@ namespace cobra {
 			return _window.capacity();
 		}
 
+#ifdef COBRA_DEBUG
 		void assert_table_correct() {
 			for (auto& [key, value] : _table) {
 				for (auto& link : *value.first) {
@@ -352,6 +364,11 @@ namespace cobra {
 			assert_table_correct();
 			assert_chain_correct();
 		}
+#else
+		FORCE_INLINE void assert_table_correct() {}
+		FORCE_INLINE void assert_chain_correct() {}
+		FORCE_INLINE void assert_correct() {}
+#endif
 
 		task<bool> produce_one() {
 			assert_correct();
@@ -362,6 +379,9 @@ namespace cobra {
 			}
 			if (_buffer.size() < min_backref_length) {
 				//Not enough buffered to produce a backreference or to store a hash
+				if (_window.full()) {
+					remove_oldest_link();
+				}
 				co_await write_literal();
 				co_return true;
 			}
@@ -373,17 +393,15 @@ namespace cobra {
 				//Did not find anything in the window that starts with the same characters
 
 				if (_chain.full() || _window.full()) {
-					//Remove the oldest link that's about to be overriden from the table
-					//eprintln("removing once");
-					remove_link(_chain.begin());
-					_chain.pop_front();//TODO debug code remove (needed for assert_correct)
-					assert_correct();
+					//Remove the oldest link that's about to be overriden/become dangling from the table
+					remove_oldest_link();
 				}
 
 				assert_correct();
 				const auto buffer_pos = co_await write_literal();
 				const auto chain_pos = _chain.push_back(zchain(hash, buffer_pos));
 				assert_table_correct();
+
 				assert(hash == chain_pos->hash());
 				_table[hash] = {chain_pos->begin(), chain_pos->begin()};
 				assert_correct();
@@ -399,11 +417,7 @@ namespace cobra {
 			assert_correct();
 			for (auto& link : *first) {
 				auto [win_it, buf_it] = std::mismatch(link.pos(), _window.end(), _buffer.begin(), _buffer.end()); 
-				/*
-				if (win_it == _buffer.end())
-					continue;*/
 				std::size_t length = buf_it - _buffer.begin();
-				assert_correct();
 
 				//chained_iterator cmp_it = chained_iterator(link.pos(), _window.end(), _buffer.begin(), _buffer.end());
 				//auto [win_it, buf_it] = std::mismatch(cmp_it.begin(), cmp_it.end(), _buffer.begin(), _buffer.end()); 
@@ -416,7 +430,6 @@ namespace cobra {
 					if (length >= max_backref_length())
 						break;
 				}
-				assert_correct();
 			}
 			assert(best_link);
 
@@ -428,7 +441,6 @@ namespace cobra {
 
 			//println("best length: {}", best_length);
 
-			//const lz_command command(best_length, best_link->pos() - _window.begin() + best_length);
 			const lz_command command(best_length, std::distance(best_link->pos(), _window.end()));
 
 			assert_correct();
@@ -438,21 +450,16 @@ namespace cobra {
 
 				auto buffer_replace_end = _window.begin() + best_length - _window.remaining();
 				while (chain_it != _chain.end() && chain_it->pos() <= buffer_replace_end) {
-					assert_correct();
-					remove_link(chain_it++);
-					_chain.pop_front();//TODO debug code remove
-					assert_correct();
+					chain_it = remove_oldest_link();
 				}
 
 			}
 
 			if (_chain.full()) {
-				remove_link(_chain.begin());
-				_chain.pop_front();
+				remove_oldest_link();
 			}
 
 			const auto buffer_pos = write_from_buffer(best_length);
-			//println("space left in chain: {}, window: {}", _chain.remaining(), _window.remaining());
 
 			assert_correct();
 			assert(!_chain.full());
@@ -478,13 +485,14 @@ namespace cobra {
 			co_return true;
 		}
 
-		void remove_link(ringbuffer<zchain>::iterator it) {
+		auto remove_oldest_link() {
+			const auto it = _chain.begin();
+			const auto res = it + 1;
 			const uint32_t link_hash = it->hash();
-			assert(it == _chain.begin());//debug assert (needs pop_front)
 
 			auto table_it = _table.find(link_hash);
 			if (table_it == _table.end())
-				return;
+				return res;
 
 			const auto [head, tail] = table_it->second;
 			assert(it->next() == head->next());
@@ -495,11 +503,14 @@ namespace cobra {
 
 			if (head == tail) {
 				//Was the last link
-				//println("removing hash: {}", link_hash);
 				_table.erase(link_hash);
 			} else {
 				_table[link_hash] = {it->next(), tail};
 			}
+
+			_chain.pop_front();
+			assert_correct();
+			return res;
 		}
 
 		task<ringbuffer<uint8_t>::iterator> write_literal() {
@@ -524,7 +535,7 @@ namespace cobra {
 			//return static_cast<uint32_t>(_buffer[2]) << 16 | static_cast<uint32_t>(_buffer[1]) << 8 |  _buffer[0];
 		}
 
-		task<void> flush_atleast(size_t at_least) {
+		task<void> produce_atleast(size_t at_least) {
 			assert(at_least <= _buffer.size() && "tried to flush more than available");
 			const size_t before = _buffer.size();
 			while (before - _buffer.size() <= at_least) {

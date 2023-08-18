@@ -119,7 +119,7 @@ namespace cobra {
 				if (auto* state = std::get_if<state_init>(&_state)) {
 					if (_final) {
 						co_return;
-}
+					}
 
 					_final = co_await state->stream.read_bits(1) == 1;
 					int type = co_await state->stream.read_bits(2);
@@ -143,6 +143,8 @@ namespace cobra {
 						std::size_t hd = co_await state->stream.read_bits(5) + 1;
 						std::size_t hc = co_await state->stream.read_bits(4) + 4;
 
+						eprintln("count {} {} {}", hl, hd, hc);
+
 						std::array<std::size_t, 320> l;
 						std::array<std::size_t, 19> lc;
 
@@ -151,9 +153,13 @@ namespace cobra {
 
 						for (std::size_t i = 0; i < hc; i++) {
 							lc[frobnication_table[i]] = co_await state->stream.read_bits(3);
+
+							if (lc[frobnication_table[i]] != 0) {
+								eprintln("code {} {}", frobnication_table[i], lc[frobnication_table[i]]);
+							}
 						}
 
-						inflate_ctree ct(lc.data(), lc.size());
+						inflate_ctree ct(lc.data(), hc);
 
 						for (std::size_t i = 0; i < hl + hd;) {
 							std::uint8_t v = co_await ct.read(state->stream);
@@ -164,15 +170,21 @@ namespace cobra {
 							} else if (v == 16 && i == 0) {
 								throw compress_error::bad_trees;
 							} else if (v == 16) {
+								eprintln("repeat {}", n);
 								v = l[i - 1];
 							} else if (v == 17 || v == 18) {
+								eprintln("zeros {}", n);
 								v = 0;
+							} else {
+								eprintln("len {}", v);
 							}
 
 							while (n-- > 0) {
 								l[i++] = v;
 							}
 						}
+
+						eprintln("done");
 
 						inflate_ltree lt(l.data(), hl);
 						inflate_dtree dt(l.data() + hl, hd);
@@ -353,7 +365,7 @@ namespace cobra {
 					token size_token = encode_size(command.length());
 					co_await lt.write(_stream, size_token.code);
 					co_await _stream.write_bits(size_token.value, size_token.extra);
-					token dist_token = encode_size(command.dist());
+					token dist_token = encode_dist(command.dist());
 					co_await dt.write(_stream, dist_token.code);
 					co_await _stream.write_bits(dist_token.value, dist_token.extra);
 				}
@@ -408,7 +420,7 @@ namespace cobra {
 		}
 
 		task<Stream> end()&& {
-			co_return (co_await base::end()).end();
+			co_return co_await (co_await std::move(*static_cast<base*>(this)).end()).end();
 		}
 	};
 }
