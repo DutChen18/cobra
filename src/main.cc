@@ -21,6 +21,7 @@
 #include <memory>
 
 #include <cassert>
+#include <optional>
 
 extern "C" {
 #include <sys/socket.h>
@@ -55,6 +56,7 @@ struct args_type {
 	std::string program_name;
 	std::optional<std::string> config_file;
 	std::optional<std::string> compress_file;
+	std::optional<std::string> round_file;
 	bool json = false;
 	bool check = false;
 	bool help = false;
@@ -74,6 +76,7 @@ int main(int argc, char **argv) {
 		.add_program_name(&args_type::program_name)
 		.add_argument(&args_type::config_file, "f", "config-file", "path to configuration file")
 		.add_argument(&args_type::compress_file, "l", "ls", "test lempel-ziv")
+		.add_argument(&args_type::round_file, "r", "round", "test lempel-ziv round trip")
 		.add_flag(&args_type::json, true, "j", "json", "write diagnostics in json format")
 		.add_flag(&args_type::check, true, "c", "check", "exit after reading configuration file")
 		.add_flag(&args_type::help, true, "h", "help", "display this help message");
@@ -91,6 +94,20 @@ int main(int argc, char **argv) {
 		auto debug_stream = lz_debug_istream(window_size);
 		auto lz_stream = lz_ostream<lz_debug_istream>(std::move(debug_stream), window_size);
 		block_task(pipe(buffered_istream_reference(stream), ostream_reference(lz_stream)));
+
+		return EXIT_SUCCESS;
+	}
+
+	if (args.round_file) {
+		std::fstream f = std::fstream(*args.round_file, std::ios::in);
+		auto stream = istream_buffer(std_istream<std::fstream>(std::move(f)), 1024);
+		unsigned short window_size = 1 << 8;
+		auto istream = lz_istream(window_size);
+		auto ostream = lz_ostream<lz_istream>(std::move(istream), window_size);
+		block_task(pipe(buffered_istream_reference(stream), ostream_reference(ostream)));
+		auto out = std_ostream_reference(std::cout);
+		auto new_stream = block_task(std::move(ostream).end());
+		block_task(pipe(buffered_istream_reference(new_stream), ostream_reference(out)));
 
 		return EXIT_SUCCESS;
 	}

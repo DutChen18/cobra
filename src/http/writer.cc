@@ -1,14 +1,29 @@
 #include "cobra/http/writer.hh"
 #include "cobra/print.hh"
+#include "cobra/compress/deflate.hh"
 
 namespace cobra {
-	static http_ostream to_stream(buffered_ostream_reference stream, const http_message& message) {
+	static http_ostream to_stream(http_ostream_wrapper* stream, const http_message& message) {
 		if (message.has_header("Content-Length")) {
 			std::size_t size = std::stoull(message.header("Content-Length"));
-			return ostream_limit(std::move(stream), size);
+			return stream->get(size);
 		} else {
-			return stream;
+			return stream->get();
 		}
+	}
+
+	static task<buffered_ostream_reference> end_stream(buffered_ostream_reference& stream) {
+		co_return std::move(stream);
+	}
+
+	template <AsyncBufferedOutputStream Stream>
+	static task<buffered_ostream_reference> end_stream(deflate_ostream<Stream>& stream) {
+		co_return co_await end_stream(co_await std::move(stream).end());
+	}
+
+	template <AsyncBufferedOutputStream Stream>
+	static task<buffered_ostream_reference> end_stream(ostream_limit<Stream>& stream) {
+		co_return co_await end_stream(stream.inner());
 	}
 
 	void http_server_logger::set_socket(const basic_socket_stream& socket) {
@@ -51,15 +66,45 @@ namespace cobra {
 		println("{}", term::reset());
 	}
 
-	http_request_writer::http_request_writer(buffered_ostream_reference stream) : _stream(stream) {
+	http_ostream_wrapper::http_ostream_wrapper(buffered_ostream_reference stream) : _stream(std::move(stream)) {
+	}
+
+	buffered_ostream_reference http_ostream_wrapper::inner() {
+		return std::get<buffered_ostream_reference>(_stream.variant());
+	}
+
+	http_ostream http_ostream_wrapper::get() {
+		return _stream;
+	}
+
+	http_ostream http_ostream_wrapper::get(std::size_t limit) {
+		_stream = ostream_limit(inner(), limit);
+		return _stream;
+	}
+
+	http_ostream http_ostream_wrapper::get_deflate() {
+		_stream = deflate_ostream(inner());
+		return _stream;
+	}
+
+	http_ostream http_ostream_wrapper::get_deflate(std::size_t limit) {
+		_stream = ostream_limit(deflate_ostream(inner()), limit);
+		return _stream;
+	}
+
+	task<void> http_ostream_wrapper::end() {
+		// _stream = co_await std::visit([](auto& stream) { return end_stream(stream); }, _stream);
+	}
+
+	http_request_writer::http_request_writer(http_ostream_wrapper* stream) : _stream(stream) {
 	}
 
 	task<http_ostream> http_request_writer::send(http_request request)&& {
-		co_await write_http_request(_stream, request);
+		co_await write_http_request(_stream->inner(), request);
 		co_return to_stream(_stream, request);
 	}
 
-	http_response_writer::http_response_writer(buffered_ostream_reference stream, http_server_logger* logger) : _stream(stream), _logger(logger) {
+	http_response_writer::http_response_writer(http_ostream_wrapper* stream, http_server_logger* logger) : _stream(stream), _logger(logger) {
 	}
 
 	// TODO: implement keep-alive
@@ -70,7 +115,7 @@ namespace cobra {
 			_logger->log(response);
 		}
 
-		co_await write_http_response(_stream, response);
+		co_await write_http_response(_stream->inner(), response);
 		co_return to_stream(_stream, response);
 	}
 

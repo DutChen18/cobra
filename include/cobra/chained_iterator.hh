@@ -15,14 +15,18 @@ namespace cobra {
 		using value_type = typename traits_type::value_type;
 		using pointer = typename traits_type::pointer;
 		using reference = typename traits_type::reference;
+		using difference_type = typename traits_type::difference_type;
 
 	private:
 		iterator_type _first_begin, _first_end;
 		iterator_type _last_begin, _last_end;
 		iterator_type _current;
 		bool _last = false;
-	
-		constexpr chained_iterator(const chained_iterator& other, iterator_type current) noexcept : chained_iterator(other), _current(current) {}
+
+		constexpr chained_iterator(const chained_iterator& other, iterator_type current) noexcept
+			: _first_begin(other._first_begin), _first_end(other._first_end), _last_begin(other._last_begin),
+			  _last_end(other._last_end), _current(current), _last(_current >= _last_begin && _current <= _last_end) {}
+
 	public:
 		constexpr chained_iterator() noexcept : _first_begin(), _first_end(), _last_begin(), _last_end(), _current() {}
 		constexpr chained_iterator(iterator_type first1, iterator_type last1, iterator_type first2,
@@ -44,8 +48,19 @@ namespace cobra {
 			return chained_iterator(*this, _last_end);
 		}
 
+		constexpr bool operator==(const chained_iterator& other) const noexcept = default;
+		constexpr bool operator!=(const chained_iterator& other) const noexcept = default;
+
+		constexpr bool operator==(iterator_type it) const noexcept {
+			return _current == it;
+		}
+
+		constexpr bool operator!=(iterator_type it) const noexcept {
+			return !(*this  == it);
+		}
+
 		constexpr reference operator*() {
-			return _current;
+			return *_current;
 		}
 
 		constexpr pointer operator->() {

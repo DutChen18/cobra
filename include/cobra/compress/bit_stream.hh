@@ -68,6 +68,10 @@ namespace cobra {
 			}
 		}
 
+		task<void> flush() {
+			return _stream.flush();
+		}
+
 		task<Stream> end()&& {
 			if (_count % 8 != 0) {
 				co_await write_u8(_stream, _data);

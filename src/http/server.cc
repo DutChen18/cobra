@@ -123,6 +123,7 @@ namespace cobra {
 	task<void> server::on_connect(basic_socket_stream& socket) {
 		istream_buffer socket_istream(make_istream_ref(socket), 1024);
 		ostream_buffer socket_ostream(make_ostream_ref(socket), 1024);
+		http_ostream_wrapper wrapper(socket_ostream);
 		http_server_logger logger;
 		logger.set_socket(socket);
 
@@ -160,7 +161,7 @@ namespace cobra {
 
 					// co_await (*handler)(std::move(writer), std::move(request), buffered_istream_reference(socket_istream));
 					// TODO limit socket_istream to client content-length
-					http_response_writer writer(socket_ostream, &logger);
+					http_response_writer writer(&wrapper, &logger);
 					co_await handle_request(*filter, request, normalized, socket_istream, std::move(writer));
 					co_return;
 				} catch (int code) {
@@ -182,7 +183,7 @@ namespace cobra {
 		}
 
 		if (error.has_value()) {
-			http_response_writer writer(socket_ostream, &logger);
+			http_response_writer writer(&wrapper, &logger);
 			co_await std::move(writer).send(*error);
 		}
 	}

@@ -36,7 +36,7 @@ namespace cobra {
 		constexpr ringbuffer_iterator& operator=(const ringbuffer_iterator& other) noexcept = default;
 
 		constexpr bool operator==(const ringbuffer_iterator& other) const noexcept {
-			return pos() == other.pos();
+			return _buffer == other._buffer && pos() == other.pos();
 		}
 
 		constexpr bool operator!=(const ringbuffer_iterator& other) const noexcept = default;
@@ -91,13 +91,15 @@ namespace cobra {
 			const size_type a = pos();
 			const size_type b = other.pos();
 			const size_type begin = _buffer->buffer_begin();
-			
-			if (a < begin && b >= begin) {
-				return static_cast<difference_type>(-a) - static_cast<difference_type>(actual_cap - b);
-			} else if (b < begin && a >= begin) {
-				return actual_cap - a + b;
+
+			if (b < begin && a >= begin) {
+				return -static_cast<difference_type>(actual_cap) + static_cast<difference_type>(a) -
+					   static_cast<difference_type>(b);
+			} else if (a < begin && b >= begin) {
+				return static_cast<difference_type>(actual_cap) - static_cast<difference_type>(b) +
+					   static_cast<difference_type>(a);
 			}
-			return a - b;
+			return static_cast<difference_type>(a) - static_cast<difference_type>(b);
 		}
 
 		constexpr ringbuffer_iterator& operator-=(difference_type n) const noexcept {
@@ -245,6 +247,14 @@ namespace cobra {
 			_buffer_begin = 0;
 		}
 
+		constexpr void swap(ringbuffer& other) noexcept {
+			std::swap(_buffer_capacity, other._buffer_capacity);
+			std::swap(_buffer_begin, other._buffer_begin);
+			std::swap(_buffer_size, other._buffer_size);
+			std::swap(_allocator, other._allocator);
+			std::swap(_buffer, other._buffer);
+		}
+
 		constexpr const value_type& front() const noexcept {
 			assert(!empty() && "tried to get front of empty ringbuffer");
 			return *begin();
@@ -269,6 +279,16 @@ namespace cobra {
 				pop_front();
 			}
 			std::construct_at(_buffer + pos, value);
+			++_buffer_size;
+			return --end();
+		}
+
+		constexpr iterator push_back(value_type&& value) noexcept {
+			size_type pos = (_buffer_begin + size()) % actual_capacity();
+			if (full()) {
+				pop_front();
+			}
+			std::construct_at(_buffer + pos, std::move(value));
 			++_buffer_size;
 			return --end();
 		}
@@ -303,7 +323,7 @@ namespace cobra {
 		}
 
 		constexpr void erase_front(size_type count) noexcept {
-			assert(count < size() && "tried to erase more than available");
+			assert(count <= size() && "tried to erase more than available");
 
 			//TODO optimize
 			while (count--) {
@@ -311,5 +331,10 @@ namespace cobra {
 			}
 		}
 	};
+
+	template <class T, class Alloc>
+	inline constexpr void swap(ringbuffer<T, Alloc>& lhs, ringbuffer<T, Alloc>& rhs) noexcept {
+		lhs.swap(rhs);
+	}
 }
 #endif

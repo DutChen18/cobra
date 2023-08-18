@@ -497,6 +497,22 @@ namespace cobra {
 		stream_variant(Stream&& stream) : _stream(std::move(stream)) {
 		}
 
+		stream_variant(stream_variant&& other) : _stream(std::move(other._stream)) {
+		}
+
+		stream_variant& operator=(stream_variant other) {
+			std::swap(_stream, other._stream);
+			return *this;
+		}
+
+		std::variant<Streams...>& variant() {
+			return _stream;
+		}
+
+		const std::variant<Streams...>& variant() const {
+			return _stream;
+		}
+
 		Base* ptr() const {
 			return std::visit([](auto& stream) { return static_cast<Base*>(&stream); }, _stream);
 		}

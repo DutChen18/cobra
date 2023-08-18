@@ -129,6 +129,24 @@ namespace cobra {
 			}
 		}
 
+		std::size_t get_size(std::size_t* size, const std::size_t* frobnication_table) {
+			std::size_t max;
+
+			for (std::size_t i = 0; i < Size; i++) {
+				std::size_t j = frobnication_table ? frobnication_table[i] : i;
+
+				if (size) {
+					size[j] = _size[j];
+				}
+
+				if (_size[j] != 0) {
+					max = i + 1;
+				}
+			}
+
+			return max;
+		}
+
 		template <AsyncOutputStream Stream>
 		task<void> write(bit_ostream<Stream>& stream, T value) {
 			co_await stream.write_bits(_data[value], _size[value]);
