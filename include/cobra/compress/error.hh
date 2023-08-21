@@ -12,7 +12,7 @@ namespace cobra {
 		bad_dist_code,
 		bad_huffman_code,
 		bad_trees,
-		tree_too_stupid,
+		unsupported,
 	};
 }
 

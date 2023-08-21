@@ -59,7 +59,8 @@ struct args_type {
 	std::optional<std::string> config_file;
 	std::optional<std::string> compress_file;
 	std::optional<std::string> round_file;
-	std::optional<std::string> flate_file;
+	std::optional<std::string> deflate_file;
+	std::optional<std::string> inflate_file;
 	bool json = false;
 	bool check = false;
 	bool help = false;
@@ -80,7 +81,8 @@ int main(int argc, char **argv) {
 		.add_argument(&args_type::config_file, "f", "config-file", "path to configuration file")
 		.add_argument(&args_type::compress_file, "l", "ls", "test lempel-ziv")
 		.add_argument(&args_type::round_file, "r", "round", "test lempel-ziv round trip")
-		.add_argument(&args_type::flate_file, "z", "deflate", "test deflate round trip")
+		.add_argument(&args_type::deflate_file, "z", "deflate", "test deflate")
+		.add_argument(&args_type::inflate_file, "d", "inflate", "test inflate")
 		.add_flag(&args_type::json, true, "j", "json", "write diagnostics in json format")
 		.add_flag(&args_type::check, true, "c", "check", "exit after reading configuration file")
 		.add_flag(&args_type::help, true, "h", "help", "display this help message");
@@ -118,21 +120,24 @@ int main(int argc, char **argv) {
 		return EXIT_SUCCESS;
 	}
 
-	if (args.flate_file) {
-		std::fstream f = std::fstream(*args.flate_file, std::ios::in);
-		std::stringstream buf;
+	if (args.deflate_file) {
+		std::fstream f = std::fstream(*args.deflate_file, std::ios::in);
 		istream_buffer defl_istream(std_istream(std::move(f)), 1024);
-		deflate_ostream defl_ostream((std_ostream_reference(buf)));
+		deflate_ostream defl_ostream((std_ostream_reference(std::cout)));
 		block_task(pipe(buffered_istream_reference(defl_istream), ostream_reference(defl_ostream)));
 		block_task(std::move(defl_ostream).end());
-		// println("{}", buf.str());
-		// return EXIT_SUCCESS;
-		eprintln("size: {}", buf.str().size());
-		inflate_istream infl_istream(std_istream(std::move(buf)));
+
+		return EXIT_SUCCESS;
+	}
+
+	if (args.inflate_file) {
+		std::fstream f = std::fstream(*args.inflate_file, std::ios::in);
+		inflate_istream infl_istream(std_istream(std::move(f)));
 		std_ostream_reference infl_ostream(std::cout);
 		block_task(pipe(buffered_istream_reference(infl_istream), ostream_reference(infl_ostream)));
 
 		return EXIT_SUCCESS;
+
 	}
 
 	if (args.config_file) {
@@ -199,6 +204,9 @@ int main(int argc, char **argv) {
 				}
 			}
 
+			for (auto& server : srvs) {
+				server->debug_print(std::cerr, 0);
+			}
 			std::vector<server> servers = server::convert(srvs, &exec, &loop);
 			eprintln("setup {} server(s)", servers.size());
 			std::vector<future_task<void>> jobs;

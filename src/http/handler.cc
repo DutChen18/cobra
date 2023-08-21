@@ -82,7 +82,7 @@ namespace cobra {
 		try {
 			istream_buffer file_istream(std_istream(std::ifstream(context.root() + context.file(), std::ifstream::binary)), 1024);
 			co_await file_istream.fill_buf();
-			http_response resp(HTTP_OK);
+			http_response resp(context.config().code().value_or(HTTP_OK));
 			// resp.set_header("content-encoding", "br");
 			http_ostream sock_ostream = co_await std::move(writer).send(resp);
 			// brotli_ostream brotli(std::move(sock_ostream));

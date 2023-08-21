@@ -201,12 +201,12 @@ msgstr "nimi `{}` pi sona ala"
 #: include/cobra/config.hh:672
 #, c++-format
 msgid "did you mean `{}`?"
-msgstr "sina wile e `{}` anu seme?"
+msgstr "sina wile e nimi `{}` anu seme?"
 
 #. TODO this should not trigger for reverse proxy
 #: include/cobra/config.hh:717
 msgid "unrooted handler"
-msgstr "lo pali li jo ala e open"
+msgstr "ilo pali li jo ala e open"
 
 #: include/cobra/config.hh:718
 msgid "consider rooting it using: `root`"

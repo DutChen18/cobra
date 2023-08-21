@@ -28,6 +28,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -40,6 +41,7 @@ extern "C" {
 
 #define COBRA_BLOCK_KEYWORDS                                                                                           \
 	X(max_body_size)                                                                                                   \
+	X(error_page)                                                                                                      \
 	X(location)                                                                                                        \
 	X(index)                                                                                                           \
 	X(cgi)                                                                                                             \
@@ -53,6 +55,25 @@ extern "C" {
 	X(ssl)                                                                                                             \
 	X(server_name)                                                                                                     \
 	COBRA_BLOCK_KEYWORDS
+
+namespace cobra {
+	namespace config {
+		template <class T>
+		struct define;
+	}
+}
+
+template <class T>
+struct std::hash<cobra::config::define<T>> : public std::hash<T> {
+
+	hash() : std::hash<T>() {}
+	hash(const hash& other) : std::hash<T>(other) {}
+	~hash() {}
+
+	std::size_t operator()(const hash& def) const {
+		return std::hash<T>::operator()(def.def);
+	}
+};
 
 namespace cobra {
 	namespace fs = std::filesystem;
@@ -562,6 +583,15 @@ namespace cobra {
 			auto operator<=>(const extension& other) const = default;
 		};
 
+		struct error_page {
+			http_response_code code;
+			std::string file;
+
+			static error_page parse(parse_session& session);
+
+			auto operator<=>(const error_page& other) const = default;
+		};
+
 		struct cgi_config {
 			config_exec command;
 
@@ -644,6 +674,7 @@ namespace cobra {
 				_handler; // TODO add other handlers (redirect, proxy...)
 			std::vector<std::pair<filter_type, define<block_config>>> _filters;
 			std::unordered_map<std::string, file_part> _server_names;
+			std::unordered_map<http_response_code, define<error_page>> _error_pages;
 			std::set<define<extension>> _extensions;
 
 		public:
@@ -656,6 +687,7 @@ namespace cobra {
 
 		protected:
 			void parse_max_body_size(parse_session& session);
+			void parse_error_page(parse_session& session);
 			void parse_location(parse_session& session);
 			void parse_static(parse_session& session);
 			void parse_extension(parse_session& session);
@@ -743,6 +775,7 @@ namespace cobra {
 			std::unordered_set<std::string> extensions;
 			std::unordered_set<std::string> server_names;
 			std::vector<std::shared_ptr<config>> sub_configs;
+			std::unordered_map<http_response_code, std::string> error_pages;
 
 			http_header_map headers;
 			uri_abs_path location;

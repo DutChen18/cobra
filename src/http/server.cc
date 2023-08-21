@@ -116,9 +116,50 @@ namespace cobra {
 		return true;
 	}
 
-	server::server(config::listen_address address, std::unordered_map<std::string, ssl_ctx> contexts, std::vector<http_filter> filters, executor* exec, event_loop* loop)
+	server::server(config::listen_address address, std::unordered_map<std::string, ssl_ctx> contexts,
+				   std::vector<http_filter> filters, executor* exec, event_loop* loop)
 		: http_filter(std::shared_ptr<config::config>(new config::config()), std::move(filters)),
 		  _address(std::move(address)), _contexts(std::move(contexts)), _exec(exec), _loop(loop) {}
+
+	task<void> server::match_and_handle(basic_socket_stream& socket, const http_request& request,
+										buffered_istream_reference in, http_ostream_wrapper& out,
+										http_server_logger* logger, std::optional<http_response_code> code) {
+		//std::optional<std::pair<int, const config::config*>> error;
+		const uri_origin* org = request.uri().get<uri_origin>();
+
+		if (!org) {
+			eprintln("request did not contain uri_origin");
+			throw HTTP_BAD_REQUEST;
+		}
+
+		const config::config* last_config = nullptr;
+
+		const uri_abs_path normalized = org->path().normalize();
+		for (auto [filter, normalized] : match(socket, request, normalized)) {
+			try {
+				if (!filter || !filter->config().handler) {
+					if (!filter)
+						std::cerr << "no filter matched" << std::endl;
+					else if (!filter->config().handler)
+						std::cerr << "no handler" << std::endl;
+					continue;
+				}
+
+				last_config = &filter->config();
+
+				// co_await (*handler)(std::move(writer), std::move(request), buffered_istream_reference(socket_istream));
+				// TODO limit socket_istream to client content-length
+				http_response_writer writer(&request, &out, logger);
+				co_await handle_request(*filter, request, normalized, in, std::move(writer), code);
+				co_return;
+			} catch (int code) {
+				if (code != HTTP_NOT_FOUND) {
+					throw std::make_pair(code, &filter->config());
+				}
+			}
+		}
+		throw std::make_pair(HTTP_NOT_FOUND, last_config);
+	}
 
 	task<void> server::on_connect(basic_socket_stream& socket) {
 		istream_buffer socket_istream(make_istream_ref(socket), 1024);
@@ -128,68 +169,70 @@ namespace cobra {
 		logger.set_socket(socket);
 
 		http_request request("GET", parse_uri("/", "GET"));
-		std::optional<http_response_code> error;
+		std::optional<std::pair<int, const config::config*>> error;
 
 		try {
 			try {
 				request = co_await parse_http_request(socket_istream);
-				logger.set_request(request);
 			} catch (http_parse_error err) {
 				throw HTTP_BAD_REQUEST;
 			} catch (uri_parse_error err) {
 				throw HTTP_BAD_REQUEST;
 			}
 
-			const uri_origin* org = request.uri().get<uri_origin>();
+			co_await match_and_handle(socket, request, socket_istream, wrapper, &logger);
+		} catch (std::pair<int, const config::config*> err) {
+			error = err;
+			eprintln("http error {}", err.first);
+			//error = code;
+		} catch (const std::exception& ex) {
+			error = std::make_pair(HTTP_INTERNAL_SERVER_ERROR, &config());
+			std::cerr << ex.what() << std::endl;
+		} catch (...) {
+			error = std::make_pair(HTTP_INTERNAL_SERVER_ERROR, &config());
+			//error = HTTP_INTERNAL_SERVER_ERROR;
+			std::cerr << "something went very very wrong" << std::endl;
+		}
+		
+		if (error.has_value() && error->second && error->second->error_pages.contains(error->first)) {
 
-			if (!org) {
-				eprintln("request did not contain uri_origin");
-				throw HTTP_BAD_REQUEST;
-			}
-
-			const uri_abs_path normalized = org->path().normalize();
-
-			for (auto [filter, normalized] : match(socket, request, normalized)) {
-				try {
-					if (!filter || !filter->config().handler) {
-						if (!filter)
-							std::cerr << "no filter matched" << std::endl;
-						else if (!filter->config().handler)
-							std::cerr << "no handler" << std::endl;
-						continue;
-					}
-
-					// co_await (*handler)(std::move(writer), std::move(request), buffered_istream_reference(socket_istream));
-					// TODO limit socket_istream to client content-length
-					http_response_writer writer(&wrapper, &logger);
-					co_await handle_request(*filter, request, normalized, socket_istream, std::move(writer));
-					co_return;
-				} catch (int code) {
-					if (code != HTTP_NOT_FOUND) {
-						throw code;
-					}
+			const std::string& error_page = error->second->error_pages.at(error->first);
+			std::string uri;
+			if (!error_page.empty()) {
+				if (error_page[0] == '/') {
+					uri = error_page;
+				} else {
+					eprintln("this should probably do something different");
+					uri = error_page;
 				}
 			}
 
-			throw HTTP_NOT_FOUND;
-		} catch (int code) {
-			error = code;
-		} catch (const std::exception& ex) {
-			error = HTTP_INTERNAL_SERVER_ERROR;
-			std::cerr << ex.what() << std::endl;
-		} catch (...) {
-			error = HTTP_INTERNAL_SERVER_ERROR;
-			std::cerr << "something went very very wrong" << std::endl;
+			http_request error_request("GET", parse_uri(std::move(uri), "GET"));
+			if (request.has_header("host")) {
+				error_request.add_header("host", request.header("host"));
+			}
+
+			bool errored_again = false;
+			try {
+				eprintln("error_page");
+				co_await match_and_handle(socket, error_request, socket_istream, wrapper, &logger, error->first);
+			} catch (...) {
+				errored_again = true;
+			}
+
+			if (errored_again) {
+				co_await http_response_writer(&request, &wrapper ,&logger).send(HTTP_NOT_FOUND);
+			}
+		} else if (error.has_value()) {
+			eprintln("no error_page ({}) {}", error->first, error->second->error_pages.contains(error->first));
+			co_await http_response_writer(&request, &wrapper ,&logger).send(error->first);
 		}
 
-		if (error.has_value()) {
-			http_response_writer writer(&wrapper, &logger);
-			co_await std::move(writer).send(*error);
-		}
+		co_await wrapper.end();
 	}
 
 	task<void> server::handle_request(const http_filter& filt, const http_request& request, const uri_abs_path& normalized,
-									  buffered_istream_reference in, http_response_writer writer) {
+									  buffered_istream_reference in, http_response_writer writer, std::optional<http_response_code> code) {
 		// TODO write headers set in config
 		// TODO properly match uri
 		fs::path file("/");
@@ -219,7 +262,7 @@ namespace cobra {
 								 request, limited_stream});
 		} else if (auto cfg = std::get_if<config::static_file_config>(&*filt.config().handler)) {
 			co_await handle_static(std::move(writer),
-								   {_loop, _exec, root, file.string(), {}, request, limited_stream});
+								   {_loop, _exec, root, file.string(), {code}, request, limited_stream});
 		} else {
 			assert(0 && "unimplemented");
 		}

@@ -4,21 +4,33 @@
 
 namespace cobra {
 	static http_ostream to_stream(http_ostream_wrapper* stream, const http_message& message) {
-		if (message.has_header("Content-Length")) {
-			std::size_t size = std::stoull(message.header("Content-Length"));
-			return stream->get(size);
+		// TODO: trim
+		if (message.has_header("Content-Encoding") && message.header("Content-Encoding") == "deflate") {
+			if (message.has_header("Content-Length")) {
+				std::size_t size = std::stoull(message.header("Content-Length"));
+				return stream->get_deflate(size);
+			} else {
+				return stream->get_deflate();
+			}
 		} else {
-			return stream->get();
+			if (message.has_header("Content-Length")) {
+				std::size_t size = std::stoull(message.header("Content-Length"));
+				return stream->get(size);
+			} else {
+				return stream->get();
+			}
 		}
 	}
 
 	static task<buffered_ostream_reference> end_stream(buffered_ostream_reference& stream) {
+		co_await stream.flush();
 		co_return std::move(stream);
 	}
 
 	template <AsyncBufferedOutputStream Stream>
 	static task<buffered_ostream_reference> end_stream(deflate_ostream<Stream>& stream) {
-		co_return co_await end_stream(co_await std::move(stream).end());
+		Stream tmp = co_await std::move(stream).end();
+		co_return co_await end_stream(tmp);
 	}
 
 	template <AsyncBufferedOutputStream Stream>
@@ -29,12 +41,8 @@ namespace cobra {
 	void http_server_logger::set_socket(const basic_socket_stream& socket) {
 		_socket = &socket;
 	}
-
-	void http_server_logger::set_request(const http_request& request) {
-		_request = &request;
-	}
-
-	void http_server_logger::log(const http_response& response) {
+	
+	void http_server_logger::log(const http_request* request, const http_response& response) {
 		term::control ctrl;
 
 		if (response.code() / 100 == 1) {
@@ -55,12 +63,12 @@ namespace cobra {
 			print(" {}", _socket->peername().string());
 		}
 
-		if (_request) {
+		if (request) {
 			if (_socket) {
 				print(" ->");
 			}
 
-			print(" {} {}", _request->method(), _request->uri().string());
+			print(" {} {}", request->method(), request->uri().string());
 		}
 
 		println("{}", term::reset());
@@ -83,17 +91,17 @@ namespace cobra {
 	}
 
 	http_ostream http_ostream_wrapper::get_deflate() {
-		_stream = deflate_ostream(inner());
+		_stream = deflate_ostream(inner(), deflate_mode::zlib);
 		return _stream;
 	}
 
 	http_ostream http_ostream_wrapper::get_deflate(std::size_t limit) {
-		_stream = ostream_limit(deflate_ostream(inner()), limit);
+		_stream = ostream_limit(deflate_ostream(inner(), deflate_mode::zlib), limit);
 		return _stream;
 	}
 
 	task<void> http_ostream_wrapper::end() {
-		// _stream = co_await std::visit([](auto& stream) { return end_stream(stream); }, _stream);
+		_stream = co_await std::visit([](auto& stream) { return end_stream(stream); }, _stream.variant());
 	}
 
 	http_request_writer::http_request_writer(http_ostream_wrapper* stream) : _stream(stream) {
@@ -104,15 +112,45 @@ namespace cobra {
 		co_return to_stream(_stream, request);
 	}
 
-	http_response_writer::http_response_writer(http_ostream_wrapper* stream, http_server_logger* logger) : _stream(stream), _logger(logger) {
+	http_response_writer::http_response_writer(const http_request* request, http_ostream_wrapper* stream, http_server_logger* logger) : _request(request), _stream(stream), _logger(logger) {
 	}
 
 	// TODO: implement keep-alive
 	task<http_ostream> http_response_writer::send(http_response response)&& {
-		response.set_header("Connection", "close");
+		if (!response.has_header("Connection")) {
+			response.set_header("Connection", "close");
+		}
+
+		if (_request) {
+			if (_request->has_header("Accept-Encoding") && !response.has_header("Encoding")) {
+				std::string_view accept_encoding = _request->header("Accept-Encoding");
+				std::string_view::size_type pos = 0;
+
+				while (pos != std::string_view::npos) {
+					std::string_view::size_type end = accept_encoding.find(",", pos);
+					std::string_view encoding = accept_encoding.substr(pos, end == std::string_view::npos ? std::string_view::npos : end - pos);
+
+					std::size_t begin = encoding.find_first_not_of(" \t");
+
+					if (begin == std::string::npos) {
+						encoding = std::string_view();
+					} else {
+						std::size_t end = encoding.find_last_not_of(" \t") + 1;
+						encoding = encoding.substr(begin, end - begin);
+					}
+
+					if (encoding == "deflate") {
+						response.set_header("Content-Encoding", "deflate");
+						break;
+					}
+
+					pos = end + 1;
+				}
+			}
+		}
 
 		if (_logger) {
-			_logger->log(response);
+			_logger->log(_request, response);
 		}
 
 		co_await write_http_response(_stream->inner(), response);

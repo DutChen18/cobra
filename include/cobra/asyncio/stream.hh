@@ -616,9 +616,10 @@ namespace cobra {
 			}
 
 			co_await ostream.write_all(buffer, buffer_size);
-			co_await ostream.flush();
 			istream.consume(buffer_size);
 		}
+		
+		co_await ostream.flush();
 	}
 } // namespace cobra
 

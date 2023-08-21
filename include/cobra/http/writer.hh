@@ -35,13 +35,11 @@ namespace cobra {
 
 	class http_server_logger {
 		const basic_socket_stream* _socket = nullptr;
-		const http_request* _request = nullptr;
 
 	public:
 		void set_socket(const basic_socket_stream& socket);
-		void set_request(const http_request& request);
 
-		void log(const http_response& response);
+		void log(const http_request* request, const http_response& response);
 	};
 
 	class http_ostream_wrapper {
@@ -68,11 +66,12 @@ namespace cobra {
 	};
 
 	class http_response_writer {
+		const http_request* _request;
 		http_ostream_wrapper* _stream;
 		http_server_logger* _logger;
 
 	public:
-		http_response_writer(http_ostream_wrapper* stream, http_server_logger* logger = nullptr);
+		http_response_writer(const http_request* request, http_ostream_wrapper* stream, http_server_logger* logger = nullptr);
 
 		task<http_ostream> send(http_response response)&&;
 	};

@@ -4,9 +4,16 @@
 #include "cobra/asyncio/event_loop.hh"
 #include "cobra/asyncio/stream.hh"
 #include "cobra/http/writer.hh"
+#include <optional>
 
 namespace cobra {
 	class static_config {
+		std::optional<http_response_code> _code;
+
+	public:
+		static_config(std::optional<http_response_code> code = std::nullopt) : _code(code) {}
+
+		inline std::optional<http_response_code> code() const { return _code; }
 	};
 
 	class cgi_command {

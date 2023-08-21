@@ -38,7 +38,7 @@ msgstr "pɹoʍ pǝʇɔǝdxǝun"
 #: src/config.cc:421
 #, c++-format
 msgid "consider replacing `{}` with `{}`"
-msgstr "`{}` ɥʇᴉʍ `{}` ƃuᴉɔɐldǝɹ ɹǝpᴉsuoɔ"
+msgstr "`{1}` ɥʇᴉʍ `{0}` ƃuᴉɔɐldǝɹ ɹǝpᴉsuoɔ"
 
 #: src/config.cc:475
 msgid "unclosed quote"

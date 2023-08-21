@@ -4,7 +4,6 @@
 #include "cobra/asyncio/stream.hh"
 #include "cobra/compress/bit_stream.hh"
 #include "cobra/compress/error.hh"
-#include "cobra/print.hh"
 
 #include <array>
 #include <numeric>
@@ -113,7 +112,7 @@ namespace cobra {
 
 			next[0] = 0;
 
-			for (std::size_t i = 1; i < Bits; i++) {
+			for (std::size_t i = 1; i <= Bits; i++) {
 				next[i] = (next[i - 1] + count[i - 1]) << 1;
 			}
 
@@ -124,7 +123,7 @@ namespace cobra {
 			}
 		}
 
-		std::size_t get_size(std::size_t* size, const std::size_t* frobnication_table) {
+		std::size_t get_size(std::size_t* size, const std::size_t* frobnication_table) const {
 			std::size_t max = 0;
 
 			for (std::size_t i = 0; i < Size; i++) {
@@ -143,7 +142,7 @@ namespace cobra {
 		}
 
 		template <AsyncOutputStream Stream>
-		task<void> write(bit_ostream<Stream>& stream, T value) {
+		task<void> write(bit_ostream<Stream>& stream, T value) const {
 			co_await stream.write_bits(_data[value], _size[value]);
 		}
 

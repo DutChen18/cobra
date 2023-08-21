@@ -80,6 +80,41 @@ namespace cobra {
 			return dists.back().back();
 		}
 
+		static bool is_http_error_code(http_response_code code) {
+			switch (code) {
+				case HTTP_BAD_REQUEST:
+				case HTTP_UNAUTHORIZED:
+				case HTTP_PAYMENT_REQUIRED:
+				case HTTP_FORBIDDEN:
+				case HTTP_NOT_FOUND:
+				case HTTP_METHOD_NOT_ALLOWED:
+				case HTTP_NOT_ACCEPTABLE:
+				case HTTP_PROXY_AUTHENTICATION_REQUIRED:
+				case HTTP_REQUEST_TIMED_OUT:
+				case HTTP_CONFLICT:
+				case HTTP_GONE:
+				case HTTP_LENGTH_REQUIRED:
+				case HTTP_PRECONDITION_FAILED:
+				case HTTP_CONTENT_TOO_LARGE:
+				case HTTP_URI_TOO_LONG:
+				case HTTP_UNSUPPORTED_MEDIA_TYPE:
+				case HTTP_RANGE_NOT_SATISFIABLE:
+				case HTTP_EXPECTATION_FAILED:
+				case HTTP_MISDIRECTED_REQUEST:
+				case HTTP_UNPROCESSABLE_CONTENT:
+				case HTTP_UPGRADE_REQUIRED:
+				case HTTP_INTERNAL_SERVER_ERROR:
+				case HTTP_NOT_IMPLEMENTED:
+				case HTTP_BAD_GATEWAY:
+				case HTTP_SERVICE_UNAVAILABLE:
+				case HTTP_GATEWAY_TIMEOUT:
+				case HTTP_HTTP_VERSION_NOT_SUPORTED:
+					return true;
+				default:
+					return false;
+			}
+		}
+
 		constexpr buf_pos::buf_pos(std::size_t line, std::size_t col) noexcept : line(line), col(col) {}
 
 		file_part::file_part(std::optional<fs::path> file, std::size_t line, std::size_t col)
@@ -680,6 +715,39 @@ namespace cobra {
 			return config_exec(std::move(p));
 		}
 
+		error_page error_page::parse(parse_session& session) {
+			std::optional<word> w;
+
+			try {
+				w = session.get_word_simple("number", "error code");
+			} catch (error err) {
+				err.diag().message = COBRA_TEXT("invalid response code");
+				throw err;
+			}
+
+			session.ignore_ws();
+
+			http_response_code code;
+			try {
+				code = parse_unsigned<http_response_code>(w->str(), 505);
+			} catch (error err) {
+				err.diag().message = COBRA_TEXT("invalid response code");
+				err.diag().part = w->part();
+				throw err;
+			}
+
+			word file = session.get_word("string", "file");
+
+			if (!is_http_error_code(code)) {
+				diagnostic diag =
+					diagnostic::warn(w->part(), "unused error page", "the server will never use this error page",
+									 "consider changing it to a http error code (i.e. 4xx, 5xx)");
+				session.report(diag);
+			}
+
+			return error_page{code, std::move(file)};
+		}
+
 		config_dir::config_dir(fs::path dir) : _dir(std::move(dir)) {}
 
 		config_dir config_dir::parse(parse_session& session) {
@@ -1040,31 +1108,7 @@ namespace cobra {
 
 			auto block = block_config::parse(session);
 			block.part.start = def.part.start;
-			// define<block_config> block = define<block_config>{block_config::parse(session), std::move(def.part)};
 			block->_filter = def;
-
-			/*
-			auto it = std::find_if(_filters.begin(), _filters.end(), [&def](auto pair) {
-				if (!std::holds_alternative<location_filter>(pair.first))
-					return false;
-				const location_filter& other = std::get<location_filter>(pair.first);
-
-				return def->starts_with(other);
-			});
-
-			// TODO: unreachable filter is not true if config block has an extension, for example
-			if (it != _filters.end()) {
-				diagnostic diag = diagnostic::warn(block.part, COBRA_TEXT("unreachable filter"));
-				if (std::get<location_filter>(it->first) == def.def) {
-					diag.sub_diags.push_back(
-						diagnostic::note(it->second.part, COBRA_TEXT("because of an earlier definition here")));
-				} else {
-					diag.sub_diags.push_back(
-						diagnostic::note(it->second.part, COBRA_TEXT("because a less strict filter defined earlier here")));
-				}
-				session.report(diag);
-			}
-			*/
 
 			_filters.push_back({std::move(def.def), std::move(block)});
 		}
@@ -1095,6 +1139,19 @@ namespace cobra {
 			diagnostic diag = diagnostic::warn(cur, COBRA_TEXT("duplicate {}", name));
 			diag.sub_diags.push_back(diagnostic::note(prev, COBRA_TEXT("previously defined here")));
 			session.report(diag);
+		}
+
+		void block_config::parse_error_page(parse_session& session) {
+			auto def = parse_define<error_page>(session, "error_page");
+
+			const http_response_code code = def->code;
+
+			auto it = _error_pages.find(code);
+			if (it != _error_pages.end()) {
+				warn_reassign(def.part, it->second.part, "error_page", session);
+				_error_pages.erase(code);
+			}
+			_error_pages.insert({code, std::move(def)});
 		}
 
 		void block_config::parse_cgi(parse_session& session) {
@@ -1172,6 +1229,10 @@ namespace cobra {
 				extensions.insert(extension.def.ext);
 			}
 
+			for (auto [code, def] : cfg._error_pages) {
+				error_pages.insert({code, def->file});
+			}
+
 			if (cfg._filter) {
 				if (std::holds_alternative<location_filter>(*cfg._filter)) {
 					location = std::get<location_filter>(*cfg._filter).path;
@@ -1195,6 +1256,8 @@ namespace cobra {
 					handler = parent->handler;
 				if (server_names.empty())
 					server_names = parent->server_names;
+				if (error_pages.empty())
+					error_pages = parent->error_pages;
 			}
 		}
 
@@ -1225,6 +1288,10 @@ namespace cobra {
 				print(stream, "\"{}\" ", server_name);
 			}
 			println(stream, "");
+
+			for (auto [code, file] : error_pages) {
+				println(stream, "{}{}->\"{}\"", spacing, code, file);
+			}
 
 			if (handler) {
 				print(stream, "{}handler: ", spacing);

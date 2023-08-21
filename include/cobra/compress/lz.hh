@@ -316,7 +316,7 @@ namespace cobra {
 			return _window.capacity();
 		}
 
-#ifdef COBRA_DEBUG
+#ifdef COBRA_DEBUG_
 		void assert_table_correct() {
 			for (auto& [key, value] : _table) {
 				for (auto& link : *value.first) {
@@ -399,7 +399,6 @@ namespace cobra {
 				if (win_it == _window.end()) {
 					auto [_, a] = std::mismatch(_buffer.begin(), _buffer.end(), buf_it, _buffer.end());
 					length = a - _buffer.begin();
-					//length += extra_length;
 				}
 
 				if (length >= best_length) {
@@ -412,9 +411,8 @@ namespace cobra {
 			}
 			assert(best_link);
 
-			std::size_t window_match = _window.end() - best_link->pos();
+			const std::size_t window_match = _window.end() - best_link->pos();
 			co_await write_copy_command(hash, best_length, window_match);
-			//co_await write_copy_command(hash, best_length, std::distance(best_link->pos(), _window.end()));
 		}
 
 		auto remove_oldest_link() {
@@ -535,7 +533,7 @@ namespace cobra {
 		}
 
 		task<void> produce_atleast(size_t at_least) {
-			assert(at_least <= _buffer.size() && "tried to flush more than available");
+			assert(at_least <= _buffer.size() && "tried to produce  more than available");
 			const size_t before = _buffer.size();
 			while (!_buffer.empty() && before - _buffer.size() <= at_least) {
 				co_await produce_one();
