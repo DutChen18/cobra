@@ -14,10 +14,10 @@
 
 namespace cobra {
 	using inflate_ltree = inflate_tree<std::uint16_t, 288, 15>;
-	using inflate_dtree = inflate_tree<std::uint8_t, 32, 15>;
+	using inflate_dtree = inflate_tree<std::uint16_t, 32, 15>;
 	using inflate_ctree = inflate_tree<std::uint8_t, 19, 7>;
 	using deflate_ltree = deflate_tree<std::uint16_t, 288, 15>;
-	using deflate_dtree = deflate_tree<std::uint8_t, 32, 15>;
+	using deflate_dtree = deflate_tree<std::uint16_t, 32, 15>;
 	using deflate_ctree = deflate_tree<std::uint8_t, 19, 7>;
 
 	constexpr std::array<std::size_t, 19> frobnication_table {
@@ -216,7 +216,7 @@ namespace cobra {
 							_state = state_init { std::move(state->stream) };
 						} else {
 							state->size = co_await decode_size(state->stream, code);
-							code = state->dt ? co_await state->dt->read(state->stream) : co_await state->stream.read_bits(5);
+							code = state->dt ? co_await state->dt->read(state->stream) : reverse(co_await state->stream.read_bits(5), 5);
 							state->dist = co_await decode_dist(state->stream, code);
 						}
 					}
@@ -303,6 +303,9 @@ namespace cobra {
 				if (command.is_literal()) {
 					co_await lt->write(_stream, command.ch());
 				} else {
+					assert(command.length() >= 3);
+					assert(command.dist() >= 1);
+
 					token size_token = encode_size(command.length());
 					co_await lt->write(_stream, size_token.code);
 					co_await _stream.write_bits(size_token.value, size_token.extra);
@@ -311,7 +314,7 @@ namespace cobra {
 					if (dt) {
 						co_await dt->write(_stream, dist_token.code);
 					} else {
-						co_await _stream.write_bits(dist_token.code, 5);
+						co_await _stream.write_bits(reverse(dist_token.code, 5), 5);
 					}
 
 					co_await _stream.write_bits(dist_token.value, dist_token.extra);

@@ -267,7 +267,8 @@ namespace cobra {
 		ringbuffer<zchain> _chain;
 		std::unordered_map<uint32_t, std::pair<zchain::iterator, zchain::iterator>> _table;
 
-		static constexpr std::size_t min_backref_length = 3;
+		std::size_t _min_backref_length = 3;
+		std::size_t _max_backref_length = 258;
 
 	public:
 		lz_ostream(Stream&& stream, std::size_t window_size)
@@ -312,10 +313,6 @@ namespace cobra {
 		}
 
 	private:
-		inline std::size_t max_backref_length() const {
-			return _window.capacity();
-		}
-
 #ifdef COBRA_DEBUG_
 		void assert_table_correct() {
 			for (auto& [key, value] : _table) {
@@ -370,7 +367,7 @@ namespace cobra {
 		task<void> produce_one() {
 			assert_correct();
 			assert(!_buffer.empty());
-			if (_buffer.size() < min_backref_length) {
+			if (_buffer.size() < _min_backref_length) {
 				//Not enough buffered to produce a backreference or to store a hash
 				co_await write_literal_command_from_buffer();
 				co_return;
@@ -388,7 +385,7 @@ namespace cobra {
 			//Found backreference
 			auto [first, _] = it->second;
 			
-			std::size_t best_length = min_backref_length;
+			std::size_t best_length = _min_backref_length;
 			zchain* best_link = &*first;
 
 			assert_correct();
@@ -403,9 +400,9 @@ namespace cobra {
 
 				if (length >= best_length) {
 					best_link = &link;
-					best_length = std::min(length, max_backref_length());
+					best_length = std::min(length, _max_backref_length);
 
-					if (length >= max_backref_length())
+					if (length >= _max_backref_length)
 						break;
 				}
 			}

@@ -224,7 +224,7 @@ namespace cobra {
 				co_await http_response_writer(&request, &wrapper ,&logger).send(HTTP_NOT_FOUND);
 			}
 		} else if (error.has_value()) {
-			eprintln("no error_page ({}) {}", error->first, error->second->error_pages.contains(error->first));
+			// eprintln("no error_page ({}) {}", error->first, error->second->error_pages.contains(error->first));
 			co_await http_response_writer(&request, &wrapper ,&logger).send(error->first);
 		}
 

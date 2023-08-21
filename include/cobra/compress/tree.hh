@@ -4,6 +4,7 @@
 #include "cobra/asyncio/stream.hh"
 #include "cobra/compress/bit_stream.hh"
 #include "cobra/compress/error.hh"
+#include "cobra/print.hh"
 
 #include <array>
 #include <numeric>
@@ -70,6 +71,7 @@ namespace cobra {
 
 	template <class T, std::size_t Size, std::size_t Bits>
 	class deflate_tree {
+	public:
 		std::array<std::size_t, Size> _size;
 		std::array<T, Size> _data;
 
