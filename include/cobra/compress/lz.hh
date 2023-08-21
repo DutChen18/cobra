@@ -396,9 +396,11 @@ namespace cobra {
 				auto [win_it, buf_it] = std::mismatch(link.pos(), _window.end(), _buffer.begin(), _buffer.end()); 
 				std::size_t length = buf_it - _buffer.begin();
 
-				//chained_iterator cmp_it = chained_iterator(link.pos(), _window.end(), _buffer.begin(), _buffer.end());
-				//auto [win_it, buf_it] = std::mismatch(cmp_it.begin(), cmp_it.end(), _buffer.begin(), _buffer.end()); 
-				//std::size_t length = std::distance(cmp_it.begin(), win_it);
+				if (win_it == _window.end()) {
+					auto [_, a] = std::mismatch(_buffer.begin(), _buffer.end(), buf_it, _buffer.end());
+					length = a - _buffer.begin();
+					//length += extra_length;
+				}
 
 				if (length >= best_length) {
 					best_link = &link;
@@ -410,7 +412,9 @@ namespace cobra {
 			}
 			assert(best_link);
 
-			co_await write_copy_command(hash, best_length, std::distance(best_link->pos(), _window.end()));
+			std::size_t window_match = _window.end() - best_link->pos();
+			co_await write_copy_command(hash, best_length, window_match);
+			//co_await write_copy_command(hash, best_length, std::distance(best_link->pos(), _window.end()));
 		}
 
 		auto remove_oldest_link() {
@@ -511,6 +515,7 @@ namespace cobra {
 			}
 			assert_correct();
 
+			//std::size_t n = std::min(length, static_cast<uint16_t>(_buffer.size()));
 			const auto win_it =_window.insert(_buffer.begin(), _buffer.begin() + length);
 			_buffer.erase_front(length);
 
