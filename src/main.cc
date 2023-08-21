@@ -18,6 +18,7 @@
 #include <iomanip>
 #include <iostream>
 #include <fstream>
+#include <limits>
 #include <memory>
 
 #include <cassert>
@@ -93,7 +94,8 @@ int main(int argc, char **argv) {
 	if (args.compress_file) {
 		std::fstream f = std::fstream(*args.compress_file, std::ios::in);
 		auto stream = istream_buffer<std_istream<std::fstream>>(std_istream<std::fstream>(std::move(f)), 1024);
-		unsigned short window_size = 1 << 8;
+		//unsigned short window_size = 1 << 8;
+		uint16_t window_size = std::numeric_limits<uint16_t>::max();
 		auto debug_stream = lz_debug_istream(window_size);
 		auto lz_stream = lz_ostream<lz_debug_istream>(std::move(debug_stream), window_size);
 		block_task(pipe(buffered_istream_reference(stream), ostream_reference(lz_stream)));
@@ -104,7 +106,8 @@ int main(int argc, char **argv) {
 	if (args.round_file) {
 		std::fstream f = std::fstream(*args.round_file, std::ios::in);
 		auto stream = istream_buffer(std_istream<std::fstream>(std::move(f)), 1024);
-		unsigned short window_size = 1 << 8;
+		uint16_t window_size = std::numeric_limits<uint16_t>::max();
+		//unsigned short window_size = 1 << 8;
 		auto istream = lz_istream(window_size);
 		auto ostream = lz_ostream<lz_istream>(std::move(istream), window_size);
 		block_task(pipe(buffered_istream_reference(stream), ostream_reference(ostream)));

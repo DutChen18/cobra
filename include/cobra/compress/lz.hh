@@ -289,19 +289,16 @@ namespace cobra {
 			return *this;
 		}
 
-		task<std::size_t> write(const char_type* data, const std::size_t size) {
-			if (_buffer.remaining() >= size) {
-				_buffer.insert(data, data + size);
-			} else if (size < _buffer.size()) {
-				co_await produce_atleast(size);
-				co_return co_await write(data, size);
-			} else {
-				for (std::size_t index = 0; index < size; index += _buffer.capacity()) {
-					co_await produce_atleast(_buffer.size());
-					_buffer.insert(data + index, data + index + std::min(size - index, _buffer.capacity()));
-				}
+		task<std::size_t> write(const char_type* data, std::size_t size) {
+			const std::size_t result = size;
+			while (size > 0) {
+				const std::size_t n = std::min(_buffer.remaining(), size);
+				_buffer.insert(data, data + n);
+				data += n;
+				size -= n;
+				co_await produce_one();
 			}
-			co_return size;
+			co_return result;
 		}
 
 		task<Stream> end() && {
