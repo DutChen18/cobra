@@ -24,6 +24,11 @@ namespace cobra {
 		both
 	};
 
+	class connection_error : public std::runtime_error {
+	public:
+		connection_error(const std::string& what);
+	};
+
 	class basic_socket_stream : public istream_impl<basic_socket_stream>, public ostream_impl<basic_socket_stream> {
 	public:
 		virtual ~basic_socket_stream();

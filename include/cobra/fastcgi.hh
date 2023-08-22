@@ -55,6 +55,7 @@ namespace cobra {
 
 	class fastcgi_client;
 
+	// TODO: reuse connections
 	class fastcgi_client_connection {
 		async_mutex _mutex;
 		async_condition_variable _condition_variable;

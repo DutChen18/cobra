@@ -427,13 +427,9 @@ namespace cobra {
 				_dist_weight[encode_dist(command.dist()).code] += 1;
 			}
 
-			co_return;
-
-			/*
 			if (_commands.size() >= 32768) {
 				co_await flush_block(false);
 			}
-			*/
 		}
 
 		task<void> flush() {

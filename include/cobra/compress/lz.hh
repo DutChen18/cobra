@@ -267,8 +267,8 @@ namespace cobra {
 		ringbuffer<zchain> _chain;
 		std::unordered_map<uint32_t, std::pair<zchain::iterator, zchain::iterator>> _table;
 
-		std::size_t _min_backref_length = 3;
-		std::size_t _max_backref_length = 258;
+		constexpr static std::size_t _min_backref_length = 3;
+		constexpr static std::size_t _max_backref_length = 258;
 
 	public:
 		lz_ostream(Stream&& stream, std::size_t window_size)

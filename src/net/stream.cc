@@ -27,6 +27,8 @@ namespace cobra {
 		return error == 0;
 	}
 
+	connection_error::connection_error(const std::string& what) : std::runtime_error(what) {}
+
 	basic_socket_stream::~basic_socket_stream() {}
 
 	socket_stream::socket_stream(socket_stream&& other)
@@ -241,10 +243,12 @@ namespace cobra {
 		ssl_ctx ctx = server();
 
 		if (SSL_CTX_use_certificate_file(ctx._ctx, cert.c_str(), SSL_FILETYPE_PEM) <= 0) {
-			throw std::runtime_error("ssl_ctx_use_cert_file failed");
+			throw ssl_error("ssl_ctx_use_cert_file failed");
+			//throw std::runtime_error("ssl_ctx_use_cert_file failed");
 		}
 		if (SSL_CTX_use_PrivateKey_file(ctx._ctx, key.c_str(), SSL_FILETYPE_PEM) <= 0) {
-			throw std::runtime_error("ssl_ctx_use_privkey_file failed");
+			throw ssl_error("SSL_CTX_use_PrivateKey_file failed");
+			//throw std::runtime_error("ssl_ctx_use_privkey_file failed");
 		}
 		return ctx;
 	}
@@ -455,7 +459,7 @@ namespace cobra {
 			}
 		}
 
-		throw std::runtime_error("connection failed");
+		throw connection_error("connection failed");
 	}
 
 	task<ssl_socket_stream> open_ssl_connection(executor* exec, event_loop* loop, const char* node, const char* service) {

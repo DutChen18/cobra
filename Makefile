@@ -98,7 +98,7 @@ $(NAME).out: $(OBJ_FILES)
 	$(CXX) -o $@ $^ $(LDFLAGS) 
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc Makefile
-	mkdir -p $(@D)
+	@mkdir -p $(@D)
 	$(CXX) -o $@ $< $(CXXFLAGS) -c -MMD
 
 #fmt:

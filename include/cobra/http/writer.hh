@@ -5,30 +5,139 @@
 #include "cobra/asyncio/stream_buffer.hh"
 #include "cobra/compress/deflate.hh"
 #include "cobra/http/message.hh"
+#include "cobra/http/parse.hh"
 #include "cobra/net/stream.hh"
 
 #include <type_traits>
 
 namespace cobra {
 	template <AsyncBufferedInputStream Stream>
+	class chunked_istream : public buffered_istream_impl<chunked_istream<Stream>> {
+		Stream _stream;
+		std::size_t _remaining = 0;
+		bool _done = false;
+		bool _crlf = false;
+
+	public:
+		using typename buffered_istream_impl<chunked_istream<Stream>>::char_type;
+
+		chunked_istream(Stream&& stream) : _stream(std::move(stream)) {
+		}
+
+		task<std::pair<const char_type*, std::size_t>> fill_buf() {
+			if (_crlf) {
+				if (co_await _stream.get() != '\r') {
+					throw http_parse_error::bad_content;
+				}
+
+				if (co_await _stream.get() != '\n') {
+					throw http_parse_error::bad_content;
+				}
+
+				_crlf = false;
+			} else if (_done) {
+				co_return { nullptr, 0 };
+			}
+			
+			if (_remaining > 0) {
+				auto [data, size] = co_await _stream.fill_buf();
+				co_return { data, std::min(size, _remaining) };
+			} else {
+				if (auto digit = unhexify(co_await _stream.peek())) {
+					_stream.consume(1);
+					_remaining = digit;
+				} else {
+					throw http_parse_error::bad_content;
+				}
+
+				while (auto digit = unhexify(co_await _stream.peek())) {
+					_stream.consume(1);
+					_remaining = _remaining * 10 + digit;
+				}
+
+				if (_remaining == 0) {
+					_done = true;
+				}
+
+				_crlf = true;
+				co_return co_await fill_buf();
+			}
+		}
+
+		void consume(std::size_t size) {
+			_stream.consume(size);
+			_remaining -= size;
+
+			if (size > 0 && _remaining == 0) {
+				_crlf = true;
+			}
+		}
+
+		task<Stream> end()&& {
+			while (!_done) {
+				auto [data, size] = co_await fill_buf();
+
+				if (size == 0) {
+					throw stream_error::incomplete_read;
+				}
+
+				consume(size);
+			}
+
+			co_return std::move(_stream);
+		}
+	};
+
+	template <AsyncOutputStream Stream>
+	class chunked_ostream : public ostream_impl<chunked_ostream<Stream>> {
+		Stream _stream;
+
+	public:
+		using typename ostream_impl<chunked_ostream<Stream>>::char_type;
+
+		chunked_ostream(Stream&& stream) : _stream(std::move(stream)) {
+		}
+
+		task<std::size_t> write(const char_type* data, std::size_t size) {
+			if (size != 0) {
+				std::string header = std::format("{:x}\r\n", size);
+				co_await _stream.write_all(header.data(), header.size());
+				co_await _stream.write_all(data, size);
+				co_await _stream.write_all("\r\n", 2);
+			}
+
+			co_return size;
+		}
+
+		task<void> flush() {
+			return _stream.flush();
+		}
+
+		task<Stream> end()&& {
+			co_await _stream.write_all("0\r\n\r\n", 5);
+			co_return std::move(_stream);
+		}
+	};
+
+	template <AsyncBufferedInputStream Stream>
 	using http_istream_variant = istream_variant<
 		Stream,
+		chunked_istream<Stream>,
 		istream_limit<Stream>,
 		inflate_istream<Stream>,
+		inflate_istream<chunked_istream<Stream>>,
 		istream_limit<inflate_istream<Stream>>
 	>;
 
 	template <AsyncBufferedOutputStream Stream>
 	using http_ostream_variant = ostream_variant<
 		Stream,
+		ostream_buffer<chunked_ostream<Stream>>,
 		ostream_limit<Stream>,
 		deflate_ostream<Stream>,
+		deflate_ostream<ostream_buffer<chunked_ostream<Stream>>>,
 		ostream_limit<deflate_ostream<Stream>>
 	>;
-
-	static_assert(std::is_swappable_v<buffered_ostream_reference>);
-	static_assert(std::is_swappable_v<ostream_limit<buffered_ostream_reference>>);
-	static_assert(std::is_swappable_v<deflate_ostream<buffered_ostream_reference>>);
 
 	using http_istream = istream_ref<http_istream_variant<buffered_istream_reference>>;
 	using http_ostream = ostream_ref<http_ostream_variant<buffered_ostream_reference>>;
@@ -44,16 +153,22 @@ namespace cobra {
 
 	class http_ostream_wrapper {
 		http_ostream_variant<buffered_ostream_reference> _stream;
+		bool _keep_alive = true;
 
 	public:
 		http_ostream_wrapper(buffered_ostream_reference stream);
 
 		buffered_ostream_reference inner();
 		http_ostream get();
+		http_ostream get_chunked();
 		http_ostream get(std::size_t limit);
 		http_ostream get_deflate();
+		http_ostream get_deflate_chunked();
 		http_ostream get_deflate(std::size_t limit);
 		task<void> end();
+
+		void set_close();
+		bool keep_alive() const;
 	};
 
 	class http_request_writer {
@@ -69,9 +184,12 @@ namespace cobra {
 		const http_request* _request;
 		http_ostream_wrapper* _stream;
 		http_server_logger* _logger;
+		std::vector<std::pair<std::string, std::string>> _headers;
 
 	public:
 		http_response_writer(const http_request* request, http_ostream_wrapper* stream, http_server_logger* logger = nullptr);
+
+		void set_header(std::string key, std::string value);
 
 		task<http_ostream> send(http_response response)&&;
 	};

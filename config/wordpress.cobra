@@ -10,6 +10,18 @@ server {
 	}
 
 	location / {
+		extension .js
+		set_header Content-Type text/javascript
+		static
+	}
+
+	location / {
+		extension .css
+		set_header Content-Type text/css
+		static
+	}
+
+	location / {
 		static
 	}
 }

@@ -40,12 +40,14 @@ namespace cobra {
 		std::unordered_map<std::string, ssl_ctx> _contexts;
 		executor* _exec;
 		event_loop* _loop;
+		std::atomic_uint16_t _num_connections = 0;
 
 		server() = delete;
 		server(config::listen_address address, std::unordered_map<std::string, ssl_ctx> contexts,
 			   std::vector<http_filter> handlers, executor* exec, event_loop* loop);
 
 	public:
+		server(server&& other);
 		task<void> start(executor* exec, event_loop *loop);
 
 		static std::vector<server> convert(const std::vector<std::shared_ptr<config::server>>& configs,
@@ -59,6 +61,10 @@ namespace cobra {
 		task<void> handle_request(const http_filter& config, const http_request& request,
 								  const uri_abs_path& normalized, buffered_istream_reference in,
 								  http_response_writer writer, std::optional<http_response_code> code);
+
+		inline uint16_t max_connections() const {
+			return 20;
+		}
 	};
 }
 

@@ -69,7 +69,7 @@ struct args_type {
 #ifndef COBRA_FUZZ
 int main(int argc, char **argv) {
 	using namespace cobra;
-	sequential_executor exec;
+	thread_pool_executor exec;
 	epoll_event_loop loop(exec);
 	std::fstream file;
 	std::istream* input = &std::cin;
@@ -221,7 +221,7 @@ int main(int argc, char **argv) {
 				}
 
 				for (auto&& job : jobs) {
-					job.get_future().wait();
+					job.get_future().get();
 				}
 			}
 		} catch (const config::error& err) {

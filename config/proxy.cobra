@@ -1,0 +1,11 @@
+server {
+	listen 127.0.0.1:7070
+
+	set_header server cobra
+
+
+	location / {
+		proxy localhost:7070
+	}
+
+}

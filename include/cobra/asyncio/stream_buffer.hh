@@ -107,6 +107,7 @@ namespace cobra {
 		}
 
 		void consume(std::size_t size) {
+			base::_stream.consume(size);
 			base::_limit -= size;
 		}
 	};

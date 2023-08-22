@@ -2,11 +2,17 @@ server {
 	listen 127.0.0.1:7070
 	error_page 404 /error/404.html
 
-	#ssl cert.pem key.pem
+	set_header server cobra
 
-	location / {
-		root /home/codam/cobra
-		static
+	ssl cert.pem key.pem
+
+	method GET {
+		location / {
+			set_header cache-control max-age=14400
+			#root /home/codam/cobra
+			root /
+			static
+		}
 	}
 
 	location /error {

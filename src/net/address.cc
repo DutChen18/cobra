@@ -1,5 +1,6 @@
 #include "cobra/net/address.hh"
 #include "cobra/file.hh"
+#include "cobra/net/stream.hh"
 
 #include <cstring>
 #include <utility>
@@ -62,7 +63,7 @@ namespace cobra {
 		int ret = getaddrinfo(node, service, &hints, &info);
 
 		if (ret != 0) {
-			throw std::runtime_error(gai_strerror(ret));
+			throw connection_error(gai_strerror(ret));
 		}
 
 		for (addrinfo* i = info; i != nullptr; i = i->ai_next) {

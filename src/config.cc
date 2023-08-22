@@ -4,6 +4,7 @@
 #include "cobra/net/address.hh"
 #include "cobra/print.hh"
 #include "cobra/text.hh"
+#include "cobra/http/util.hh"
 
 // TODO check which headers aren't needed anymore
 #include <algorithm>
@@ -748,6 +749,51 @@ namespace cobra {
 			return error_page{code, std::move(file)};
 		}
 
+		redirect_config redirect_config::parse(parse_session& session) {
+			std::optional<word> w;
+
+			try {
+				w = session.get_word_simple("number", "error code");
+			} catch (error err) {
+				err.diag().message = COBRA_TEXT("invalid redirect code");
+				throw err;
+			}
+
+			session.ignore_ws();
+
+			http_response_code code;
+			try {
+				code = parse_unsigned<http_response_code>(w->str(), 399);
+
+				if (code < 300) {
+					diagnostic diag = diagnostic::error(w->part(), COBRA_TEXT("invalid redirect code"), "value may not be smaller than 300");
+					throw error(diag);
+				}
+			} catch (error err) {
+				err.diag().message = COBRA_TEXT("invalid redirect code");
+				err.diag().part = w->part();
+				throw err;
+			}
+
+			switch (code) {
+			case HTTP_MOVED_PERMANENTLY:
+			case HTTP_FOUND:
+			case HTTP_TEMPORARY_REDIRECT:
+			case HTTP_PERMANENT_REDIRECT:
+			case HTTP_SEE_OTHER:
+				break;
+			default:
+				diagnostic diag =
+					diagnostic::warn(w->part(), COBRA_TEXT("suspicious redirect code"),
+									  COBRA_TEXT("did you mean one of: {}, {}, {}, {}?", HTTP_MOVED_PERMANENTLY, HTTP_FOUND,
+												 HTTP_TEMPORARY_REDIRECT, HTTP_PERMANENT_REDIRECT, HTTP_SEE_OTHER));
+				session.report(diag);
+			}
+
+			session.ignore_ws();
+			return redirect_config{code, session.get_word("string", "location")};
+		}
+
 		config_dir::config_dir(fs::path dir) : _dir(std::move(dir)) {}
 
 		config_dir config_dir::parse(parse_session& session) {
@@ -1021,6 +1067,21 @@ namespace cobra {
 			return type <=> other.type;
 		}
 
+		method_filter method_filter::parse(parse_session& session) {
+			std::vector<std::string> methods;
+
+			do {
+				methods.push_back(session.get_word_simple("filter", "method"));
+				session.ignore_ws();
+
+				auto ch = session.peek();
+				if (!ch || ch == '{') {
+					break;
+				}
+			} while (true);
+			return method_filter{std::move(methods)};
+		}
+
 		ssl_config::ssl_config(config_file cert, config_file key) : _cert(std::move(cert)), _key(std::move(key)) {}
 
 		ssl_config ssl_config::parse(parse_session& session) {
@@ -1113,6 +1174,17 @@ namespace cobra {
 			_filters.push_back({std::move(def.def), std::move(block)});
 		}
 
+		void block_config::parse_method(parse_session& session) {
+			auto def = parse_define<method_filter>(session, "method");
+			session.ignore_ws();
+
+			auto block = block_config::parse(session);
+			block.part.start = def.part.start;
+			block->_filter = def;
+
+			_filters.push_back({std::move(def.def), std::move(block)});
+		}
+
 		static void warn_reassign(file_part cur, file_part prev, const std::string& name,
 								  const parse_session& session) {
 			diagnostic diag = diagnostic::warn(cur, COBRA_TEXT("redefinition of {}", name));
@@ -1167,6 +1239,15 @@ namespace cobra {
 			assign_warn_reassign(_handler, parse_define<static_file_config>(session, "static"), COBRA_TEXT("request handler"),
 								 session);
 		}
+
+		void block_config::parse_proxy(parse_session& session) {
+			assign_warn_reassign(_handler, parse_define<proxy_config>(session, "proxy"), COBRA_TEXT("request handler"),
+								 session);
+		}
+
+		void block_config::parse_redirect(parse_session& session) {
+			assign_warn_reassign(_handler, parse_define<redirect_config>(session, "redirect"), COBRA_TEXT("request handler"), session);
+		}
 		
 		void block_config::parse_extension(parse_session& session) {
 			auto def = parse_define<extension>(session, "extension");
@@ -1203,6 +1284,50 @@ namespace cobra {
 			}
 		}
 
+		header_pair::header_pair(http_header_key key, http_header_value value) : _key(std::move(key)), _value(std::move(value)) {}
+
+		header_pair header_pair::parse(parse_session& session) {
+			word key = session.get_word("string", "key");
+			session.ignore_ws();
+			word value = session.get_word("string", "value");
+
+			for (auto ch : key.str()) {
+				if (!is_http_token(ch)) {
+					diagnostic diag = diagnostic::error(key.part(), COBRA_TEXT("invalid header key"),
+														COBRA_TEXT("because of invalid character `{}`", ch));
+					throw error(diag);
+				}
+			}
+
+			for (auto ch : value.str()) {
+				if (!is_http_ws(ch) && ch != '\n' && ch != '\r' && is_http_ctl(ch)) {
+					diagnostic diag = diagnostic::error(value.part(), COBRA_TEXT("invalid header value"),
+														COBRA_TEXT("because of a reserved control character `{}`", ch));
+					throw error(diag);
+				}
+			}
+			std::string v = std::move(value).inner();
+
+			std::replace(v.begin(), v.end(), '\r', ' ');
+			std::replace(v.begin(), v.end(), '\n', ' ');
+			return header_pair(std::move(key), std::move(v));
+		}
+
+		void block_config::parse_set_header(parse_session& session) {
+			auto def = parse_define<header_pair>(session, "set_header");
+
+			auto it = _headers.find(def->key());
+			if (it != _headers.end()) {
+				diagnostic diag =
+					diagnostic::warn(def.part, COBRA_TEXT("redefinition of `set_header`"),
+									 COBRA_TEXT("a previous definition with the same key will be overriden"));
+				diag.sub_diags.push_back(diagnostic::note(it->second.part, "previously defined here", "", "consider removing this definition"));
+				session.report(diag);
+				_headers.erase(it);
+			}
+			_headers.insert({def->key(), define<http_header_value>(def->value(), def.part)});
+		}
+
 		void block_config::parse_comment(parse_session& session) {
 			size_t start_line = session.line();
 			size_t start_col = session.column();
@@ -1233,18 +1358,19 @@ namespace cobra {
 				error_pages.insert({code, def->file});
 			}
 
+			for (auto& [key, value] : cfg._headers) {
+				headers.insert(key, value);
+			}
+
 			if (cfg._filter) {
 				if (std::holds_alternative<location_filter>(*cfg._filter)) {
 					location = std::get<location_filter>(*cfg._filter).path;
 				} else if (std::holds_alternative<method_filter>(*cfg._filter)) {
-					methods.insert(std::get<method_filter>(*cfg._filter).method);
+					auto filt = std::get<method_filter>(*cfg._filter).methods;
+					methods.insert(filt.begin(), filt.end());
 				} else {
 					assert(0 && "filter not implemented");
 				}
-			}
-
-			for (auto& [filter, sub_cfg] : cfg._filters) {
-				sub_configs.push_back(std::shared_ptr<config>(new config(this, sub_cfg)));
 			}
 
 			if (parent) {
@@ -1258,6 +1384,14 @@ namespace cobra {
 					server_names = parent->server_names;
 				if (error_pages.empty())
 					error_pages = parent->error_pages;
+
+				for (auto& [key, value] : parent->headers) {
+					headers.insert(key, value);
+				}
+			}
+
+			for (auto& [filter, sub_cfg] : cfg._filters) {
+				sub_configs.push_back(std::shared_ptr<config>(new config(this, sub_cfg)));
 			}
 		}
 
@@ -1289,21 +1423,32 @@ namespace cobra {
 			}
 			println(stream, "");
 
+			if (error_pages.empty()) {
+				println(stream, "{}no error pages", spacing);
+			}
+
+			for (auto [key, value] : headers) {
+				println(stream, "{}header: \"{}\":\"{}\"", spacing, key, value);
+			}
+
 			for (auto [code, file] : error_pages) {
 				println(stream, "{}{}->\"{}\"", spacing, code, file);
 			}
 
+			print(stream, "{}handler: ", spacing);
 			if (handler) {
-				print(stream, "{}handler: ", spacing);
-
 				if (std::holds_alternative<static_file_config>(*handler)) {
 					println(stream, "static");
 				} else {
 					println(stream, "cgi");
 				}
+			} else {
+				println(stream, "none");
 			}
 
+
 			for (auto sub_cfg : sub_configs) {
+				println(stream, "{}-----", spacing);
 				sub_cfg->debug_print(stream, depth + 1);
 			}
 		}

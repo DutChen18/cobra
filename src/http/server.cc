@@ -32,7 +32,8 @@ namespace cobra {
 	http_filter::http_filter(std::shared_ptr<const config::config> config, std::vector<http_filter> filters)
 		: _config(config), _sub_filters(std::move(filters)) , _match_count(0) {}
 
-	generator<std::pair<http_filter*, uri_abs_path>> http_filter::match(const basic_socket_stream& socket, const http_request& request, const uri_abs_path& normalized) {
+	generator<std::pair<http_filter*, uri_abs_path>>
+	http_filter::match(const basic_socket_stream& socket, const http_request& request, const uri_abs_path& normalized) {
 		if (eval(socket, request, normalized)) {
 			for (auto& filter : _sub_filters) {
 				for (auto& result : filter.match(socket, request, normalized)) {
@@ -121,6 +122,10 @@ namespace cobra {
 		: http_filter(std::shared_ptr<config::config>(new config::config()), std::move(filters)),
 		  _address(std::move(address)), _contexts(std::move(contexts)), _exec(exec), _loop(loop) {}
 
+	server::server(server&& other)
+		: http_filter(std::move(other)), _address(std::move(other._address)), _contexts(std::move(other._contexts)),
+		  _exec(other._exec), _loop(other._loop), _num_connections(other._num_connections.load()) {}
+
 	task<void> server::match_and_handle(basic_socket_stream& socket, const http_request& request,
 										buffered_istream_reference in, http_ostream_wrapper& out,
 										http_server_logger* logger, std::optional<http_response_code> code) {
@@ -132,7 +137,7 @@ namespace cobra {
 			throw HTTP_BAD_REQUEST;
 		}
 
-		const config::config* last_config = nullptr;
+		const config::config* last_config = nullptr;//TODO give other name
 
 		const uri_abs_path normalized = org->path().normalize();
 		for (auto [filter, normalized] : match(socket, request, normalized)) {
@@ -145,7 +150,8 @@ namespace cobra {
 					continue;
 				}
 
-				last_config = &filter->config();
+				if (last_config == nullptr)
+					last_config = &filter->config();
 
 				// co_await (*handler)(std::move(writer), std::move(request), buffered_istream_reference(socket_istream));
 				// TODO limit socket_istream to client content-length
@@ -153,9 +159,17 @@ namespace cobra {
 				co_await handle_request(*filter, request, normalized, in, std::move(writer), code);
 				co_return;
 			} catch (int code) {
+				last_config = &filter->config();
 				if (code != HTTP_NOT_FOUND) {
 					throw std::make_pair(code, &filter->config());
 				}
+			} catch (const std::exception& ex) {
+				eprintln("An internal server error has ocurred: {}", ex.what());
+				throw std::make_pair(HTTP_INTERNAL_SERVER_ERROR, &filter->config());
+				//error = std::make_pair(HTTP_INTERNAL_SERVER_ERROR, &config());
+			} catch (...) {
+				eprintln("An exception was thrown that does not inherit from std::exception");
+				throw std::make_pair(HTTP_INTERNAL_SERVER_ERROR, &filter->config());
 			}
 		}
 		throw std::make_pair(HTTP_NOT_FOUND, last_config);
@@ -168,72 +182,78 @@ namespace cobra {
 		http_server_logger logger;
 		logger.set_socket(socket);
 
-		http_request request("GET", parse_uri("/", "GET"));
-		std::optional<std::pair<int, const config::config*>> error;
+		if (_num_connections.fetch_add(1) >= max_connections()) {
+			co_await socket_istream.fill_buf();
+			http_request phantom_request("GET", parse_uri("/", "GET"));
+			http_response response(HTTP_SERVICE_UNAVAILABLE);
+			response.set_header("Retry-After", "60");
+			co_await http_response_writer(&phantom_request, &wrapper, &logger).send(std::move(response));
+			co_await wrapper.end();
+		} else {
+			http_request request("GET", parse_uri("/", "GET"));
+			do {
+				std::optional<std::pair<int, const config::config*>> error;
 
-		try {
-			try {
-				request = co_await parse_http_request(socket_istream);
-			} catch (http_parse_error err) {
-				throw HTTP_BAD_REQUEST;
-			} catch (uri_parse_error err) {
-				throw HTTP_BAD_REQUEST;
-			}
+				try {
+					try {
+						request = co_await parse_http_request(socket_istream);
+					} catch (http_parse_error err) {
+						throw HTTP_BAD_REQUEST;
+					} catch (uri_parse_error err) {
+						throw HTTP_BAD_REQUEST;
+					}
 
-			co_await match_and_handle(socket, request, socket_istream, wrapper, &logger);
-		} catch (std::pair<int, const config::config*> err) {
-			error = err;
-			eprintln("http error {}", err.first);
-			//error = code;
-		} catch (const std::exception& ex) {
-			error = std::make_pair(HTTP_INTERNAL_SERVER_ERROR, &config());
-			std::cerr << ex.what() << std::endl;
-		} catch (...) {
-			error = std::make_pair(HTTP_INTERNAL_SERVER_ERROR, &config());
-			//error = HTTP_INTERNAL_SERVER_ERROR;
-			std::cerr << "something went very very wrong" << std::endl;
-		}
-		
-		if (error.has_value() && error->second && error->second->error_pages.contains(error->first)) {
-
-			const std::string& error_page = error->second->error_pages.at(error->first);
-			std::string uri;
-			if (!error_page.empty()) {
-				if (error_page[0] == '/') {
-					uri = error_page;
-				} else {
-					eprintln("this should probably do something different");
-					uri = error_page;
+					co_await match_and_handle(socket, request, socket_istream, wrapper, &logger);
+				} catch (std::pair<int, const config::config*> err) {
+					error = err;
+					eprintln("http error {}", err.first);
+					//error = code;
 				}
-			}
+				
+				if (error.has_value() && error->second && error->second->error_pages.contains(error->first)) {
+					const std::string& error_page = error->second->error_pages.at(error->first);
+					std::string uri;
+					if (!error_page.empty()) {
+						if (error_page[0] == '/') {
+							uri = error_page;
+						} else {
+							eprintln("this should probably do something different");
+							uri = error_page;
+						}
+					}
 
-			http_request error_request("GET", parse_uri(std::move(uri), "GET"));
-			if (request.has_header("host")) {
-				error_request.add_header("host", request.header("host"));
-			}
+					http_request error_request("GET", parse_uri(std::move(uri), "GET"));
+					if (request.has_header("host")) {
+						error_request.add_header("host", request.header("host"));
+					}
 
-			bool errored_again = false;
-			try {
-				eprintln("error_page");
-				co_await match_and_handle(socket, error_request, socket_istream, wrapper, &logger, error->first);
-			} catch (...) {
-				errored_again = true;
-			}
+					bool errored_again = false;
+					try {
+						co_await match_and_handle(socket, error_request, socket_istream, wrapper, &logger, error->first);
+					} catch (...) {
+						errored_again = true;
+					}
 
-			if (errored_again) {
-				co_await http_response_writer(&request, &wrapper ,&logger).send(HTTP_NOT_FOUND);
-			}
-		} else if (error.has_value()) {
-			// eprintln("no error_page ({}) {}", error->first, error->second->error_pages.contains(error->first));
-			co_await http_response_writer(&request, &wrapper ,&logger).send(error->first);
+					if (errored_again) {
+						co_await http_response_writer(&request, &wrapper ,&logger).send(HTTP_NOT_FOUND);
+					}
+				} else if (error.has_value()) {
+					// eprintln("no error_page ({}) {}", error->first, error->second->error_pages.contains(error->first));
+					co_await http_response_writer(&request, &wrapper ,&logger).send(error->first);
+				}
+
+				co_await wrapper.end();
+			} while (wrapper.keep_alive());
 		}
-
-		co_await wrapper.end();
+		_num_connections.fetch_sub(1);
 	}
 
 	task<void> server::handle_request(const http_filter& filt, const http_request& request, const uri_abs_path& normalized,
 									  buffered_istream_reference in, http_response_writer writer, std::optional<http_response_code> code) {
-		// TODO write headers set in config
+		for (auto& [key, value] : filt.config().headers) {
+			writer.set_header(key, value);
+		}
+
 		// TODO properly match uri
 		fs::path file("/");
 		for (std::size_t i = filt.match_count(); i < normalized.size(); ++i) {
@@ -263,6 +283,15 @@ namespace cobra {
 		} else if (auto cfg = std::get_if<config::static_file_config>(&*filt.config().handler)) {
 			co_await handle_static(std::move(writer),
 								   {_loop, _exec, root, file.string(), {code}, request, limited_stream});
+		} else if (auto cfg = std::get_if<config::redirect_config>(&*filt.config().handler)) {
+			co_await handle_redirect(std::move(writer),
+									 {_loop, _exec, root, file.string(), redirect_config(cfg->code, cfg->location),
+									  request, limited_stream});
+		} else if (auto cfg = std::get_if<config::proxy_config>(&*filt.config().handler)) {
+			auto service = std::format("{}", cfg->address.service());
+			co_await handle_proxy(std::move(writer),
+								  {_loop, _exec, root, file.string(), proxy_config(cfg->address.node(), service),
+								   request, limited_stream});
 		} else {
 			assert(0 && "unimplemented");
 		}
@@ -278,7 +307,6 @@ namespace cobra {
 											});
 		} else if (_contexts.size() == 1 && _contexts.begin()->first.empty()) {
 			//No SNI
-			//TODO DOESNT WORK PROPERLY TEST!
 			eprintln("ssl {}:{}", _address.node(), service);
 			co_return co_await start_ssl_server(_contexts.begin()->second, exec, loop, _address.node().data(),
 												service.c_str(), [this](ssl_socket_stream socket) -> task<void> {
@@ -303,8 +331,13 @@ namespace cobra {
 			for (const auto& address : config->addresses) {
 				filters[address].push_back(http_filter(config));
 				if (config->ssl) {
-					for (const auto& server_name : config->server_names) {
-						contexts[address].insert({server_name, ssl_ctx::server(config->ssl->cert(), config->ssl->key())});
+					if (config->server_names.empty()) {
+						//Only one server
+						contexts[address].insert({"", ssl_ctx::server(config->ssl->cert(), config->ssl->key())});
+					} else {
+						for (const auto& server_name : config->server_names) {
+							contexts[address].insert({server_name, ssl_ctx::server(config->ssl->cert(), config->ssl->key())});
+						}
 					}
 				}
 			}

@@ -1,0 +1,20 @@
+server {
+	listen 0.0.0.0:443
+	server_name pgp.hyxo.nl
+	
+	ssl /etc/letsencrypt/live/pgp.hyxo.nl/fullchain.pem /etc/letsencrypt/live/pgp.hyxo.nl/privkey.pem
+
+	location / {
+		proxy localhost:5173
+	}
+}
+server {
+	listen 0.0.0.0:443
+	server_name api.pgp.hyxo.nl
+
+	ssl /etc/letsencrypt/live/api.pgp.hyxo.nl/fullchain.pem /etc/letsencrypt/live/api.pgp.hyxo.nl/privkey.pem
+
+	location / {
+		proxy localhost:3000
+	}
+}

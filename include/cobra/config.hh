@@ -43,11 +43,15 @@ extern "C" {
 	X(max_body_size)                                                                                                   \
 	X(error_page)                                                                                                      \
 	X(location)                                                                                                        \
+	X(method)                                                                                                          \
 	X(index)                                                                                                           \
 	X(cgi)                                                                                                             \
 	X(fast_cgi)                                                                                                        \
 	X(root)                                                                                                            \
+	X(redirect)                                                                                                        \
+	X(set_header)                                                                                                      \
 	X(static)                                                                                                          \
+	X(proxy)                                                                                                           \
 	X(extension)
 
 #define COBRA_SERVER_KEYWORDS                                                                                          \
@@ -337,7 +341,9 @@ namespace cobra {
 			inline const file_part& part() const { return _part; }
 			inline const std::string& str() const { return _str; }
 			inline constexpr operator std::string() const & { return _str; }
-			inline constexpr operator std::string() const && { return std::move(_str); }
+			inline constexpr operator std::string() const && noexcept { return std::move(_str); }
+
+			inline constexpr std::string inner() && noexcept { return std::move(_str); }
 
 			bool operator==(const word& other) const = default;
 		};
@@ -498,6 +504,10 @@ namespace cobra {
 				return define<T>(T::parse(session), std::move(part));
 			}
 
+			constexpr T inner() && noexcept {
+				return std::move(def);
+			}
+
 			constexpr operator T() const noexcept {
 				return def;
 			};
@@ -573,6 +583,25 @@ namespace cobra {
 			auto operator<=>(const static_file_config& other) const = default;
 		};
 
+		struct proxy_config {
+			listen_address address;
+
+			inline static proxy_config parse(parse_session& session) {
+				return {listen_address::parse(session)};
+			}
+
+			auto operator<=>(const proxy_config& other) const = default;
+		};
+
+		struct redirect_config {
+			http_response_code code;
+			std::string location;
+
+			static redirect_config parse(parse_session& session);
+
+			auto operator<=>(const redirect_config& other) const = default;
+		};
+
 		struct extension {
 			std::string ext;
 
@@ -581,6 +610,20 @@ namespace cobra {
 			}
 
 			auto operator<=>(const extension& other) const = default;
+		};
+
+		class header_pair {
+			http_header_key _key;
+			http_header_value _value;
+
+			header_pair(http_header_key key, http_header_value value);
+		public:
+			static header_pair parse(parse_session& session);
+
+			inline const http_header_key& key() const { return _key; }
+			inline const http_header_value& value() const { return _value; }
+
+			auto operator<=>(const header_pair& other) const = default;
 		};
 
 		struct error_page {
@@ -635,13 +678,11 @@ namespace cobra {
 		};
 
 		struct method_filter {
-			std::string method;
+			std::vector<std::string> methods;
 
 			constexpr auto operator<=>(const method_filter& other) const noexcept = default;
 
-			inline static method_filter parse(parse_session& session) {
-				return {session.get_word_simple("filter", "filter")};
-			}
+			static method_filter parse(parse_session& session);
 		};
 
 		class ssl_config {
@@ -670,8 +711,9 @@ namespace cobra {
 			std::unordered_map<http_header_key, define<http_header_value>> _headers;
 			std::optional<define<config_file>> _index;
 			std::optional<define<config_dir>> _root;
-			std::optional<define<std::variant<static_file_config, cgi_config, fast_cgi_config>>>
-				_handler; // TODO add other handlers (redirect, proxy...)
+			std::optional<
+				define<std::variant<static_file_config, cgi_config, fast_cgi_config, redirect_config, proxy_config>>>
+				_handler;
 			std::vector<std::pair<filter_type, define<block_config>>> _filters;
 			std::unordered_map<std::string, file_part> _server_names;
 			std::unordered_map<http_response_code, define<error_page>> _error_pages;
@@ -689,13 +731,17 @@ namespace cobra {
 			void parse_max_body_size(parse_session& session);
 			void parse_error_page(parse_session& session);
 			void parse_location(parse_session& session);
+			void parse_method(parse_session& session);
+			void parse_redirect(parse_session& session);
 			void parse_static(parse_session& session);
+			void parse_proxy(parse_session& session);
 			void parse_extension(parse_session& session);
 			void parse_cgi(parse_session& session);
 			void parse_fast_cgi(parse_session& session);
 			void parse_index(parse_session& session);
 			void parse_root(parse_session& session);
 			void parse_server_name(parse_session& session);
+			void parse_set_header(parse_session& session);
 			void parse_comment(parse_session& session);
 
 			template <class Container>
@@ -744,8 +790,7 @@ namespace cobra {
 				if (config->_root)
 					return;
 
-				if (config->_handler && !config->_root) {
-					// TODO this should not trigger for reverse proxy
+				if (config->_handler && !std::holds_alternative<proxy_config>(config->_handler->def) && !config->_root) {
 					diagnostic diag = diagnostic::error(config->_handler->part, COBRA_TEXT("unrooted handler"),
 														COBRA_TEXT("consider rooting it using: `root`"));
 					throw error(diag);
@@ -756,9 +801,6 @@ namespace cobra {
 				}
 			}
 
-			//static void unrooted_handler_lint(const define<server_config>& config);
-			//static void unrooted_handler_lint(const define<block_config>& config);
-			//TODO add lint for non rooted handlers (static, cgi, fast_cgi)
 			void parse_listen(parse_session& session);
 			void parse_ssl(parse_session& session);
 		};
@@ -770,7 +812,8 @@ namespace cobra {
 			std::optional<std::size_t> max_body_size;
 			std::optional<fs::path> index;
 			std::optional<fs::path> root;
-			std::optional<std::variant<static_file_config, cgi_config, fast_cgi_config>> handler;//TODO use configs from handler.hh
+			std::optional<std::variant<static_file_config, cgi_config, fast_cgi_config, redirect_config, proxy_config>>
+				handler; // TODO use configs from handler.hh
 			std::unordered_set<http_request_method> methods;
 			std::unordered_set<std::string> extensions;
 			std::unordered_set<std::string> server_names;

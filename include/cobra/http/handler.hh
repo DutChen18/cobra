@@ -140,6 +140,7 @@ namespace cobra {
 	task<void> handle_static(http_response_writer writer, const handle_context<static_config>& context);
 	task<void> handle_cgi(http_response_writer writer, const handle_context<cgi_config>& context);
 	task<void> handle_redirect(http_response_writer writer, const handle_context<redirect_config>& context);
+	task<void> handle_proxy(http_response_writer writer, const handle_context<proxy_config>& context);
 }
 
 #endif

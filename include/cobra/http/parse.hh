@@ -39,6 +39,7 @@ namespace cobra {
 		request_method_too_long,
 		request_uri_too_long,
 		response_reason_too_long,
+		bad_content,
 	};
 
 	enum class uri_parse_error {
