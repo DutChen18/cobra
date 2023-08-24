@@ -313,7 +313,7 @@ namespace cobra {
 		}
 
 	private:
-#ifdef COBRA_DEBUG_
+#ifdef COBRA_DEBUG_LZ
 		void assert_table_correct() {
 			for (auto& [key, value] : _table) {
 				for (auto& link : *value.first) {

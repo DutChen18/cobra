@@ -230,7 +230,8 @@ namespace cobra {
 				response.add_header("access-control-allow-origin", gate_response.header_map());
 
 				http_ostream sock = co_await std::move(writer).send(response);
-				co_await pipe(buffered_istream_reference(gate), ostream_reference(sock));
+				http_istream_variant<buffered_istream_reference> gate_stream = get_istream(buffered_istream_reference(gate), gate_response);
+				co_await pipe(buffered_istream_reference(gate_stream), ostream_reference(sock));
 			}(gate_istream, std::move(writer)));
 
 			co_await gate_writer;

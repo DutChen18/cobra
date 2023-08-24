@@ -488,7 +488,7 @@ namespace cobra {
 			constexpr define(T&& t, file_part&& part) noexcept : def(std::move(t)), part(std::move(part)) {}
 
 			template <class U>
-			constexpr define(const define<U>& other) noexcept(def(other.def))
+			constexpr define(const define<U>& other) noexcept
 				requires std::convertible_to<U, T>
 				: def(other.def), part(other.part) {}
 

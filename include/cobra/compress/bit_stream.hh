@@ -67,6 +67,8 @@ namespace cobra {
 					_data = 0;
 				}
 			}
+
+			co_return;
 		}
 
 		task<void> flush() {

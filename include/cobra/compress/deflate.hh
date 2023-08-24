@@ -449,18 +449,20 @@ namespace cobra {
 
 	// TODO: the inheritence here is super janky
 	template <AsyncOutputStream Stream>
-	class deflate_ostream : public ostream_impl<deflate_ostream<Stream>> {
-		using base = ostream_impl<deflate_ostream<Stream>>;
+	class deflate_ostream : public buffered_ostream_impl<deflate_ostream<Stream>> {
+		using base = buffered_ostream_impl<deflate_ostream<Stream>>;
 
 		lz_ostream<deflate_ostream_impl<Stream>> _inner;
 		deflate_mode _mode;
 		std::uint32_t adler32_a = 1;
 		std::uint32_t adler32_b = 0;
 
+		constexpr static std::size_t window_size = 32768;
+
 	public:
 		using typename base::char_type;
 
-		deflate_ostream(Stream&& stream, deflate_mode mode = deflate_mode::raw) : _inner(deflate_ostream_impl(std::move(stream), mode), 32768), _mode(mode) {
+		deflate_ostream(Stream&& stream, deflate_mode mode = deflate_mode::raw) : _inner(deflate_ostream_impl(std::move(stream), mode), window_size), _mode(mode) {
 		}
 
 		task<std::size_t> write(const char_type* data, std::size_t size) {

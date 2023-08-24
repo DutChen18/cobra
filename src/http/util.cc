@@ -17,6 +17,14 @@ namespace cobra {
 			return std::nullopt;
 		}
 	}
+	
+	std::optional<int> unhexify(std::optional<char> ch) {
+		if (ch.has_value()) {
+			return unhexify(*ch);
+		} else {
+			return std::nullopt;
+		}
+	}
 
 	bool is_alnum(char ch) {
 		return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z');

@@ -16,7 +16,6 @@ extern "C" {
 #include <openssl/ssl.h>
 }
 
-
 namespace cobra {
 	enum class shutdown_how {
 		read,
@@ -119,6 +118,8 @@ namespace cobra {
 		ssl_ctx _ctx;//maybe not needed since openssl internally increase the reference count for the context
 
 	public:
+		ssl() = delete;
+		ssl(const ssl& other) = delete;
 		ssl(ssl&& other) noexcept;
 		//ssl(const ssl& other);
 		ssl(ssl_ctx ctx);
@@ -143,6 +144,7 @@ namespace cobra {
 		bool _bad;
 
 		ssl_socket_stream() = delete;
+		ssl_socket_stream(const ssl_socket_stream& other) = delete;
 		ssl_socket_stream(event_loop* loop, file&& f, ssl&& _ssl);
 		ssl_socket_stream(executor* exec, event_loop* loop, file&& f, ssl&& _ssl);
 	public:

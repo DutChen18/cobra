@@ -12,6 +12,9 @@
 #include <unordered_map>
 #include <utility>
 
+
+#include <cassert> //TODO remove
+
 extern "C" {
 #include <fcntl.h>
 #include <sys/socket.h>
@@ -100,10 +103,13 @@ namespace cobra {
 		}
 	}
 
-	ssl::ssl(ssl&& other) noexcept : _ssl(std::exchange(other._ssl, nullptr)), _ctx(std::move(other._ctx)) {}
+	ssl::ssl(ssl&& other) noexcept : _ssl(std::exchange(other._ssl, nullptr)), _ctx(std::move(other._ctx)) {
+		assert(other._ssl == nullptr);
+	}
 
 	ssl::~ssl() {
 		if (_ssl){
+			eprintln("freed ssl");
 			SSL_free(_ssl);
 		}
 	}
@@ -283,18 +289,29 @@ namespace cobra {
 		  _read_shutdown(std::exchange(other._read_shutdown, false)),
 		  _bad(std::exchange(other._bad, false)) {}
 
+	static task<void> destruct_ssl(ssl s, file f, event_loop* loop) {
+		co_await s.shutdown(loop, std::move(f));
+	}
+
 	ssl_socket_stream::~ssl_socket_stream() {
 		if (!bad() && !_write_shutdown) {
+			std::cerr << "here" << std::endl;
 			std::cerr << "ssl connection was not correctly shut down" << std::endl;
 			if (_exec) {
 				auto loop = _loop;
+				/*Why doesn't this work?!
 				(void)_exec->schedule([ssl = std::move(_ssl), f = std::move(_file), loop]() mutable -> task<void> {
+					eprintln("cleaning up");
 					co_await ssl.shutdown(loop, std::move(f));
 				}());
+				*/
+				(void)_exec->schedule(destruct_ssl(std::move(_ssl), std::move(_file), loop));
+				assert(_ssl.ptr() == nullptr);
 			} else {
 				std::cerr << "unable to properly shutdown. This should never happen" << std::endl;
 			}
 		}
+		assert(_ssl.ptr() == nullptr);
 	}
 
 	task<ssl_socket_stream> ssl_socket_stream::accept(executor* exec, event_loop* loop, socket_stream&& socket,

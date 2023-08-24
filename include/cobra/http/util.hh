@@ -8,6 +8,7 @@
 namespace cobra {
 	std::string hexify(int i);
 	std::optional<int> unhexify(char ch);
+	std::optional<int> unhexify(std::optional<char> ch);
 
 	template <std::predicate<char> Predicate>
 	std::string hexify(std::string_view string, Predicate pred) {

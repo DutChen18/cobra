@@ -3,9 +3,17 @@ server {
 
 	set_header server cobra
 
+	location / {
+		proxy localhost:8080
+	}
+}
+
+server {
+	listen 127.0.0.1:8080
+
+	root /home/codam/cobra/cgi
 
 	location / {
-		proxy localhost:7070
+		static
 	}
-
 }

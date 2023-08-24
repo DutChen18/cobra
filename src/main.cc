@@ -70,6 +70,7 @@ struct args_type {
 int main(int argc, char **argv) {
 	using namespace cobra;
 	thread_pool_executor exec;
+	//sequential_executor exec;
 	epoll_event_loop loop(exec);
 	std::fstream file;
 	std::istream* input = &std::cin;
@@ -78,7 +79,7 @@ int main(int argc, char **argv) {
 
 	auto parser = argument_parser<args_type>()
 		.add_program_name(&args_type::program_name)
-		.add_argument(&args_type::config_file, "f", "config-file", "path to configuration file")
+		.add_positional(&args_type::config_file, false, "file", "path to configuration file")
 		.add_argument(&args_type::compress_file, "l", "ls", "test lempel-ziv")
 		.add_argument(&args_type::round_file, "r", "round", "test lempel-ziv round trip")
 		.add_argument(&args_type::deflate_file, "z", "deflate", "test deflate")

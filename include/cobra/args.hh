@@ -52,13 +52,20 @@ namespace cobra {
 	};
 
 	class argument_helper {
-		struct argument_help {
+		struct named_argument_help {
 			std::string short_name;
 			std::string long_name;
 			std::string help;
 		};
 
-		std::vector<argument_help> _help;
+		struct positional_argument_help {
+			std::string name;
+			std::string help;
+		};
+
+		std::vector<named_argument_help> _named_help;
+		std::vector<positional_argument_help> _positional_help;
+		std::size_t _positional_arguments = 0;
 
 	public:
 		inline void named_argument(const char* short_name, const char* long_name, const char* help) {
@@ -66,14 +73,23 @@ namespace cobra {
 			std::string long_name_str = long_name ? std::format("--{}", long_name) : "";
 			std::string help_str = help ? help : "";
 
-			_help.push_back({ short_name_str, long_name_str, help_str });
+			_named_help.push_back({ short_name_str, long_name_str, help_str });
+		}
+
+		inline void positional_argument(bool required, const char* name, const char* help) {
+			std::string name_str_tmp = name ? name : std::format("arg_{}", _positional_arguments++);
+			std::string name_str = required ? name_str_tmp : std::format("[{}]", name_str_tmp);
+			std::string help_str = help ? help : "";
+
+			_positional_help.push_back({ name_str, help_str });
 		}
 
 		inline void finish() {
 			std::size_t short_name_size = 0;
 			std::size_t long_name_size = 0;
+			std::size_t name_size = 0;
 
-			for (const argument_help& help : _help) {
+			for (const named_argument_help& help : _named_help) {
 				if (help.short_name.size() > short_name_size) {
 					short_name_size = help.short_name.size();
 				}
@@ -82,16 +98,30 @@ namespace cobra {
 					long_name_size = help.long_name.size();
 				}
 			}
+
+			for (const positional_argument_help& help : _positional_help) {
+				if (help.name.size() > name_size ) {
+					name_size = help.name.size();
+				}
+			}
+
+			name_size = std::max(long_name_size + short_name_size + 1, name_size);
+			long_name_size = name_size - short_name_size - 1;
 			
-			for (const argument_help& help : _help) {
+			for (const named_argument_help& help : _named_help) {
 				if (short_name_size != 0) {
 					eprint("{:{}} ", help.short_name, short_name_size);
 				}
-				
+
 				if (long_name_size != 0) {
 					eprint("{:{}} ", help.long_name, long_name_size);
 				}
 				
+				eprintln(" {}", help.help);
+			}
+
+			for (const positional_argument_help& help : _positional_help) {
+				eprint("{:{}} ", help.name, name_size);
 				eprintln(" {}", help.help);
 			}
 		}
@@ -158,6 +188,57 @@ namespace cobra {
 			(void) state;
 
 			result.*_dest = str;
+		}
+	};
+
+	template <class Result, class Convert>
+	class positional_arg : public argument_base<Result> {
+		typename Convert::result_type Result::* _dest;
+		Convert _convert;
+		bool _required = false;
+		const char* _name;
+		const char* _help;
+
+	public:
+		using typename argument_base<Result>::result_type;
+		
+		struct state_type : argument_base<Result>::state_type {
+			bool defined = false;
+			
+			state_type(const positional_arg& argument) : argument_base<Result>::state_type(argument) {
+			}
+		};
+
+		positional_arg(typename Convert::result_type Result::* dest, Convert&& convert, bool required, const char* name, const char* help) : _dest(dest), _convert(std::move(convert)), _required(required), _name(name), _help(help) {
+		}
+
+		bool positional_argument(result_type& result, state_type& state, std::string_view str) const {
+			if (std::exchange(state.defined, true)) {
+				return false;
+			}
+
+			std::string_view* begin = &str;
+			std::string_view* end = begin + 1;
+			result.*_dest = _convert.convert(begin, end, _name);
+
+			if (begin != end) {
+				throw argument_error(std::format("failed to consume positional argument: {}", _name));
+			}
+
+			return true;
+		}
+
+		void validate(result_type& result, state_type& state) const {
+			(void) result;
+
+			if (!state.defined && _required) {
+				throw argument_error(std::format("missing required position argument: {}", _name));
+			}
+		}
+
+		template <class Helper>
+		void get_help(Helper& helper) const {
+			helper.positional_argument(_required, _name, _help);
 		}
 	};
 
@@ -252,6 +333,11 @@ namespace cobra {
 		template <class T>
 		auto add_flag(T Result::* dest, T value, const char* short_name, const char* long_name, const char* help)&& {
 			return argument_parser_chain(std::move(*static_cast<Base*>(this)), argument_arg(dest, store_conv(std::move(value)), short_name, long_name, help));
+		}
+
+		template <class T>
+		auto add_positional(T Result::* dest, bool required, const char* name, const char* help)&& {
+			return argument_parser_chain(std::move(*static_cast<Base*>(this)), positional_arg(dest, parse_conv<T>(), required, name, help));
 		}
 
 		template <std::input_iterator I, std::sentinel_for<I> S>
@@ -410,7 +496,7 @@ namespace cobra {
 				parser.program_name(result, state, static_cast<std::string_view>(*it++));
 				continue;
 			}
-			
+
 			std::string_view str = static_cast<std::string_view>(*it++);
 
 			if (allow_flags) {

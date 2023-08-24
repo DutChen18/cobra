@@ -3,7 +3,7 @@
 #include "cobra/compress/deflate.hh"
 
 namespace cobra {
-	static bool has_header_value(const http_message& message, const std::string& key, std::string_view target) {
+	bool has_header_value(const http_message& message, const std::string& key, std::string_view target) {
 		if (message.has_header(key)) {
 			std::string_view value = message.header(key);
 			std::string_view::size_type pos = 0;
@@ -162,11 +162,18 @@ namespace cobra {
 	}
 
 	task<void> http_ostream_wrapper::end() {
+		assert(_sent);
+		_sent = false;
 		_stream = co_await std::visit([](auto& stream) { return end_stream(stream); }, _stream.variant());
 	}
 
 	void http_ostream_wrapper::set_close() {
 		_keep_alive = false;
+	}
+
+	void http_ostream_wrapper::set_sent() {
+		assert(!_sent);
+		_sent = true;
 	}
 
 	bool http_ostream_wrapper::keep_alive() const {
@@ -177,6 +184,7 @@ namespace cobra {
 	}
 
 	task<http_ostream> http_request_writer::send(http_request request)&& {
+		_stream->set_sent();
 		co_await write_http_request(_stream->inner(), request);
 		co_return to_stream(_stream, request);
 	}
@@ -213,6 +221,7 @@ namespace cobra {
 			_logger->log(_request, response);
 		}
 
+		_stream->set_sent();
 		co_await write_http_response(_stream->inner(), response);
 		co_return to_stream(_stream, response);
 	}

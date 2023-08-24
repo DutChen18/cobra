@@ -6,6 +6,7 @@
 #include "cobra/compress/deflate.hh"
 #include "cobra/http/message.hh"
 #include "cobra/http/parse.hh"
+#include "cobra/http/util.hh"
 #include "cobra/net/stream.hh"
 
 #include <type_traits>
@@ -16,7 +17,7 @@ namespace cobra {
 		Stream _stream;
 		std::size_t _remaining = 0;
 		bool _done = false;
-		bool _crlf = false;
+		int _crlf = 0;
 
 	public:
 		using typename buffered_istream_impl<chunked_istream<Stream>>::char_type;
@@ -25,42 +26,46 @@ namespace cobra {
 		}
 
 		task<std::pair<const char_type*, std::size_t>> fill_buf() {
-			if (_crlf) {
-				if (co_await _stream.get() != '\r') {
-					throw http_parse_error::bad_content;
+			while (true) {
+				while (_crlf > 0) {
+					if (co_await _stream.get() != '\r') {
+						throw http_parse_error::bad_content;
+					}
+
+					if (co_await _stream.get() != '\n') {
+						throw http_parse_error::bad_content;
+					}
+
+					_crlf -= 1;
+				}
+				
+				if (_done) {
+					co_return { nullptr, 0 };
+				}
+				
+				if (_remaining > 0) {
+					auto [data, size] = co_await _stream.fill_buf();
+					co_return { data, std::min(size, _remaining) };
 				}
 
-				if (co_await _stream.get() != '\n') {
-					throw http_parse_error::bad_content;
-				}
-
-				_crlf = false;
-			} else if (_done) {
-				co_return { nullptr, 0 };
-			}
-			
-			if (_remaining > 0) {
-				auto [data, size] = co_await _stream.fill_buf();
-				co_return { data, std::min(size, _remaining) };
-			} else {
 				if (auto digit = unhexify(co_await _stream.peek())) {
 					_stream.consume(1);
-					_remaining = digit;
+					_remaining = *digit;
 				} else {
 					throw http_parse_error::bad_content;
 				}
 
 				while (auto digit = unhexify(co_await _stream.peek())) {
 					_stream.consume(1);
-					_remaining = _remaining * 10 + digit;
+					_remaining = _remaining * 16 + *digit;
 				}
 
 				if (_remaining == 0) {
 					_done = true;
+					_crlf += 1;
 				}
 
-				_crlf = true;
-				co_return co_await fill_buf();
+				_crlf += 1;
 			}
 		}
 
@@ -69,7 +74,7 @@ namespace cobra {
 			_remaining -= size;
 
 			if (size > 0 && _remaining == 0) {
-				_crlf = true;
+				_crlf += 1;
 			}
 		}
 
@@ -120,7 +125,7 @@ namespace cobra {
 	};
 
 	template <AsyncBufferedInputStream Stream>
-	using http_istream_variant = istream_variant<
+	using http_istream_variant = buffered_istream_variant<
 		Stream,
 		chunked_istream<Stream>,
 		istream_limit<Stream>,
@@ -130,7 +135,7 @@ namespace cobra {
 	>;
 
 	template <AsyncBufferedOutputStream Stream>
-	using http_ostream_variant = ostream_variant<
+	using http_ostream_variant = buffered_ostream_variant<
 		Stream,
 		ostream_buffer<chunked_ostream<Stream>>,
 		ostream_limit<Stream>,
@@ -139,8 +144,22 @@ namespace cobra {
 		ostream_limit<deflate_ostream<Stream>>
 	>;
 
-	using http_istream = istream_ref<http_istream_variant<buffered_istream_reference>>;
-	using http_ostream = ostream_ref<http_ostream_variant<buffered_ostream_reference>>;
+	using http_istream = buffered_istream_ref<http_istream_variant<buffered_istream_reference>>;
+	using http_ostream = buffered_ostream_ref<http_ostream_variant<buffered_ostream_reference>>;
+
+	bool has_header_value(const http_message& message, const std::string& key, std::string_view target);
+
+	template <AsyncBufferedInputStream Stream>
+	http_istream_variant<Stream> get_istream(Stream stream, const http_message& message) {
+		if (message.has_header("Content-Length")) {
+			std::size_t size = std::stoull(message.header("Content-Length"));
+			return istream_limit(std::move(stream), size);
+		} else if (has_header_value(message, "Transfer-Encoding", "chunked")) {
+			return chunked_istream(std::move(stream));
+		} else {
+			return std::move(stream);
+		}
+	}
 
 	class http_server_logger {
 		const basic_socket_stream* _socket = nullptr;
@@ -154,6 +173,7 @@ namespace cobra {
 	class http_ostream_wrapper {
 		http_ostream_variant<buffered_ostream_reference> _stream;
 		bool _keep_alive = true;
+		bool _sent = false;
 
 	public:
 		http_ostream_wrapper(buffered_ostream_reference stream);
@@ -168,6 +188,7 @@ namespace cobra {
 		task<void> end();
 
 		void set_close();
+		void set_sent();
 		bool keep_alive() const;
 	};
 
