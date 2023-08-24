@@ -12,9 +12,11 @@
 #include <stdexcept>
 #include <tuple>
 
+#ifdef COBRA_LINUX
 extern "C" {
 #include <sys/epoll.h>
 }
+#endif
 
 namespace cobra {
 
@@ -58,6 +60,7 @@ namespace cobra {
 		_loop.get().schedule_event(_event, _timeout, handle);
 	}
 
+#ifdef COBRA_LINUX
 	epoll_event_loop::epoll_event_loop(executor& exec) : _epoll_fd(epoll_create(1)), _exec(exec) {
 		if (_epoll_fd.fd() == -1)
 			throw errno_exception();
@@ -280,4 +283,17 @@ namespace cobra {
 			throw errno_exception();
 		return result;
 	}
+#endif
+
+#ifdef COBRA_MACOS
+	kqueue_event_loop::kqueue_event_loop(executor& exec) {
+	}
+
+	void kqueue_event_loop::schedule_event(event_pair event, std::optional<std::chrono::milliseconds> timeout,
+										  event_handle<void>& handle) {
+	}
+
+	void kqueue_event_loop::poll() {
+	}
+#endif
 } // namespace cobra

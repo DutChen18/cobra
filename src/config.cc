@@ -317,10 +317,10 @@ namespace cobra {
 					auto line = diag_lines.back().substr(min_leading);
 					printer.println(end_line, "{}\\{} {}", style, term::reset(), config_line{line});
 				} else {
-					printer.println("{}|{}^", style, std::string(end_col - min_leading + 2, '_'));
+					printer.println("{}|{}{}", style, std::string(end_col - min_leading + 2, '_'), '^');
 				}
 			} else {
-				printer.println("{}|{}^ {}", style, std::string(end_col - min_leading + 1, '_'), primary_label);
+				printer.println("{}|{}{} {}", style, std::string(end_col - min_leading + 1, '_'), '^', primary_label);
 			}
 			return out;
 		}
@@ -957,6 +957,8 @@ namespace cobra {
 			}
 
 			for (const auto& [address, defines] : servers) {
+				const auto& address_hack = address;
+
 				if (defines.size() < 2)
 					continue;
 				std::unordered_map<std::string_view, file_part> names;
@@ -967,8 +969,8 @@ namespace cobra {
 						diagnostic diag = diagnostic::error(define.get().part, COBRA_TEXT("ambigious server"),
 															COBRA_TEXT("consider specifying a `server_name`"));
 						auto address_define =
-							std::find_if(config._addresses.begin(), config._addresses.end(), [address](auto addr) {
-								return addr == address;
+							std::find_if(config._addresses.begin(), config._addresses.end(), [address_hack](auto addr) {
+								return addr == address_hack;
 							});
 
 						diag.sub_diags.push_back(
@@ -983,8 +985,8 @@ namespace cobra {
 
 							auto other_address_define =
 								std::find_if(ambigious_define.get().def._addresses.begin(),
-											 ambigious_define.get().def._addresses.end(), [address](auto addr) {
-												 return addr == address;
+											 ambigious_define.get().def._addresses.end(), [address_hack](auto addr) {
+												 return addr == address_hack;
 											 });
 							sub_diag.sub_diags.push_back(
 								diagnostic::note(other_address_define->part, COBRA_TEXT("also listened to here")));
@@ -1063,7 +1065,7 @@ namespace cobra {
 
 		std::strong_ordering filter::operator<=>(const filter& other) const {
 			if (type == other.type)
-				return match <=> other.match;
+				return match < other.match ? std::strong_ordering::less : std::strong_ordering::greater;
 			return type <=> other.type;
 		}
 

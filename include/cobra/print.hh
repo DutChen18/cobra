@@ -7,6 +7,7 @@
 #include <iostream>
 #include <cstdint>
 #include <iomanip>
+#include <sstream>
 
 namespace cobra {
 	template <class... Args>
@@ -390,14 +391,15 @@ namespace cobra {
 
 template <>
 class std::formatter<cobra::term::control> {
-	template <class... Args>
-	static bool format(std::format_context& fc, bool w, std::format_string<Args...> fmt, Args&&... args) {
+	template <class FormatContext, class... Args>
+	static bool format(FormatContext& fc, bool w, std::format_string<Args...> fmt, Args&&... args) {
 		fc.advance_to(std::format_to(fc.out(), "{}", w ? ";" : "\033["));
 		fc.advance_to(std::format_to(fc.out(), fmt, std::forward<Args>(args)...));
 		return true;
 	}
 
-	static bool format_attr(std::format_context& fc, bool w, cobra::term::control ctrl, cobra::term::attr_t attr, int t, int f) {
+	template <class FormatContext>
+	static bool format_attr(FormatContext& fc, bool w, cobra::term::control ctrl, cobra::term::attr_t attr, int t, int f) {
 		if (ctrl.attr_set() & attr) {
 			return format(fc, w, "{}", t);
 		} else if (ctrl.attr_clear() & attr) {
@@ -407,7 +409,8 @@ class std::formatter<cobra::term::control> {
 		}
 	}
 
-	static bool format_col(std::format_context& fc, bool w, cobra::term::color col, int i) {
+	template <class FormatContext>
+	static bool format_col(FormatContext& fc, bool w, cobra::term::color col, int i) {
 		if (col.mode() == cobra::term::color_mode::int_3) {
 			return format(fc, w, "{}", i + col.val());
 		} else if (col.mode() == cobra::term::color_mode::int_8) {
@@ -426,7 +429,8 @@ public:
 		return fpc.begin();
 	}
 
-	auto format(cobra::term::control ctrl, std::format_context& fc) const {
+	template <class FormatContext>
+	auto format(cobra::term::control ctrl, FormatContext& fc) const {
 		bool w = false;
 
 		if (ctrl.attr_set() & cobra::term::attr_reset) {

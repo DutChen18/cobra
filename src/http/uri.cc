@@ -10,7 +10,7 @@ namespace cobra {
 	uri_abs_path::uri_abs_path(const std::filesystem::path& path) {
 		bool first = true;
 
-		for (auto& part : path) {
+		for (const auto& part : path) {
 			if (!first || !path.is_absolute()) {
 				push_back(part);
 			}

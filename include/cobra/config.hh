@@ -115,7 +115,22 @@ namespace cobra {
 
 			inline bool is_multiline() const { return start.line != end.line; }
 
-			auto operator<=>(const file_part& other) const = default;
+			auto operator<=>(const file_part& other) const {
+				if (file != other.file)
+					return file < other.file ? std::strong_ordering::less : std::strong_ordering::greater;
+				if (start != other.start)
+					return start < other.start ? std::strong_ordering::less : std::strong_ordering::greater;
+				if (end != other.end)
+					return end < other.end ? std::strong_ordering::less : std::strong_ordering::greater;
+				return std::strong_ordering::equal;
+			}
+
+			bool operator==(const file_part& other) const = default;
+			bool operator!=(const file_part& other) const = default;
+			bool operator>(const file_part& other) const = default;
+			bool operator<(const file_part& other) const = default;
+			bool operator>=(const file_part& other) const = default;
+			bool operator<=(const file_part& other) const = default;
 		};
 
 		//replaces tabs with single space in formatter
@@ -140,14 +155,14 @@ namespace cobra {
 			template <class... Args>
 			line_printer& print(std::format_string<Args...> fmt, Args&&... args) {
 				this->print();
-				cobra::print(_stream, fmt, std::forward<Args>(args)...);
+				cobra::print(_stream, std::move(fmt), std::forward<Args>(args)...);
 				return *this;
 			}
 
 			template <class... Args>
 			line_printer& print(std::size_t line_num, std::format_string<Args...> fmt, Args&&... args) {
 				this->print(line_num);
-				cobra::print(_stream, fmt, std::forward<Args>(args)...);
+				cobra::print(_stream, std::move(fmt), std::forward<Args>(args)...);
 				return *this;
 			}
 
@@ -156,13 +171,13 @@ namespace cobra {
 
 			template <class... Args>
 			line_printer& println(std::format_string<Args...> fmt, Args&&... args) {
-				this->print(fmt, std::forward<Args>(args)...);
+				this->print(std::move(fmt), std::forward<Args>(args)...);
 				return newline();
 			}
 
 			template <class... Args>
 			line_printer& println(std::size_t line_num, std::format_string<Args...> fmt, Args&&... args) {
-				this->print(line_num, fmt, std::forward<Args>(args)...);
+				this->print(line_num, std::move(fmt), std::forward<Args>(args)...);
 				return newline();
 			}
 
@@ -462,7 +477,18 @@ namespace cobra {
 				return _service;
 			}
 
-			auto operator<=>(const listen_address& other) const = default;
+			auto operator<=>(const listen_address& other) const {
+				if (_node != other._node)
+					return _node < other._node ? std::strong_ordering::less : std::strong_ordering::greater;
+				return std::strong_ordering::equal;
+			}
+			
+			bool operator==(const listen_address& other) const = default;
+			bool operator!=(const listen_address& other) const = default;
+			bool operator>(const listen_address& other) const = default;
+			bool operator<(const listen_address& other) const = default;
+			bool operator>=(const listen_address& other) const = default;
+			bool operator<=(const listen_address& other) const = default;
 
 			static listen_address parse(parse_session& session);
 		};
@@ -549,7 +575,18 @@ namespace cobra {
 				return _file;
 			}
 
-			auto operator<=>(const config_file& other) const = default;
+			auto operator<=>(const config_file& other) const {
+				if (_file != other._file)
+					return _file < other._file ? std::strong_ordering::less : std::strong_ordering::greater;
+				return std::strong_ordering::equal;
+			}
+			
+			bool operator==(const config_file& other) const = default;
+			bool operator!=(const config_file& other) const = default;
+			bool operator>(const config_file& other) const = default;
+			bool operator<(const config_file& other) const = default;
+			bool operator>=(const config_file& other) const = default;
+			bool operator<=(const config_file& other) const = default;
 		};
 
 		class config_exec : public config_file {
@@ -571,7 +608,18 @@ namespace cobra {
 				return _dir;
 			}
 
-			auto operator<=>(const config_dir& other) const = default;
+			auto operator<=>(const config_dir& other) const {
+				if (_dir != other._dir)
+					return _dir < other._dir ? std::strong_ordering::less : std::strong_ordering::greater;
+				return std::strong_ordering::equal;
+			}
+			
+			bool operator==(const config_dir& other) const = default;
+			bool operator!=(const config_dir& other) const = default;
+			bool operator>(const config_dir& other) const = default;
+			bool operator<(const config_dir& other) const = default;
+			bool operator>=(const config_dir& other) const = default;
+			bool operator<=(const config_dir& other) const = default;
 		};
 
 		struct static_file_config {
@@ -599,7 +647,20 @@ namespace cobra {
 
 			static redirect_config parse(parse_session& session);
 
-			auto operator<=>(const redirect_config& other) const = default;
+			auto operator<=>(const redirect_config& other) const {
+				if (code != other.code)
+					return code < other.code ? std::strong_ordering::less : std::strong_ordering::greater;
+				if (location != other.location)
+					return location < other.location ? std::strong_ordering::less : std::strong_ordering::greater;
+				return std::strong_ordering::equal;
+			}
+			
+			bool operator==(const redirect_config& other) const = default;
+			bool operator!=(const redirect_config& other) const = default;
+			bool operator>(const redirect_config& other) const = default;
+			bool operator<(const redirect_config& other) const = default;
+			bool operator>=(const redirect_config& other) const = default;
+			bool operator<=(const redirect_config& other) const = default;
 		};
 
 		struct extension {
@@ -609,7 +670,18 @@ namespace cobra {
 				return { session.get_word_simple("string", "extension") };
 			}
 
-			auto operator<=>(const extension& other) const = default;
+			auto operator<=>(const extension& other) const {
+				if (ext != other.ext)
+					return ext < other.ext ? std::strong_ordering::less : std::strong_ordering::greater;
+				return std::strong_ordering::equal;
+			}
+
+			bool operator==(const extension& other) const = default;
+			bool operator!=(const extension& other) const = default;
+			bool operator>(const extension& other) const = default;
+			bool operator<(const extension& other) const = default;
+			bool operator>=(const extension& other) const = default;
+			bool operator<=(const extension& other) const = default;
 		};
 
 		class header_pair {
@@ -623,7 +695,20 @@ namespace cobra {
 			inline const http_header_key& key() const { return _key; }
 			inline const http_header_value& value() const { return _value; }
 
-			auto operator<=>(const header_pair& other) const = default;
+			auto operator<=>(const header_pair& other) const {
+				if (_key != other._key)
+					return _key < other._key ? std::strong_ordering::less : std::strong_ordering::greater;
+				if (_value != other._value)
+					return _value < other._value ? std::strong_ordering::less : std::strong_ordering::greater;
+				return std::strong_ordering::equal;
+			}
+
+			bool operator==(const header_pair& other) const = default;
+			bool operator!=(const header_pair& other) const = default;
+			bool operator>(const header_pair& other) const = default;
+			bool operator<(const header_pair& other) const = default;
+			bool operator>=(const header_pair& other) const = default;
+			bool operator<=(const header_pair& other) const = default;
 		};
 
 		struct error_page {
@@ -632,7 +717,20 @@ namespace cobra {
 
 			static error_page parse(parse_session& session);
 
-			auto operator<=>(const error_page& other) const = default;
+			auto operator<=>(const error_page& other) const {
+				if (code != other.code)
+					return code < other.code ? std::strong_ordering::less : std::strong_ordering::greater;
+				if (file != other.file)
+					return file < other.file ? std::strong_ordering::less : std::strong_ordering::greater;
+				return std::strong_ordering::equal;
+			}
+			
+			bool operator==(const error_page& other) const = default;
+			bool operator!=(const error_page& other) const = default;
+			bool operator>(const error_page& other) const = default;
+			bool operator<(const error_page& other) const = default;
+			bool operator>=(const error_page& other) const = default;
+			bool operator<=(const error_page& other) const = default;
 		};
 
 		struct cgi_config {
@@ -662,13 +760,35 @@ namespace cobra {
 				return {session.get_word_simple("string", "host")};
 			}
 
-			auto operator<=>(const server_name& other) const = default;
+			auto operator<=>(const server_name& other) const {
+				if (name != other.name)
+					return name < other.name ? std::strong_ordering::less : std::strong_ordering::greater;
+				return std::strong_ordering::equal;
+			}
+			
+			bool operator==(const server_name& other) const = default;
+			bool operator!=(const server_name& other) const = default;
+			bool operator>(const server_name& other) const = default;
+			bool operator<(const server_name& other) const = default;
+			bool operator>=(const server_name& other) const = default;
+			bool operator<=(const server_name& other) const = default;
 		};
 
 		struct location_filter {
 			uri_abs_path path;
 
-			constexpr auto operator<=>(const location_filter& other) const noexcept = default;
+			constexpr auto operator<=>(const location_filter& other) const {
+				if (path != other.path)
+					return path < other.path ? std::strong_ordering::less : std::strong_ordering::greater;
+				return std::strong_ordering::equal;
+			}
+			
+			bool operator==(const location_filter& other) const = default;
+			bool operator!=(const location_filter& other) const = default;
+			bool operator>(const location_filter& other) const = default;
+			bool operator<(const location_filter& other) const = default;
+			bool operator>=(const location_filter& other) const = default;
+			bool operator<=(const location_filter& other) const = default;
 
 			inline static location_filter parse(parse_session& session) {
 				return {fs::path(session.get_word("filter", "filter"))};
@@ -680,7 +800,18 @@ namespace cobra {
 		struct method_filter {
 			std::vector<std::string> methods;
 
-			constexpr auto operator<=>(const method_filter& other) const noexcept = default;
+			constexpr auto operator<=>(const method_filter& other) const noexcept {
+				if (methods != other.methods)
+					return methods < other.methods ? std::strong_ordering::less : std::strong_ordering::greater;
+				return std::strong_ordering::equal;
+			}
+			
+			bool operator==(const method_filter& other) const = default;
+			bool operator!=(const method_filter& other) const = default;
+			bool operator>(const method_filter& other) const = default;
+			bool operator<(const method_filter& other) const = default;
+			bool operator>=(const method_filter& other) const = default;
+			bool operator<=(const method_filter& other) const = default;
 
 			static method_filter parse(parse_session& session);
 		};

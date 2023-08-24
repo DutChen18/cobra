@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
 	using namespace cobra;
 	thread_pool_executor exec;
 	//sequential_executor exec;
-	epoll_event_loop loop(exec);
+	platform_event_loop loop(exec);
 	std::fstream file;
 	std::istream* input = &std::cin;
 

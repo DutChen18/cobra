@@ -16,10 +16,12 @@
 #include <optional>
 #include <unordered_map>
 
+#ifdef COBRA_LINUX
 extern "C" {
 #include <sys/epoll.h>
 #include <sys/wait.h>
 }
+#endif
 
 namespace cobra {
 
@@ -62,6 +64,7 @@ namespace cobra {
 									event_type::handle_type& handle) = 0;
 	};
 
+#ifdef COBRA_LINUX
 	class epoll_event_loop : public event_loop {
 	public:
 		using clock = std::chrono::steady_clock;
@@ -115,6 +118,27 @@ namespace cobra {
 			return type == poll_type::read ? EPOLLIN : EPOLLOUT;
 		}
 	};
+#endif
+
+#ifdef COBRA_MACOS
+	class kqueue_event_loop : public event_loop {
+	public:
+		using event_pair = std::pair<int, poll_type>;
+
+		kqueue_event_loop(executor& exec);
+
+		void poll() override;
+
+	private:
+		void schedule_event(event_pair event, std::optional<std::chrono::milliseconds> timeout, event_type::handle_type& handle) override;
+	};
+#endif
+
+#if defined COBRA_LINUX
+	using platform_event_loop = epoll_event_loop;
+#elif defined COBRA_MACOS
+	using platform_event_loop = kqueue_event_loop;
+#endif
 } // namespace cobra
 
 #endif
