@@ -43,10 +43,11 @@ namespace cobra {
 	};
 
 	class thread_pool_executor : public executor {
-		std::vector<std::jthread> _threads;
+		std::vector<std::thread> _threads;
 		std::queue<std::function<void()>> _queue;
 		std::mutex _mutex;
 		std::condition_variable _condition_variable;
+		bool _stop = false;
 
 		void create_threads(std::size_t count);
 

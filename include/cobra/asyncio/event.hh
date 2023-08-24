@@ -1,9 +1,8 @@
 #ifndef COBRA_ASYNCIO_EVENT_HH
 #define COBRA_ASYNCIO_EVENT_HH
 
+#include "cobra/asyncio/coroutine.hh"
 #include "cobra/asyncio/result.hh"
-
-#include <coroutine>
 
 namespace cobra {
 	template <class T>

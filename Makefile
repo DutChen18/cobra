@@ -18,6 +18,24 @@ ifndef config
 	config := debug
 endif
 
+ifndef platform
+	ifeq ($(shell uname -s), Linux)
+		platform = linux
+	else
+		platform = macos
+	endif
+endif
+
+ifeq ($(platform), linux)
+	CXXFLAGS += -DCOBRA_LINUX
+	LDFLAGS += -DCOBRA_LINUX
+else ifeq ($(platform), macos)
+	CXXFLAGS += -DCOBRA_MACOS -fexperimental-library -I/Users/csteenvo/homebrew/Cellar/openssl\@3/3.1.2/include
+	LDFLAGS += -DCOBRA_MACOS -fexperimental-library -L/Users/csteenvo/homebrew/Cellar/openssl\@3/3.1.2/lib -L/Users/csteenvo/homebrew/Cellar/llvm/15.0.5/lib/c++
+else
+$(error "unknown platform $(platform)")
+endif
+
 ifeq ($(config), debug)
 	CXXFLAGS += -DCOBRA_DEBUG -fno-inline -g3 -O0
 	LDFLAGS += -DCOBRA_DEBUG -fno-inline -g3 -O0
