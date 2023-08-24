@@ -4,6 +4,7 @@
 #include "cobra/config.hh"
 #include "cobra/http/handler.hh"
 #include "cobra/http/parse.hh"
+#include "cobra/counter.hh"
 
 #include <exception>
 #include <iterator>
@@ -182,7 +183,9 @@ namespace cobra {
 		http_server_logger logger;
 		logger.set_socket(socket);
 
-		if (_num_connections.fetch_add(1) >= max_connections()) {
+		counter c(_num_connections);
+
+		if (c.prev_val() >= max_connections()) {
 			co_await socket_istream.fill_buf();
 			http_request phantom_request("GET", parse_uri("/", "GET"));
 			http_response response(HTTP_SERVICE_UNAVAILABLE);
@@ -245,7 +248,6 @@ namespace cobra {
 				co_await wrapper.end();
 			} while (wrapper.keep_alive());
 		}
-		_num_connections.fetch_sub(1);
 	}
 
 	task<void> server::handle_request(const http_filter& filt, const http_request& request, const uri_abs_path& normalized,

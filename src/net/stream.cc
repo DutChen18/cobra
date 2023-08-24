@@ -41,7 +41,10 @@ namespace cobra {
 
 	task<std::size_t> socket_stream::read(char_type* data, std::size_t size) {
 		co_await _loop->wait_read(_file);
-		co_return check_return(recv(_file.fd(), data, size, 0));
+		//co_return check_return(recv(_file.fd(), data, size, 0));
+		auto res = check_return(recv(_file.fd(), data, size, 0));
+		eprintln("\"{}\"", std::string_view(data, res));
+		co_return res;
 	}
 
 	task<std::size_t> socket_stream::write(const char_type* data, std::size_t size) {
@@ -306,12 +309,10 @@ namespace cobra {
 				}());
 				*/
 				(void)_exec->schedule(destruct_ssl(std::move(_ssl), std::move(_file), loop));
-				assert(_ssl.ptr() == nullptr);
 			} else {
 				std::cerr << "unable to properly shutdown. This should never happen" << std::endl;
 			}
 		}
-		assert(_ssl.ptr() == nullptr);
 	}
 
 	task<ssl_socket_stream> ssl_socket_stream::accept(executor* exec, event_loop* loop, socket_stream&& socket,

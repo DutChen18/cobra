@@ -213,6 +213,7 @@ namespace cobra {
 			ostream_buffer gate_ostream(make_ostream_ref(gate), 1024);
 			http_request gate_request(context.request().method(), context.request().uri());
 			gate_request.add_header("host", context.request().header_map());
+			gate_request.add_header("cookie", context.request().header_map());
 
 			co_await write_http_request(gate_ostream, gate_request);
 
@@ -228,6 +229,8 @@ namespace cobra {
 				response.add_header("content-type", gate_response.header_map());
 				response.add_header("location", gate_response.header_map());
 				response.add_header("access-control-allow-origin", gate_response.header_map());
+				response.add_header("access-control-allow-credentials", gate_response.header_map());
+				response.add_header("set-cookie", gate_response.header_map());
 
 				http_ostream sock = co_await std::move(writer).send(response);
 				http_istream_variant<buffered_istream_reference> gate_stream = get_istream(buffered_istream_reference(gate), gate_response);
@@ -239,11 +242,14 @@ namespace cobra {
 		} catch (const connection_error& ex) {
 			eprintln("connection error: {}", ex.what());
 			throw HTTP_BAD_GATEWAY;
-		} catch (http_parse_error) {
+		} catch (http_parse_error err) {
+			eprintln("parse_error {}", static_cast<int>(err));
 			throw HTTP_BAD_GATEWAY;
 		} catch (stream_error) {
+			eprintln("stream_error");
 			throw HTTP_BAD_GATEWAY;
 		} catch (compress_error) {
+			eprintln("compress_error");
 			throw HTTP_BAD_GATEWAY;
 		} 
 	}

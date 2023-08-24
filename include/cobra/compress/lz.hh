@@ -532,7 +532,7 @@ namespace cobra {
 		task<void> produce_atleast(size_t at_least) {
 			assert(at_least <= _buffer.size() && "tried to produce  more than available");
 			const size_t before = _buffer.size();
-			while (!_buffer.empty() && before - _buffer.size() <= at_least) {
+			while (!_buffer.empty() && before - _buffer.size() <= at_least) { // TODO: should this be < instead of <=?
 				co_await produce_one();
 			}
 		}
