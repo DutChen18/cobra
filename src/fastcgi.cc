@@ -129,6 +129,16 @@ namespace cobra {
 		return _connection;
 	}
 
+	void fastcgi_client::set_error(fastcgi_error error) {
+		_error = error;
+	}
+
+	void fastcgi_client::check_error() const {
+		if (_error) {
+			throw *_error;
+		}
+	}
+
 	fastcgi_ostream<fastcgi_record_type::fcgi_params>& fastcgi_client::fcgi_params() {
 		return *this;
 	}

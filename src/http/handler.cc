@@ -55,8 +55,8 @@ namespace cobra {
 	// TODO: properly handle parse_http_response errors and stuff
 	/*
 	static task<std::pair<http_response, std::vector<char>>> get_response(basic_socket_stream& socket, const http_request& request) {
-		istream_buffer socket_istream(make_istream_ref(socket), 1024);
-		ostream_buffer socket_ostream(make_ostream_ref(socket), 1024);
+		istream_buffer socket_istream(make_istream_ref(socket), COBRA_BUFFER_SIZE);
+		ostream_buffer socket_ostream(make_ostream_ref(socket), COBRA_BUFFER_SIZE);
 		co_await write_http_request(socket_ostream, request);
 		co_await socket.shutdown(shutdown_how::write);
 		http_response response = co_await parse_http_response(socket_istream);
@@ -90,7 +90,7 @@ namespace cobra {
 	task<void> handle_static(http_response_writer writer, const handle_context<static_config>& context) {
 		try {
 			std::filesystem::path path = context.root() + context.file();
-			istream_buffer file_istream(std_istream(std::ifstream(path, std::ifstream::binary)), 1024);
+			istream_buffer file_istream(std_istream(std::ifstream(path, std::ifstream::binary)), COBRA_BUFFER_SIZE);
 			co_await file_istream.fill_buf();
 			http_response resp(context.config().code().value_or(HTTP_OK));
 			http_ostream sock_ostream = co_await std::move(writer).send(resp);
@@ -137,8 +137,8 @@ namespace cobra {
 			}
 
 			process proc = cmd.spawn(context.loop());
-			istream_buffer proc_istream(make_istream_ref(proc.out()), 1024);
-			ostream_buffer proc_ostream(make_ostream_ref(proc.in()), 1024);
+			istream_buffer proc_istream(make_istream_ref(proc.out()), COBRA_BUFFER_SIZE);
+			ostream_buffer proc_ostream(make_ostream_ref(proc.in()), COBRA_BUFFER_SIZE);
 
 			auto proc_writer = context.exec()->schedule([](auto sock, auto& proc) -> task<void> {
 				co_await pipe(sock, ostream_reference(proc));
@@ -154,14 +154,14 @@ namespace cobra {
 			co_await proc.wait();
 		} else if (const auto* config = context.config().addr()) {
 			socket_stream fcgi = co_await open_connection(context.loop(), config->node().c_str(), config->service().c_str());
-			istream_buffer fcgi_connection_istream(make_istream_ref(fcgi), 1024);
-			ostream_buffer fcgi_connection_ostream(make_ostream_ref(fcgi), 1024);
+			istream_buffer fcgi_connection_istream(make_istream_ref(fcgi), COBRA_BUFFER_SIZE);
+			ostream_buffer fcgi_connection_ostream(make_ostream_ref(fcgi), COBRA_BUFFER_SIZE);
 			fastcgi_client_connection fcgi_connection(fcgi_connection_istream, fcgi_connection_ostream);
 			std::shared_ptr<fastcgi_client> fcgi_client = co_await fcgi_connection.begin();
-			ostream_buffer fcgi_pstream(make_ostream_ref(fcgi_client->fcgi_params()), 1024);
-			istream_buffer fcgi_istream(make_istream_ref(fcgi_client->fcgi_stdout()), 1024);
-			ostream_buffer fcgi_ostream(make_ostream_ref(fcgi_client->fcgi_stdin()), 1024);
-			istream_buffer fcgi_estream(make_istream_ref(fcgi_client->fcgi_stderr()), 1024);
+			ostream_buffer fcgi_pstream(make_ostream_ref(fcgi_client->fcgi_params()), COBRA_BUFFER_SIZE);
+			istream_buffer fcgi_istream(make_istream_ref(fcgi_client->fcgi_stdout()), COBRA_BUFFER_SIZE);
+			ostream_buffer fcgi_ostream(make_ostream_ref(fcgi_client->fcgi_stdin()), COBRA_BUFFER_SIZE);
+			istream_buffer fcgi_estream(make_istream_ref(fcgi_client->fcgi_stderr()), COBRA_BUFFER_SIZE);
 
 			for (auto [key, value] : get_cgi_params(context)) {
 				co_await write_u32_be(fcgi_pstream, key.size() | 0x80000000);
@@ -209,8 +209,8 @@ namespace cobra {
 	task<void> handle_proxy(http_response_writer writer, const handle_context<proxy_config>& context) {
 		try {
 			socket_stream gate = co_await open_connection(context.loop(), context.config().node().c_str(), context.config().service().c_str());
-			istream_buffer gate_istream(make_istream_ref(gate), 1024);
-			ostream_buffer gate_ostream(make_ostream_ref(gate), 1024);
+			istream_buffer gate_istream(make_istream_ref(gate), COBRA_BUFFER_SIZE);
+			ostream_buffer gate_ostream(make_ostream_ref(gate), COBRA_BUFFER_SIZE);
 			http_request gate_request(context.request().method(), context.request().uri());
 			gate_request.add_header("host", context.request().header_map());
 			gate_request.add_header("cookie", context.request().header_map());

@@ -14,6 +14,13 @@
 #define FCGI_FILTER 3
 
 namespace cobra {
+	enum class fastcgi_error {
+		bad_version,
+		cant_mpx_conn,
+		overloaded,
+		unknown_role,
+	};
+
 	enum class fastcgi_record_type {
 		fcgi_begin_request = 1,
 		fcgi_abort_request = 2,
@@ -84,12 +91,15 @@ namespace cobra {
 	class fastcgi_client : public fastcgi_ostream<fastcgi_record_type::fcgi_params>, public fastcgi_ostream<fastcgi_record_type::fcgi_stdin>, public fastcgi_istream<fastcgi_record_type::fcgi_stdout>, public fastcgi_istream<fastcgi_record_type::fcgi_stderr>, public fastcgi_ostream<fastcgi_record_type::fcgi_data> {
 		std::uint16_t _request_id;
 		fastcgi_client_connection* _connection;
+		std::optional<fastcgi_error> _error;
 
 	public:
 		fastcgi_client(std::uint16_t request_id, fastcgi_client_connection& connection);
 
 		std::uint16_t request_id() const;
 		fastcgi_client_connection* connection() const;
+		void set_error(fastcgi_error error);
+		void check_error() const;
 
 		fastcgi_ostream<fastcgi_record_type::fcgi_params>& fcgi_params();
 		fastcgi_ostream<fastcgi_record_type::fcgi_stdin>& fcgi_stdin();

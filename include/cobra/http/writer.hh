@@ -105,8 +105,19 @@ namespace cobra {
 
 		task<std::size_t> write(const char_type* data, std::size_t size) {
 			if (size != 0) {
-				std::string header = std::format("{:x}\r\n", size);
-				co_await _stream.write_all(header.data(), header.size());
+				std::size_t tmp_size = size;
+				std::size_t index = 0;
+				char buffer[66];
+
+				while (tmp_size > 0) {
+					buffer[64 - ++index] = "0123456789abcdef"[tmp_size % 16];
+					tmp_size /= 16;
+				}
+
+				buffer[64] = '\r';
+				buffer[65] = '\n';
+
+				co_await _stream.write_all(buffer + 64 - index, index + 2);
 				co_await _stream.write_all(data, size);
 				co_await _stream.write_all("\r\n", 2);
 			}

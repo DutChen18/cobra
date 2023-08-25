@@ -83,10 +83,8 @@ namespace cobra {
 
 			for (auto& part : config().location) {
 					if (it == normalized.end()) {
-						eprintln("too short, expected: {}", part);
 						return false;
 					} else if (*it != part) {
-						eprintln("{} != {}", *it, part);
 						return false;
 					}
 				++it;
@@ -94,7 +92,6 @@ namespace cobra {
 		}
 
 		if (!config().methods.empty() && !config().methods.contains(request.method())) {
-			eprintln("other method");
 			return false;
 		}
 
@@ -144,10 +141,12 @@ namespace cobra {
 		for (auto [filter, normalized] : match(socket, request, normalized)) {
 			try {
 				if (!filter || !filter->config().handler) {
+					/*
 					if (!filter)
 						std::cerr << "no filter matched" << std::endl;
 					else if (!filter->config().handler)
 						std::cerr << "no handler" << std::endl;
+					*/
 					continue;
 				}
 
@@ -177,20 +176,19 @@ namespace cobra {
 	}
 
 	task<void> server::on_connect(basic_socket_stream& socket) {
-		istream_buffer socket_istream(make_istream_ref(socket), 1024);
-		ostream_buffer socket_ostream(make_ostream_ref(socket), 1024);
+		istream_buffer socket_istream(make_istream_ref(socket), COBRA_BUFFER_SIZE);
+		ostream_buffer socket_ostream(make_ostream_ref(socket), COBRA_BUFFER_SIZE);
 		http_ostream_wrapper wrapper(socket_ostream);
 		http_server_logger logger;
 		logger.set_socket(socket);
 
 		counter c(_num_connections);
 
-		if (c.prev_val() >= max_connections()) {
+		if (false && c.prev_val() >= max_connections()) {
 			co_await socket_istream.fill_buf();
-			http_request phantom_request("GET", parse_uri("/", "GET"));
 			http_response response(HTTP_SERVICE_UNAVAILABLE);
-			response.set_header("Retry-After", "60");
-			co_await http_response_writer(&phantom_request, &wrapper, &logger).send(std::move(response));
+			response.set_header("Retry-After", "10");
+			co_await http_response_writer(nullptr, &wrapper, &logger).send(std::move(response));
 			co_await wrapper.end();
 		} else {
 			http_request request("GET", parse_uri("/", "GET"));

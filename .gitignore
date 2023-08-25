@@ -16,3 +16,4 @@
 /*.pem
 /*_CORPUS
 /*.br
+/callgrind.out.*

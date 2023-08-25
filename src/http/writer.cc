@@ -95,6 +95,7 @@ namespace cobra {
 	
 	void http_server_logger::log(const http_request* request, const http_response& response) {
 		term::control ctrl;
+		std::stringstream ss;
 
 		if (response.code() / 100 == 1) {
 			ctrl |= term::fg_cyan();
@@ -108,21 +109,22 @@ namespace cobra {
 			ctrl |= term::fg_magenta();
 		}
 
-		print("{}[{}]", ctrl, response.code());
+		print(ss, "{}[{}]", ctrl, response.code());
 
 		if (_socket) {
-			print(" {}", _socket->peername().string());
+			print(ss, " {}", _socket->peername().string());
 		}
 
 		if (request) {
 			if (_socket) {
-				print(" ->");
+				print(ss, " ->");
 			}
 
-			print(" {} {}", request->method(), request->uri().string());
+			print(ss, " {} {}", request->method(), request->uri().string());
 		}
 
-		println("{}", term::reset());
+		print(ss, "{}", term::reset());
+		println("{}", ss.str());
 	}
 
 	http_ostream_wrapper::http_ostream_wrapper(buffered_ostream_reference stream) : _stream(std::move(stream)) {
@@ -137,7 +139,7 @@ namespace cobra {
 	}
 
 	http_ostream http_ostream_wrapper::get_chunked() {
-		_stream = ostream_buffer(chunked_ostream(inner()), 1024);
+		_stream = ostream_buffer(chunked_ostream(inner()), COBRA_BUFFER_SIZE);
 		return _stream;
 	}
 
@@ -152,7 +154,7 @@ namespace cobra {
 	}
 
 	http_ostream http_ostream_wrapper::get_deflate_chunked() {
-		_stream = deflate_ostream(ostream_buffer(chunked_ostream(inner()), 1024), deflate_mode::zlib);
+		_stream = deflate_ostream(ostream_buffer(chunked_ostream(inner()), COBRA_BUFFER_SIZE), deflate_mode::zlib);
 		return _stream;
 	}
 

@@ -4,13 +4,12 @@ server {
 
 	set_header server cobra
 
-	ssl cert.pem key.pem
+	#ssl cert.pem key.pem
 
 	method GET {
 		location / {
 			set_header cache-control max-age=14400
-			#root /home/codam/cobra
-			root /
+			root /home/codam/cobra
 			static
 		}
 	}

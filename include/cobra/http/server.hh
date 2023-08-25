@@ -63,7 +63,7 @@ namespace cobra {
 								  http_response_writer writer, std::optional<http_response_code> code);
 
 		inline uint16_t max_connections() const {
-			return 20;
+			return 60;
 		}
 	};
 }

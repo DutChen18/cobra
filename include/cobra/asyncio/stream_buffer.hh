@@ -5,6 +5,14 @@
 
 #include <memory>
 
+#ifndef COBRA_BUFFER_SIZE
+#define COBRA_BUFFER_SIZE 8096
+#endif
+
+#if COBRA_BUFFER_SIZE <= 0
+#error "COBRA_BUFFER_SIZE must be a positive integer"
+#endif
+
 namespace cobra {
 	template<AsyncInputStream Stream>
 	class istream_buffer : public basic_buffered_istream_impl<istream_buffer<Stream>, typename Stream::char_type, typename Stream::traits_type> {
