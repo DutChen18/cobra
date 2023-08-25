@@ -188,7 +188,7 @@ namespace cobra {
 			co_await socket_istream.fill_buf();
 			http_response response(HTTP_SERVICE_UNAVAILABLE);
 			response.set_header("Retry-After", "10");
-			co_await http_response_writer(nullptr, &wrapper, nullptr).send(std::move(response));
+			co_await http_response_writer(nullptr, &wrapper, &logger).send(std::move(response));
 			co_await wrapper.end();
 		} else {
 			http_request request("GET", parse_uri("/", "GET"));
@@ -204,14 +204,15 @@ namespace cobra {
 						throw HTTP_BAD_REQUEST;
 					}
 
-					co_await match_and_handle(socket, request, socket_istream, wrapper, nullptr);
+					co_await match_and_handle(socket, request, socket_istream, wrapper, &logger);
 				} catch (std::pair<int, const config::config*> err) {
 					error = err;
 					eprintln("http error {}", err.first);
 					//error = code;
 				}
-				
-				if (error.has_value() && error->second && error->second->error_pages.contains(error->first)) {
+
+				if (!wrapper.sent() && error.has_value() && error->second &&
+					error->second->error_pages.contains(error->first)) {
 					const std::string& error_page = error->second->error_pages.at(error->first);
 					std::string uri;
 					if (!error_page.empty()) {
@@ -230,15 +231,15 @@ namespace cobra {
 
 					bool errored_again = false;
 					try {
-						co_await match_and_handle(socket, error_request, socket_istream, wrapper, nullptr, error->first);
+						co_await match_and_handle(socket, error_request, socket_istream, wrapper, &logger, error->first);
 					} catch (...) {
 						errored_again = true;
 					}
 
 					if (errored_again) {
-						co_await http_response_writer(&request, &wrapper ,nullptr).send(HTTP_NOT_FOUND);
+						co_await http_response_writer(&request, &wrapper, &logger).send(HTTP_NOT_FOUND);
 					}
-				} else if (error.has_value()) {
+				} else if (!wrapper.sent() && error.has_value()) {
 					// eprintln("no error_page ({}) {}", error->first, error->second->error_pages.contains(error->first));
 					co_await http_response_writer(&request, &wrapper ,nullptr).send(error->first);
 				}
@@ -265,6 +266,10 @@ namespace cobra {
 		std::size_t content_length =
 			request.has_header("content-length") ? std::stoull(request.header("content-length")) : 0;
 		auto limited_stream = istream_limit(std::move(in), content_length);
+		
+		if (!has_header_value(request, "Connection", "Upgrade") || !has_header_value(request, "Upgrade", "websocket")) {
+			in = limited_stream;
+		}
 
 		//TODO do without allocations
 		auto root = filt.config().root.value_or("").string();
@@ -273,25 +278,25 @@ namespace cobra {
 		if (auto cfg = std::get_if<config::cgi_config>(&*filt.config().handler)) {
 			co_await handle_cgi(std::move(writer),
 								{_loop, _exec, root, file.string(), // TODO avoid duplicating strings
-								 cgi_config(cgi_command(cfg->command.file())), request, limited_stream});
+								 cgi_config(cgi_command(cfg->command.file())), request, in});
 		} else if (auto cfg = std::get_if<config::fast_cgi_config>(&*filt.config().handler)) {
 			auto service = std::format("{}", cfg->address.service());
 			co_await handle_cgi(std::move(writer),
 								{_loop, _exec, root, file.string(),
 								 cgi_config(cgi_address(cfg->address.node(), service)),
-								 request, limited_stream});
+								 request, in});
 		} else if (auto cfg = std::get_if<config::static_file_config>(&*filt.config().handler)) {
 			co_await handle_static(std::move(writer),
-								   {_loop, _exec, root, file.string(), {code}, request, limited_stream});
+								   {_loop, _exec, root, file.string(), {code}, request, in});
 		} else if (auto cfg = std::get_if<config::redirect_config>(&*filt.config().handler)) {
 			co_await handle_redirect(std::move(writer),
 									 {_loop, _exec, root, file.string(), redirect_config(cfg->code, cfg->location),
-									  request, limited_stream});
+									  request, in});
 		} else if (auto cfg = std::get_if<config::proxy_config>(&*filt.config().handler)) {
 			auto service = std::format("{}", cfg->address.service());
 			co_await handle_proxy(std::move(writer),
 								  {_loop, _exec, root, file.string(), proxy_config(cfg->address.node(), service),
-								   request, limited_stream});
+								   request, in});
 		} else {
 			assert(0 && "unimplemented");
 		}

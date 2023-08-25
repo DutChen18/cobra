@@ -417,6 +417,25 @@ namespace cobra {
 			reset();
 		}
 
+		deflate_ostream_impl(deflate_ostream_impl&& other)
+			: _stream(std::move(other._stream)), _commands(std::move(other._commands)),
+			  _size_weight(std::move(other._size_weight)), _dist_weight(std::move(other._dist_weight)),
+			  _mode(std::move(other._mode)), _wrote_header(std::move(other._wrote_header)) {}
+
+		~deflate_ostream_impl() {
+			assert(_commands.empty());
+		}
+
+		deflate_ostream_impl& operator=(deflate_ostream_impl other) {
+			std::swap(_stream, other._stream);
+			std::swap(_commands, other._commands);
+			std::swap(_size_weight, other._size_weight);
+			std::swap(_dist_weight, other._dist_weight);
+			std::swap(_mode, other._mode);
+			std::swap(_wrote_header, other._wrote_header);
+			return *this;
+		}
+
 		task<void> write(const lz_command& command) {
 			_commands.push_back(command);
 

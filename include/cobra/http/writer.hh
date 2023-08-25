@@ -201,6 +201,8 @@ namespace cobra {
 		void set_close();
 		void set_sent();
 		bool keep_alive() const;
+
+		inline bool sent() const { return _sent; }
 	};
 
 	class http_request_writer {
@@ -223,6 +225,7 @@ namespace cobra {
 
 		void set_header(std::string key, std::string value);
 
+		bool can_compress() const;
 		task<http_ostream> send(http_response response)&&;
 	};
 

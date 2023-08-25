@@ -4,6 +4,7 @@
 #include "cobra/asyncio/stream.hh"
 
 #include <memory>
+#include <cassert>
 
 #ifndef COBRA_BUFFER_SIZE
 #define COBRA_BUFFER_SIZE 2097152
@@ -32,6 +33,22 @@ namespace cobra {
 		istream_buffer(Stream&& stream, std::size_t buffer_size) : _stream(std::move(stream)) {
 			_buffer = std::make_unique<char_type[]>(buffer_size);
 			_buffer_size = buffer_size;
+		}
+
+		istream_buffer(istream_buffer&& other) : _stream(std::move(other._stream)), _buffer(std::move(other._buffer)), _buffer_size(other._buffer_size), _buffer_begin(std::exchange(other._buffer_begin, 0)), _buffer_end(std::exchange(other._buffer_end, 0)) {
+		}
+
+		~istream_buffer() {
+			// assert(_buffer_begin >= _buffer_end);
+		}
+
+		istream_buffer& operator=(istream_buffer other) {
+			std::swap(_stream, other._stream);
+			std::swap(_buffer, other._buffer);
+			std::swap(_buffer_size, other._buffer_size);
+			std::swap(_buffer_begin, other._buffer_begin);
+			std::swap(_buffer_end, other._buffer_end);
+			return *this;
 		}
 
 		task<std::pair<const char_type*, std::size_t>> fill_buf() {
@@ -144,6 +161,21 @@ namespace cobra {
 		ostream_buffer(Stream&& stream, std::size_t buffer_size) : _stream(std::move(stream)) {
 			_buffer = std::make_unique<char_type[]>(buffer_size);
 			_buffer_size = buffer_size;
+		}
+
+		ostream_buffer(ostream_buffer&& other) : _stream(std::move(other._stream)), _buffer(std::move(other._buffer)), _buffer_size(other._buffer_size), _buffer_end(std::exchange(other._buffer_end, 0)) {
+		}
+
+		~ostream_buffer() {
+			// assert(_buffer_end == 0);
+		}
+
+		ostream_buffer& operator=(ostream_buffer other) {
+			std::swap(_stream, other._stream);
+			std::swap(_buffer, other._buffer);
+			std::swap(_buffer_size, other._buffer_size);
+			std::swap(_buffer_end, other._buffer_end);
+			return *this;
 		}
 
 		task<std::size_t> write(const char_type* data, std::size_t size) {

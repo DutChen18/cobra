@@ -91,10 +91,18 @@ namespace cobra {
 		try {
 			std::filesystem::path path = context.root() + context.file();
 			std::size_t size = std::filesystem::file_size(path);
-			istream_buffer file_istream(std_istream(std::ifstream(path, std::ifstream::binary)), COBRA_BUFFER_SIZE);
-			co_await file_istream.fill_buf();
+			istream_buffer file_istream(file_istream(path.c_str()), COBRA_BUFFER_SIZE);
+
+			if (!file_istream.inner()) {
+				throw HTTP_NOT_FOUND;
+			}
+
 			http_response resp(context.config().code().value_or(HTTP_OK));
-			resp.add_header("Content-Length", std::format("{}", size));
+
+			if (!writer.can_compress()) {
+				resp.add_header("Content-Length", std::format("{}", size));
+			}
+
 			http_ostream sock_ostream = co_await std::move(writer).send(resp);
 			co_await pipe(buffered_istream_reference(file_istream), ostream_reference(sock_ostream));
 		} catch (const std::filesystem::filesystem_error&) {
@@ -208,32 +216,47 @@ namespace cobra {
 		co_await std::move(writer).send(response);
 	}
 
+	void forward_headers(http_message& to, const http_message& from) {
+		for (const auto& [key, value] : from.header_map()) {
+			if (key.starts_with("Access-Control-") || key.starts_with("Sec-")) {
+				to.add_header(key, value);
+			}
+		}
+
+		to.add_header("Host", from.header_map());
+		to.add_header("Cookie", from.header_map());
+		to.add_header("Set-Cookie", from.header_map());
+		to.add_header("Origin", from.header_map());
+		to.add_header("Content-Type", from.header_map());
+		to.add_header("Content-Length", from.header_map());
+		to.add_header("Accept", from.header_map());
+		to.add_header("Location", from.header_map());
+		to.add_header("Upgrade", from.header_map());
+
+		if (has_header_value(from, "Connection", "upgrade")) {
+			to.add_header("Connection", "Upgrade");
+		}
+	}
+
 	task<void> handle_proxy(http_response_writer writer, const handle_context<proxy_config>& context) {
 		try {
 			socket_stream gate = co_await open_connection(context.loop(), context.config().node().c_str(), context.config().service().c_str());
 			istream_buffer gate_istream(make_istream_ref(gate), COBRA_BUFFER_SIZE);
 			ostream_buffer gate_ostream(make_ostream_ref(gate), COBRA_BUFFER_SIZE);
 			http_request gate_request(context.request().method(), context.request().uri());
-			gate_request.add_header("host", context.request().header_map());
-			gate_request.add_header("cookie", context.request().header_map());
+			forward_headers(gate_request, context.request());
 
 			co_await write_http_request(gate_ostream, gate_request);
 
 			auto gate_writer = context.exec()->schedule([](auto sock, auto& gate) -> task<void> {
 				co_await pipe(sock, ostream_reference(gate));
-				co_await gate.inner().ptr()->shutdown(shutdown_how::write);
+				// co_await gate.inner().ptr()->shutdown(shutdown_how::write);
 			}(context.istream(), gate_ostream));
 
 			auto sock_writer = context.exec()->schedule([](auto& gate, auto writer) -> task<void> {
 				http_response gate_response = co_await parse_http_response(gate);
 				http_response response(gate_response.code(), gate_response.reason());
-
-				response.add_header("content-type", gate_response.header_map());
-				response.add_header("location", gate_response.header_map());
-				response.add_header("access-control-allow-origin", gate_response.header_map());
-				response.add_header("access-control-allow-credentials", gate_response.header_map());
-				response.add_header("set-cookie", gate_response.header_map());
-
+				forward_headers(response, gate_response);
 				http_ostream sock = co_await std::move(writer).send(response);
 				http_istream_variant<buffered_istream_reference> gate_stream = get_istream(buffered_istream_reference(gate), gate_response);
 				co_await pipe(buffered_istream_reference(gate_stream), ostream_reference(sock));

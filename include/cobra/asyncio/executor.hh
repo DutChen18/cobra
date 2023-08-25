@@ -33,6 +33,7 @@ namespace cobra {
 		}
 
 		virtual void schedule(std::function<void()> func) = 0;
+		virtual bool has_jobs() = 0;
 	};
 
 	class sequential_executor : public executor {
@@ -40,6 +41,7 @@ namespace cobra {
 		using executor::schedule;
 
 		virtual void schedule(std::function<void()> func) override;
+		virtual bool has_jobs() override;
 	};
 
 	class thread_pool_executor : public executor {
@@ -59,6 +61,7 @@ namespace cobra {
 		~thread_pool_executor();
 
 		virtual void schedule(std::function<void()> func) override;
+		virtual bool has_jobs() override;
 	};
 
 	extern sequential_executor global_executor;

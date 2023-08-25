@@ -7,6 +7,8 @@
 #include <string>
 #include <unordered_map>
 
+#define HTTP_CONTINUE 100
+#define HTTP_SWITCHING_PROTOCOLS 101
 #define HTTP_OK 200
 #define HTTP_CREATED 201
 #define HTTP_ACCEPTED 202

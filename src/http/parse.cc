@@ -223,7 +223,7 @@ namespace cobra {
 			}
 		}
 
-		if (!segment.empty()) {
+		if (!segment.empty() || !segments.empty()) {
 			segments.emplace_back(std::move(segment));
 		}
 

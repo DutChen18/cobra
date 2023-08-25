@@ -42,9 +42,9 @@ namespace cobra {
 	task<std::size_t> socket_stream::read(char_type* data, std::size_t size) {
 		co_await _loop->wait_read(_file);
 		co_return check_return(recv(_file.fd(), data, size, 0));
-		//auto res = check_return(recv(_file.fd(), data, size, 0));
-		//eprintln("\"{}\"", std::string_view(data, res));
-		//co_return res;
+		// auto res = check_return(recv(_file.fd(), data, size, 0));
+		// eprintln("read fd={} size={} data=\"{}\"", _file.fd(), size, std::string_view(data, res));
+		// co_return res;
 	}
 
 	task<std::size_t> socket_stream::write(const char_type* data, std::size_t size) {
@@ -60,12 +60,15 @@ namespace cobra {
 		int h = 0;
 		switch (how) {
 		case shutdown_how::read: 
+			// eprintln("shutdown read {}", _file.fd());
 			h = SHUT_RD;
 			break;
 		case shutdown_how::write: 
+			// eprintln("shutdown write {}", _file.fd());
 			h = SHUT_WR;
 			break;
 		case shutdown_how::both:
+			// eprintln("shutdown read/write {}", _file.fd());
 			h = SHUT_WR;
 		}
 		check_return(::shutdown(_file.fd(), h));

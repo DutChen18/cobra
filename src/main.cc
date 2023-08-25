@@ -213,9 +213,10 @@ int main(int argc, char **argv) {
 				}
 			}
 
+			/*
 			for (auto& server : srvs) {
 				server->debug_print(std::cerr, 0);
-			}
+			}*/
 			std::vector<server> servers = server::convert(srvs, exec.get(), &loop);
 			eprintln("setup {} server(s)", servers.size());
 			std::vector<future_task<void>> jobs;
@@ -225,7 +226,7 @@ int main(int argc, char **argv) {
 					jobs.push_back(make_future_task(server.start(exec.get(), &loop)));
 				}
 
-				while (true) {
+				while (loop.has_events()) {
 					loop.poll();
 				}
 

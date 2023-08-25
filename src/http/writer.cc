@@ -198,24 +198,30 @@ namespace cobra {
 		_headers.push_back({ std::move(key), std::move(value) });
 	}
 
+	bool http_response_writer::can_compress() const {
+		return _request && has_header_value(*_request, "Accept-Encoding", "deflate");
+	}
+
 	task<http_ostream> http_response_writer::send(http_response response)&& {
 		for (const auto& [key, value] : _headers) {
 			response.set_header(key, value);
 		}
 
-		if (_request && !response.has_header("Content-Encoding") && has_header_value(*_request, "Accept-Encoding", "deflate")) {
-			response.set_header("Content-Encoding", "deflate");
-		}
+		if (response.code() != HTTP_SWITCHING_PROTOCOLS) {
+			if (!response.has_header("Content-Encoding") && !response.has_header("Content-Length") && can_compress()) {
+				response.set_header("Content-Encoding", "deflate");
+			}
 
-		if (!response.has_header("Transfer-Encoding") && !response.has_header("Content-Length")) {
-			response.set_header("Transfer-Encoding", "chunked");
-		}
+			if (!response.has_header("Transfer-Encoding") && !response.has_header("Content-Length")) {
+				response.set_header("Transfer-Encoding", "chunked");
+			}
 
-		if (!response.has_header("Connection")) {
-			if (_request && has_header_value(*_request, "Connection", "keep-alive") && (response.has_header("Content-Length") || has_header_value(response, "Transfer-Encoding", "chunked"))) {
-				response.set_header("Connection", "keep-alive");
-			} else {
-				response.set_header("Connection", "close");
+			if (!response.has_header("Connection")) {
+				if (_request && has_header_value(*_request, "Connection", "keep-alive") && (response.has_header("Content-Length") || has_header_value(response, "Transfer-Encoding", "chunked"))) {
+					response.set_header("Connection", "keep-alive");
+				} else {
+					response.set_header("Connection", "close");
+				}
 			}
 		}
 

@@ -1,5 +1,5 @@
 server {
-	listen 127.0.0.1:8080
+	listen 127.0.0.1:8081
 	root /home/codam/cobra/cgi
 	index index.php
 
@@ -13,5 +13,9 @@ server {
 
 	location /fast_cgi {
 		fast_cgi 127.0.0.1:9000
+	}
+
+	location /proxy {
+		proxy 127.0.0.1:8082
 	}
 }

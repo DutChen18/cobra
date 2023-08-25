@@ -1,0 +1,7 @@
+server {
+	listen 127.0.0.1:7070
+
+	location / {
+		proxy 127.0.0.1:3001
+	}
+}

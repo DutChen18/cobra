@@ -19,6 +19,10 @@ namespace cobra {
 		func();
 	}
 
+	bool sequential_executor::has_jobs() {
+		return false;
+	}
+
 	thread_pool_executor::thread_pool_executor() {
 		create_threads(std::thread::hardware_concurrency());
 	}
@@ -41,6 +45,11 @@ namespace cobra {
 		std::lock_guard lock(_mutex);
 		_queue.emplace(func);
 		_condition_variable.notify_one();
+	}
+
+	bool thread_pool_executor::has_jobs() {
+		std::lock_guard lock(_mutex);
+		return !_queue.empty();
 	}
 
 	void thread_pool_executor::create_threads(std::size_t count) {

@@ -58,6 +58,7 @@ namespace cobra {
 		task<int> wait_pid(int pid, std::optional<std::chrono::milliseconds> timeout = std::nullopt);
 
 		virtual void poll() = 0;
+		virtual bool has_events() const = 0;
 
 	private:
 		virtual void schedule_event(event_pair event, std::optional<std::chrono::milliseconds> timeout,
@@ -74,7 +75,7 @@ namespace cobra {
 
 	private:
 		file _epoll_fd;
-		std::mutex _mutex;
+		mutable std::mutex _mutex;
 		std::reference_wrapper<executor> _exec;
 
 		struct timed_future {
@@ -93,6 +94,7 @@ namespace cobra {
 		epoll_event_loop(epoll_event_loop&& other) noexcept;
 
 		void poll() override;
+		bool has_events() const override;
 
 	private:
 		void schedule_event(event_pair event, std::optional<std::chrono::milliseconds> timeout,

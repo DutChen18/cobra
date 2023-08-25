@@ -5,6 +5,7 @@
 #include "cobra/serde.hh"
 
 #include <cstdint>
+#include <cassert>
 
 namespace cobra {
 	// TODO: peek_bits?
@@ -53,6 +54,20 @@ namespace cobra {
 		bit_ostream(Stream&& stream) : _stream(std::move(stream)) {
 		}
 
+		bit_ostream(bit_ostream&& other) : _stream(std::move(other._stream)), _count(std::exchange(other._count, 0)), _data(other._data) {
+		}
+
+		~bit_ostream() {
+			assert(_count % 8 == 0);
+		}
+
+		bit_ostream& operator=(bit_ostream other) {
+			std::swap(_stream, other._stream);
+			std::swap(_count, other._count);
+			std::swap(_data, other._data);
+			return *this;
+		}
+
 		task<void> write_bits(std::uintmax_t value, std::size_t size) {
 			while (size > 0) {
 				std::size_t offset = _count % 8;
@@ -78,6 +93,7 @@ namespace cobra {
 		task<Stream> end()&& {
 			if (_count % 8 != 0) {
 				co_await write_u8(_stream, _data);
+				_count = 0;
 			}
 
 			co_return std::move(_stream);

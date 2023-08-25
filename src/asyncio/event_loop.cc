@@ -7,6 +7,7 @@
 #include <exception>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <ranges>
 #include <stdexcept>
@@ -172,6 +173,11 @@ namespace cobra {
 				});
 			}
 		}
+	}
+
+	bool epoll_event_loop::has_events() const {
+		std::lock_guard guard(_mutex);
+		return !_write_events.empty() || !_read_events.empty() || _exec.get().has_jobs();
 	}
 
 	void epoll_event_loop::remove_before(std::unordered_map<int, timed_future>& map, time_point point) {

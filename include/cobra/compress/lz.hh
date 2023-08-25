@@ -279,6 +279,10 @@ namespace cobra {
 			: _stream(std::move(other._stream)), _buffer(std::move(other._buffer)), _window(std::move(other._window)),
 			  _chain(std::move(other._chain)), _table(std::move(other._table)) {}
 
+		~lz_ostream() {
+			assert(_buffer.empty());
+		}
+
 		lz_ostream& operator=(lz_ostream&& other) noexcept {
 			if (this != &other) {
 				std::swap(_stream, other._stream);
