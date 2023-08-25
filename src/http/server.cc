@@ -188,7 +188,7 @@ namespace cobra {
 			co_await socket_istream.fill_buf();
 			http_response response(HTTP_SERVICE_UNAVAILABLE);
 			response.set_header("Retry-After", "10");
-			co_await http_response_writer(nullptr, &wrapper, &logger).send(std::move(response));
+			co_await http_response_writer(nullptr, &wrapper, nullptr).send(std::move(response));
 			co_await wrapper.end();
 		} else {
 			http_request request("GET", parse_uri("/", "GET"));
@@ -204,7 +204,7 @@ namespace cobra {
 						throw HTTP_BAD_REQUEST;
 					}
 
-					co_await match_and_handle(socket, request, socket_istream, wrapper, &logger);
+					co_await match_and_handle(socket, request, socket_istream, wrapper, nullptr);
 				} catch (std::pair<int, const config::config*> err) {
 					error = err;
 					eprintln("http error {}", err.first);
@@ -230,17 +230,17 @@ namespace cobra {
 
 					bool errored_again = false;
 					try {
-						co_await match_and_handle(socket, error_request, socket_istream, wrapper, &logger, error->first);
+						co_await match_and_handle(socket, error_request, socket_istream, wrapper, nullptr, error->first);
 					} catch (...) {
 						errored_again = true;
 					}
 
 					if (errored_again) {
-						co_await http_response_writer(&request, &wrapper ,&logger).send(HTTP_NOT_FOUND);
+						co_await http_response_writer(&request, &wrapper ,nullptr).send(HTTP_NOT_FOUND);
 					}
 				} else if (error.has_value()) {
 					// eprintln("no error_page ({}) {}", error->first, error->second->error_pages.contains(error->first));
-					co_await http_response_writer(&request, &wrapper ,&logger).send(error->first);
+					co_await http_response_writer(&request, &wrapper ,nullptr).send(error->first);
 				}
 
 				co_await wrapper.end();

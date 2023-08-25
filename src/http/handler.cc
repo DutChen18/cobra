@@ -90,9 +90,11 @@ namespace cobra {
 	task<void> handle_static(http_response_writer writer, const handle_context<static_config>& context) {
 		try {
 			std::filesystem::path path = context.root() + context.file();
+			std::size_t size = std::filesystem::file_size(path);
 			istream_buffer file_istream(std_istream(std::ifstream(path, std::ifstream::binary)), COBRA_BUFFER_SIZE);
 			co_await file_istream.fill_buf();
 			http_response resp(context.config().code().value_or(HTTP_OK));
+			resp.add_header("Content-Length", std::format("{}", size));
 			http_ostream sock_ostream = co_await std::move(writer).send(resp);
 			co_await pipe(buffered_istream_reference(file_istream), ostream_reference(sock_ostream));
 		} catch (const std::filesystem::filesystem_error&) {

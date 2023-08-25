@@ -17,3 +17,4 @@
 /*_CORPUS
 /*.br
 /callgrind.out.*
+/vgcore.*

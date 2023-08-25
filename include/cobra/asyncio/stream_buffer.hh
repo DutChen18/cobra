@@ -6,7 +6,7 @@
 #include <memory>
 
 #ifndef COBRA_BUFFER_SIZE
-#define COBRA_BUFFER_SIZE 8096
+#define COBRA_BUFFER_SIZE 2097152
 #endif
 
 #if COBRA_BUFFER_SIZE <= 0

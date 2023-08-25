@@ -64,14 +64,13 @@ struct args_type {
 	bool json = false;
 	bool check = false;
 	bool help = false;
+	bool threads = false;
 };
 
 #ifndef COBRA_FUZZ
 int main(int argc, char **argv) {
 	using namespace cobra;
-	thread_pool_executor exec;
-	//sequential_executor exec;
-	platform_event_loop loop(exec);
+	std::unique_ptr<executor> exec;
 	std::fstream file;
 	std::istream* input = &std::cin;
 
@@ -86,13 +85,22 @@ int main(int argc, char **argv) {
 		.add_argument(&args_type::inflate_file, "d", "inflate", "test inflate")
 		.add_flag(&args_type::json, true, "j", "json", "write diagnostics in json format")
 		.add_flag(&args_type::check, true, "c", "check", "exit after reading configuration file")
-		.add_flag(&args_type::help, true, "h", "help", "display this help message");
+		.add_flag(&args_type::help, true, "h", "help", "display this help message")
+		.add_flag(&args_type::threads, true, "t", "threads", "use the thread pool executor");
 	auto args = parser.parse(argv, argv + argc);
 
 	if (args.help) {
 		parser.help();
 		return EXIT_SUCCESS;
 	}
+
+	if (args.threads) {
+		exec = std::make_unique<thread_pool_executor>();
+	} else {
+		exec = std::make_unique<sequential_executor>();
+	}
+	
+	platform_event_loop loop(*exec);
 
 	if (args.compress_file) {
 		std::fstream f = std::fstream(*args.compress_file, std::ios::in);
@@ -208,13 +216,13 @@ int main(int argc, char **argv) {
 			for (auto& server : srvs) {
 				server->debug_print(std::cerr, 0);
 			}
-			std::vector<server> servers = server::convert(srvs, &exec, &loop);
+			std::vector<server> servers = server::convert(srvs, exec.get(), &loop);
 			eprintln("setup {} server(s)", servers.size());
 			std::vector<future_task<void>> jobs;
 
 			if (!args.check) {
 				for (auto&& server : servers) {
-					jobs.push_back(make_future_task(server.start(&exec, &loop)));
+					jobs.push_back(make_future_task(server.start(exec.get(), &loop)));
 				}
 
 				while (true) {

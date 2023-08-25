@@ -6,13 +6,13 @@ server {
 
 	#ssl cert.pem key.pem
 
-	method GET {
+	#method GET {
 		location / {
 			set_header cache-control max-age=14400
 			root /home/codam/cobra
 			static
 		}
-	}
+	#}
 
 	location /error {
 		root /home/codam/cobra/config/error
