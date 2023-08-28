@@ -940,7 +940,7 @@ namespace cobra {
 				for (const auto& define : defines) {
 					const auto& config = define.get().def;
 					if (config._server_names.empty()) {
-						diagnostic diag = diagnostic::error(define.get().part, COBRA_TEXT("ambigious server"),
+						diagnostic diag = diagnostic::error(define.get().part, COBRA_TEXT("ambiguous server"),
 															COBRA_TEXT("consider specifying a `server_name`"));
 						auto address_define =
 							std::find_if(config._addresses.begin(), config._addresses.end(), [address_hack](auto addr) {
@@ -948,18 +948,18 @@ namespace cobra {
 							});
 
 						diag.sub_diags.push_back(
-							diagnostic::error(address_define->part, COBRA_TEXT("ambigious server"), "",
+							diagnostic::error(address_define->part, COBRA_TEXT("ambiguous server"), "",
 											  COBRA_TEXT("another server is also listening to `{}`", address)));
 
-						for (const auto& ambigious_define : defines) {
-							if (ambigious_define.get().part == define.get().part)
+						for (const auto& ambiguous_define : defines) {
+							if (ambiguous_define.get().part == define.get().part)
 								continue;
 							diagnostic sub_diag =
-								diagnostic::note(ambigious_define.get().part, COBRA_TEXT("also listened to here"));
+								diagnostic::note(ambiguous_define.get().part, COBRA_TEXT("also listened to here"));
 
 							auto other_address_define =
-								std::find_if(ambigious_define.get().def._addresses.begin(),
-											 ambigious_define.get().def._addresses.end(), [address_hack](auto addr) {
+								std::find_if(ambiguous_define.get().def._addresses.begin(),
+											 ambiguous_define.get().def._addresses.end(), [address_hack](auto addr) {
 												 return addr == address_hack;
 											 });
 							sub_diag.sub_diags.push_back(
@@ -975,7 +975,7 @@ namespace cobra {
 
 						if (!inserted) {
 							diagnostic diag = diagnostic::error(
-								part, COBRA_TEXT("ambigious server"),
+								part, COBRA_TEXT("ambiguous server"),
 								COBRA_TEXT("another server listening to the same address has the same `server_name`"));
 							diag.sub_diags.push_back(diagnostic::note(it->second, COBRA_TEXT("previously specified here")));
 							throw error(diag);

@@ -18,5 +18,4 @@
 /*.br
 /callgrind.out.*
 /vgcore.*
-*.po
-*.po.old
+/locale/*.mo

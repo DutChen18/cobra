@@ -5,7 +5,7 @@ server {
 	set_header server cobra
 	index index.html
 
-	#ssl cert.pem key.pem
+	ssl / /
 	
 	location / {
 		#set_header cache-control max-age=14400
