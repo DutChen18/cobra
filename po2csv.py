@@ -18,7 +18,7 @@ for file in locales:
                 msgstr = ast.literal_eval(line[7:])
                 text[msgid][file] = msgstr
 
-print(",".join(locales))
+print(",".join(repr(l) for l in locales))
 
-for key, value in text:
-    print(",".join(repr(value.get())))
+for key, value in text.items():
+    print(",".join(repr(value.get(l, "")) for l in locales))
