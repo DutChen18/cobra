@@ -550,6 +550,10 @@ namespace cobra {
 				return def == other.def;
 			}
 
+                        inline bool operator==(const T& t) const requires std::equality_comparable<T> {
+                            return def == t;
+                        }
+
 			inline constexpr auto operator<=>(const define& other) const noexcept {
 				return def <=> other.def;
 			}
