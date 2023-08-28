@@ -35,7 +35,7 @@ msgstr ""
 
 #: src/main.cc:81
 msgid "display this help message"
-msgstr ""
+msgstr "このメッセージを表示します"
 
 #: src/main.cc:82
 msgid "use the thread pool executor"
@@ -47,11 +47,11 @@ msgstr ""
 
 #: src/config.cc:360 include/cobra/config.hh:999
 msgid "error"
-msgstr ""
+msgstr "エラー"
 
 #: src/config.cc:362 include/cobra/config.hh:1001
 msgid "warning"
-msgstr ""
+msgstr "警告"
 
 #: src/config.cc:364 include/cobra/config.hh:1003
 msgid "note"
@@ -98,12 +98,12 @@ msgstr "表示できる文字が予想されます"
 
 #: src/config.cc:621
 msgid "regular file"
-msgstr ""
+msgstr "普通のファイル"
 
 #: src/config.cc:623
 #, fuzzy
 msgid "directory"
-msgstr "ディレクトリです"
+msgstr "ディレクトリ"
 
 #: src/config.cc:625
 msgid "symlink"
@@ -273,7 +273,7 @@ msgstr "無効な数字です"
 #: src/config.cc:1273
 #, c++-format
 msgid "because of invalid character `{}`"
-msgstr ""
+msgstr "無効の字を使っています"
 
 #: src/config.cc:1280
 msgid "invalid header value"
@@ -321,7 +321,7 @@ msgstr ""
 
 #: include/cobra/config.hh:634
 msgid "expected either `true` or `false`"
-msgstr ""
+msgstr "`true`か`false`が予想されます"
 
 #: include/cobra/config.hh:888
 #, c++-format

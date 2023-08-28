@@ -146,7 +146,7 @@ fclean: clean
 re: fclean
 	${MAKE} all
 
-locale/cobra.pot: $(SRC_FILES)
+locale/cobra.pot: $(OBJ_FILES)
 	@mkdir -p $(@D)
 	xgettext --keyword=COBRA_TEXT -o $@ $(shell find src include -type f)
 

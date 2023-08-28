@@ -19,6 +19,9 @@ for file in locales:
                 msgstr = ast.literal_eval(line[7:])
                 text[msgid][file] = msgstr
 
+            if line.startswith("\""):
+                text[msgid][file] += ast.literal_eval(line)
+
 writer = csv.DictWriter(sys.stdout, locales)
 writer.writeheader()
 writer.writerows(text.values())

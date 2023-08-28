@@ -13,29 +13,29 @@ msgstr ""
 "Language-Team: none\n"
 "Language: en_PT\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=ASCII\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #: src/main.cc:77
 msgid "path to configuration file"
-msgstr "path to configuration file"
+msgstr "path to configuration parchment"
 
 #: src/main.cc:78
 msgid "number of threads to use (implies -t)"
-msgstr "number of threads to use (implies -t)"
+msgstr "count of threads to use (implies -t)"
 
 #: src/main.cc:79
 msgid "write diagnostics in json format"
-msgstr "write diagnostics in json format"
+msgstr "scribble diagnostics in json format"
 
 #: src/main.cc:80
 msgid "exit after reading configuration file"
-msgstr "exit after reading configuration file"
+msgstr "abandon ship after reading configuration parchment"
 
 #: src/main.cc:81
 msgid "display this help message"
-msgstr "display this help message"
+msgstr "show this here help message"
 
 #: src/main.cc:82
 msgid "use the thread pool executor"
@@ -43,210 +43,209 @@ msgstr "use the thread pool executor"
 
 #: src/main.cc:83
 msgid "show verbose output"
-msgstr "show verbose output"
+msgstr "show verbose output, ya scallywag"
 
 #: src/config.cc:360 include/cobra/config.hh:999
 msgid "error"
-msgstr "error"
+msgstr "error, arrr"
 
 #: src/config.cc:362 include/cobra/config.hh:1001
 msgid "warning"
-msgstr "warning"
+msgstr "warning, ye be warned"
 
 #: src/config.cc:364 include/cobra/config.hh:1003
 msgid "note"
-msgstr "note"
+msgstr "note, listen up mateys"
 
 #: src/config.cc:417
 msgid "unexpected EOF"
-msgstr "unexpected EOF"
+msgstr "unexpected End of File, arrr"
 
 #: src/config.cc:417 src/config.cc:420 src/config.cc:431
 #, c++-format
 msgid "expected `{}`"
-msgstr "expected `{}`"
+msgstr "expected `{}`, arrr"
 
 #: src/config.cc:419
 #, c++-format
 msgid "unexpected `{}`"
-msgstr "unexpected `{}`"
+msgstr "unexpected `{}`, avast"
 
 #: src/config.cc:431
 msgid "unexpected word"
-msgstr "unexpected word"
+msgstr "unexpected word, shiver me timbers"
 
 #: src/config.cc:432
 #, c++-format
 msgid "consider replacing `{}` with `{}`"
-msgstr "consider replacing `{}` with `{}`"
+msgstr "think about replacin' `{}` with `{}`"
 
 #: src/config.cc:486
 msgid "unclosed quote"
-msgstr "unclosed quote"
+msgstr "unclosed quote, arrr"
 
 #: src/config.cc:491 src/config.cc:507
 msgid "invalid word"
-msgstr "invalid word"
+msgstr "barnacle-covered word, arrr"
 
 #: src/config.cc:491
 msgid "expected at least one character"
-msgstr "expected at least one character"
+msgstr "expected at least one character, arrr"
 
 #: src/config.cc:507
 msgid "expected at least one graphical character"
-msgstr "expected at least one graphical character"
+msgstr "expected at least one piece of eight-worthy character, arrr"
 
 #: src/config.cc:621
 msgid "regular file"
-msgstr "regular file"
+msgstr "regular parchment, arrr"
 
 #: src/config.cc:623
 msgid "directory"
-msgstr "directory"
+msgstr "holdin' cell, arrr"
 
 #: src/config.cc:625
 msgid "symlink"
-msgstr "symlink"
+msgstr "magical link, arrr"
 
 #: src/config.cc:627
 msgid "block device"
-msgstr "block device"
+msgstr "cannonball holdin' device, arrr"
 
 #: src/config.cc:629
 msgid "character device"
-msgstr "character device"
+msgstr "character holdin' device, arrr"
 
 #: src/config.cc:631
 msgid "fifo"
-msgstr "fifo"
+msgstr "fifo (a type of pirate speak), arrr"
 
 #: src/config.cc:633
 msgid "socket"
-msgstr "socket"
+msgstr "spyglass, arrr"
 
 #: src/config.cc:635
 msgid "unknown"
-msgstr "unknown"
+msgstr "unknown, arrr"
 
 #: src/config.cc:643
 msgid "failed to stat file"
-msgstr "failed to stat file"
+msgstr "failed to spyglass parchment, arrr"
 
 #: src/config.cc:656 src/config.cc:678
 msgid "not a normal file"
-msgstr "not a normal file"
+msgstr "not a normal parchment, arrr"
 
 #: src/config.cc:656 src/config.cc:678
 msgid "is a directory"
-msgstr "is a directory"
+msgstr "be a holdin' cell, arrr"
 
 #: src/config.cc:684
 msgid "not an executable file"
-msgstr "not an executable file"
+msgstr "not an executable parchment, arrr"
 
 #: src/config.cc:699 src/config.cc:709
 msgid "invalid response code"
-msgstr "invalid response code"
+msgstr "foul response code, arrr"
 
 #: src/config.cc:732 src/config.cc:743 src/config.cc:747
 msgid "invalid redirect code"
-msgstr "invalid redirect code"
+msgstr "rotten redirect code, arrr"
 
 #: src/config.cc:761
 msgid "suspicious redirect code"
-msgstr "suspicious redirect code"
+msgstr "suspicious redirect code, arrr"
 
 #: src/config.cc:762
 #, c++-format
 msgid "did you mean one of: {}, {}, {}, {}?"
-msgstr "did you mean one of: {}, {}, {}, {}?"
+msgstr "did ye mean one of: {}, {}, {}, {}?"
 
 #: src/config.cc:782
 msgid "not a directory"
-msgstr "not a directory"
+msgstr "not a holdin' cell, arrr"
 
 #: src/config.cc:783
 #, c++-format
 msgid "is a {}"
-msgstr "is a {}"
+msgstr "be a {}"
 
 #: src/config.cc:878
 msgid "empty filter"
-msgstr "empty filter"
+msgstr "empty filter, arrr"
 
 #: src/config.cc:879
 msgid "consider specifying a handler using: `static`, `cgi`, etc..."
-msgstr "consider specifying a handler using: `static`, `cgi`, etc..."
+msgstr "think about specifyin' a handler using: `static`, `cgi`, etc..."
 
 #: src/config.cc:899 src/config.cc:912
 msgid "a address cannot be listened to with and without ssl at the same time"
-msgstr "a address cannot be listened to with and without ssl at the same time"
+msgstr "a address cannot be listened to with and without ssl at the same time, arrr"
 
 #: src/config.cc:900 src/config.cc:913
 msgid "consider listening to another address"
-msgstr "consider listening to another address"
+msgstr "think about listenin' to another address, arrr"
 
 #: src/config.cc:902
 msgid "previously listened to here without ssl"
-msgstr "previously listened to here without ssl"
+msgstr "previously listened to here without ssl, arrr"
 
 #: src/config.cc:915
 msgid "previously listened to here with ssl"
-msgstr "previously listened to here with ssl"
+msgstr "previously listened to here with ssl, arrr"
 
 #: src/config.cc:943 src/config.cc:951 src/config.cc:978
 msgid "ambiguous server"
-msgstr "ambiguous server"
+msgstr "ambiguous ship, arrr"
 
 #: src/config.cc:944
 msgid "consider specifying a `server_name`"
-msgstr "consider specifying a `server_name`"
+msgstr "think about specifyin' a `ship_name`"
 
 #: src/config.cc:952
 #, c++-format
 msgid "another server is also listening to `{}`"
-msgstr "another server is also listening to `{}`"
+msgstr "another ship be also listenin' to `{}`"
 
 #: src/config.cc:958 src/config.cc:966
 msgid "also listened to here"
-msgstr "also listened to here"
+msgstr "also listened to here, arrr"
 
 #: src/config.cc:979
 msgid "another server listening to the same address has the same `server_name`"
-msgstr ""
-"another server listening to the same address has the same `server_name`"
+msgstr "another ship listenin' to the same address be havin' the same `ship_name`"
 
 #: src/config.cc:980
 msgid "previously specified here"
-msgstr "previously specified here"
+msgstr "previously specified here, arrr"
 
 #: src/config.cc:992
 msgid "server not listening to an address"
-msgstr "server not listening to an address"
+msgstr "ship not listenin' to an address, arrr"
 
 #: src/config.cc:993
 msgid "consider specifying an address using: `listen`"
-msgstr "consider specifying an address using: `listen`"
+msgstr "think about specifyin' an address using: `listen`"
 
 #: src/config.cc:1032
 msgid "invalid port"
-msgstr "invalid port"
+msgstr "rotten port, arrr"
 
 #: src/config.cc:1119
 msgid "invalid number"
-msgstr "invalid number"
+msgstr "rotten number, arrr"
 
 #: src/config.cc:1128
 msgid "redefinition of max_body_size"
-msgstr "redefinition of max_body_size"
+msgstr "redefinition of max_body_size, arrr"
 
 #: src/config.cc:1129 src/config.cc:1167 src/config.cc:1188
 msgid "previously defined here"
-msgstr "previously defined here"
+msgstr "previously defined here, arrr"
 
 #: src/config.cc:1136
 msgid "invalid max_body_size"
-msgstr "invalid max_body_size"
+msgstr "rotten max_body_size, arrr"
 
 #: src/config.cc:1166
 #, c++-format
@@ -261,25 +260,25 @@ msgstr "duplicate {}"
 #: src/config.cc:1206 src/config.cc:1210 src/config.cc:1215 src/config.cc:1220
 #: src/config.cc:1225
 msgid "request handler"
-msgstr "request handler"
+msgstr "request handler, arrr"
 
 #: src/config.cc:1272
 msgid "invalid header key"
-msgstr "invalid header key"
+msgstr "rotten header key, arrr"
 
 #: src/config.cc:1273
 #, c++-format
 msgid "because of invalid character `{}`"
-msgstr "because of invalid character `{}`"
+msgstr "because of rotten character `{}`"
 
 #: src/config.cc:1280
 msgid "invalid header value"
-msgstr "invalid header value"
+msgstr "rotten header value, arrr"
 
 #: src/config.cc:1281
 #, c++-format
 msgid "because of a reserved control character `{}`"
-msgstr "because of a reserved control character `{}`"
+msgstr "because of a cursed control character `{}`"
 
 #: src/config.cc:1298
 msgid "redefinition of `set_header`"
@@ -288,37 +287,37 @@ msgstr "redefinition of `set_header`"
 #: src/config.cc:1299
 #, fuzzy
 msgid "a previous definition with the same key will be overridden"
-msgstr "a previous definition with the same key will be overriden"
+msgstr "a previous definition with the same key will be overridden, arrr"
 
 #: include/cobra/config.hh:282 include/cobra/config.hh:288
 #: include/cobra/config.hh:301
 msgid "not a number"
-msgstr "not a number"
+msgstr "not a number, arrr"
 
 #: include/cobra/config.hh:282 include/cobra/config.hh:302
 msgid "a number must only contain digits"
-msgstr "a number must only contain digits"
+msgstr "a number must only contain digits, arrr"
 
 #: include/cobra/config.hh:284
 msgid "number too large"
-msgstr "number too large"
+msgstr "number too large, arrr"
 
 #: include/cobra/config.hh:285
 #, c++-format
 msgid "maximum accepted value is {}"
-msgstr "maximum accepted value is {}"
+msgstr "maximum accepted value be {}"
 
 #: include/cobra/config.hh:288
 msgid "a number must contain at least one digit"
-msgstr "a number must contain at least one digit"
+msgstr "a number must contain at least one piece of eight-worthy digit, arrr"
 
 #: include/cobra/config.hh:633
 msgid "invalid directory listing option"
-msgstr "invalid directory listing option"
+msgstr "rotten directory listin' option, arrr"
 
 #: include/cobra/config.hh:634
 msgid "expected either `true` or `false`"
-msgstr "expected either `true` or `false`"
+msgstr "expected either `true` or `false`, arrr"
 
 #: include/cobra/config.hh:888
 #, c++-format
@@ -328,12 +327,12 @@ msgstr "unknown directive `{}`"
 #: include/cobra/config.hh:889
 #, c++-format
 msgid "did you mean `{}`?"
-msgstr "did you mean `{}`?"
+msgstr "did ye mean `{}`?"
 
 #: include/cobra/config.hh:933
 msgid "unrooted handler"
-msgstr "unrooted handler"
+msgstr "unrooted handler, arrr"
 
 #: include/cobra/config.hh:934
 msgid "consider rooting it using: `root`"
-msgstr "consider rooting it using: `root`"
+msgstr "think about rootin' it using: `root`"

@@ -1296,7 +1296,7 @@ namespace cobra {
 			if (it != _headers.end()) {
 				diagnostic diag =
 					diagnostic::warn(def.part, COBRA_TEXT("redefinition of `set_header`"),
-									 COBRA_TEXT("a previous definition with the same key will be overriden"));
+									 COBRA_TEXT("a previous definition with the same key will be overridden"));
 				diag.sub_diags.push_back(diagnostic::note(it->second.part, "previously defined here", "", "consider removing this definition"));
 				session.report(diag);
 				_headers.erase(it);

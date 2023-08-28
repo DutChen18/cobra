@@ -19,43 +19,43 @@ msgstr ""
 
 #: src/main.cc:77
 msgid "path to configuration file"
-msgstr ""
+msgstr "pad naar configuratiebestand"
 
 #: src/main.cc:78
 msgid "number of threads to use (implies -t)"
-msgstr ""
+msgstr "aantal threads om te gebruiken (impliceert -t)"
 
 #: src/main.cc:79
 msgid "write diagnostics in json format"
-msgstr ""
+msgstr "schrijf diagnostiek in json formaat"
 
 #: src/main.cc:80
 msgid "exit after reading configuration file"
-msgstr ""
+msgstr "sluit af na het inlezen van het configuratiebestand"
 
 #: src/main.cc:81
 msgid "display this help message"
-msgstr ""
+msgstr "vertoon dit hulpbericht"
 
 #: src/main.cc:82
 msgid "use the thread pool executor"
-msgstr ""
+msgstr "gebruik de uitvoerder van threadpools"
 
 #: src/main.cc:83
 msgid "show verbose output"
-msgstr ""
+msgstr "uitgebreide uitvoer weergeven"
 
 #: src/config.cc:360 include/cobra/config.hh:999
 msgid "error"
-msgstr ""
+msgstr "fout"
 
 #: src/config.cc:362 include/cobra/config.hh:1001
 msgid "warning"
-msgstr ""
+msgstr "waarschuwing"
 
 #: src/config.cc:364 include/cobra/config.hh:1003
 msgid "note"
-msgstr ""
+msgstr "notitie"
 
 #: src/config.cc:417
 msgid "unexpected EOF"
@@ -98,36 +98,36 @@ msgstr "verwachtte minimaal één grafisch karakter"
 
 #: src/config.cc:621
 msgid "regular file"
-msgstr ""
+msgstr "regulier bestand"
 
 #: src/config.cc:623
 #, fuzzy
 msgid "directory"
-msgstr "is een map"
+msgstr "map"
 
 #: src/config.cc:625
 msgid "symlink"
-msgstr ""
+msgstr "symbolische link"
 
 #: src/config.cc:627
 msgid "block device"
-msgstr ""
+msgstr "blok apparaat"
 
 #: src/config.cc:629
 msgid "character device"
-msgstr ""
+msgstr "karakter apparaat"
 
 #: src/config.cc:631
 msgid "fifo"
-msgstr ""
+msgstr "wachtrij"
 
 #: src/config.cc:633
 msgid "socket"
-msgstr ""
+msgstr "stopcontact"
 
 #: src/config.cc:635
 msgid "unknown"
-msgstr ""
+msgstr "onbekend"
 
 #: src/config.cc:643
 msgid "failed to stat file"
@@ -162,7 +162,7 @@ msgstr "verdachte omleidingscode"
 #: src/config.cc:762
 #, c++-format
 msgid "did you mean one of: {}, {}, {}, {}?"
-msgstr ""
+msgstr "bedoelde u {}, {}, {}, of {}?"
 
 #: src/config.cc:782
 msgid "not a directory"
@@ -218,9 +218,7 @@ msgstr "ook hier beluisterd"
 
 #: src/config.cc:979
 msgid "another server listening to the same address has the same `server_name`"
-msgstr ""
-"een andere server die naar hetzelfde adres luistert heeft dezelfde "
-"`server_name`"
+msgstr "een andere server die naar hetzelfde adres luistert heeft dezelfde `server_name`"
 
 #: src/config.cc:980
 msgid "previously specified here"
@@ -277,16 +275,16 @@ msgstr "ongeldig nummer"
 #: src/config.cc:1273
 #, c++-format
 msgid "because of invalid character `{}`"
-msgstr ""
+msgstr "vanwege het ongeldige karakter `{}`"
 
 #: src/config.cc:1280
 msgid "invalid header value"
-msgstr ""
+msgstr "ongeldige headerwaarde"
 
 #: src/config.cc:1281
 #, c++-format
 msgid "because of a reserved control character `{}`"
-msgstr ""
+msgstr "vanwege het ongeldige controlekarakter `{}`"
 
 #: src/config.cc:1298
 #, fuzzy
@@ -295,7 +293,7 @@ msgstr "herdefinitie van {}"
 
 #: src/config.cc:1299
 msgid "a previous definition with the same key will be overridden"
-msgstr ""
+msgstr "de vorige definitie met dezelfde sleutel zal worden overschreven"
 
 #: include/cobra/config.hh:282 include/cobra/config.hh:288
 #: include/cobra/config.hh:301
@@ -313,7 +311,7 @@ msgstr "nummer te groot"
 #: include/cobra/config.hh:285
 #, c++-format
 msgid "maximum accepted value is {}"
-msgstr "maximaal geaccepteerde waarde is {}"
+msgstr "maximale waarde is {}"
 
 #: include/cobra/config.hh:288
 msgid "a number must contain at least one digit"
@@ -321,11 +319,11 @@ msgstr "een nummer moet minimaal één cijfer bevatten"
 
 #: include/cobra/config.hh:633
 msgid "invalid directory listing option"
-msgstr ""
+msgstr "ongeldige mapvermeldingsoptie"
 
 #: include/cobra/config.hh:634
 msgid "expected either `true` or `false`"
-msgstr ""
+msgstr "verwachte `true` of `false`"
 
 #: include/cobra/config.hh:888
 #, c++-format

@@ -13,7 +13,7 @@ msgstr ""
 "Language-Team: Language tok\n"
 "Language: tok\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=ASCII\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
 #: src/main.cc:77
@@ -102,7 +102,7 @@ msgstr ""
 #: src/config.cc:623
 #, fuzzy
 msgid "directory"
-msgstr "ona li kulupu lipu"
+msgstr ""
 
 #: src/config.cc:625
 msgid "symlink"
@@ -182,8 +182,6 @@ msgstr "sina o sin e ilo pali kepeken `root` kepeken `cgi` kepeken ante..."
 #: src/config.cc:899 src/config.cc:912
 msgid "a address cannot be listened to with and without ssl at the same time"
 msgstr ""
-"ilo li ken ala kute tawa nimi ma wan kepeken \"ssl\" kepeken ala \"ssl\" lon "
-"tenpo wan"
 
 #: src/config.cc:900 src/config.cc:913
 msgid "consider listening to another address"

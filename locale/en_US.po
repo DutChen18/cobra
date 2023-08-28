@@ -13,7 +13,7 @@ msgstr ""
 "Language-Team: none\n"
 "Language: en_US\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=ASCII\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
@@ -213,8 +213,7 @@ msgstr "also listened to here"
 
 #: src/config.cc:979
 msgid "another server listening to the same address has the same `server_name`"
-msgstr ""
-"another server listening to the same address has the same `server_name`"
+msgstr "another server listening to the same address has the same `server_name`"
 
 #: src/config.cc:980
 msgid "previously specified here"
@@ -288,7 +287,7 @@ msgstr "redefinition of `set_header`"
 #: src/config.cc:1299
 #, fuzzy
 msgid "a previous definition with the same key will be overridden"
-msgstr "a previous definition with the same key will be overriden"
+msgstr "a previous definition with the same key will be overridden"
 
 #: include/cobra/config.hh:282 include/cobra/config.hh:288
 #: include/cobra/config.hh:301
