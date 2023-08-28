@@ -292,14 +292,59 @@ namespace cobra {
 #endif
 
 #ifdef COBRA_MACOS
-	kqueue_event_loop::kqueue_event_loop(executor& exec) {
+	kqueue_event_loop::kqueue_event_loop(executor& exec) : _kqueue_fd(kqueue()), _exec(exec) {
+		if (_kqueue_fd.fd() == -1)
+			throw errno_exception();
 	}
 
 	void kqueue_event_loop::schedule_event(event_pair event, std::optional<std::chrono::milliseconds> timeout,
 										  event_handle<void>& handle) {
+		std::optional<time_point> timeout_point;
+
+		if (timeout)
+			timeout_point = clock::now() + *timeout;
+
+		std::lock_guard guard(_mutex);
+		struct kevent change;
+
+		(void)timeout;
+		EV_SET(change, event.first, EV_ADD | EV_ONESHOT, event.second == poll_type::read ? EVFILT_READ : EVFILT_WRITE, 0, 0, NULL);
+		if (kevent(_kqueue_fd.fd(), &change, 1, NULL, 0, NULL) == -1)
+			throw errno_exception();
+		get_map(event.second)[event.first] = timed_future{handle, timeout_point};
+	}
+
+	std::optional<std::reference_wrapper<future_type>> kqueue_event_loop::remove_event(event_pair event) {
+		std::lock_guard guard(_mtx);
+		auto& map = get_map(event.second);
+		auto it = map.find(event.first);
+
+		if (it == map.end())
+			return std::nullopt;
+
+		auto result = it->second.future;
+		map.erase(it);
+		return result;
 	}
 
 	void kqueue_event_loop::poll() {
+		struct kevent events[10];
+
+		int ret = kevent(_kqueue_fd.fd(), NULL, 0, events, sizeof(events) / sizeof(events[0]), NULL);
+		if (ret == -1)
+			throw errno_exception();
+
+		for (int i = 0; i < ret; ++i) {
+			poll_type type = events[i].ffilter & EVFILT_READ ? poll_type::read : poll_type::write;
+			auto fut = remove_event({evetns[i].ident, type});
+			if (fut) {
+				auto handle = future.value();
+				_exec.get().schedule([handle]() {
+					handle.get().set_value();
+				});
+			}
+		}
+
 	}
 #endif
 } // namespace cobra

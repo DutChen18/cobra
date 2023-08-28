@@ -124,6 +124,16 @@ namespace cobra {
 
 #ifdef COBRA_MACOS
 	class kqueue_event_loop : public event_loop {
+		mutable std::mutex _mutex;
+		std::reference_wrapper<executor> _exec;
+
+		struct timed_future {
+			std::reference_wrapper<future_type> future;
+			std::optional<time_point> timeout;
+		};
+
+		std::unordered_map<int, timed_future> _write_events;
+		std::unordered_map<int, timed_future> _read_events;
 	public:
 		using event_pair = std::pair<int, poll_type>;
 
@@ -132,6 +142,10 @@ namespace cobra {
 		void poll() override;
 
 	private:
+		inline std::unordered_map<int, timed_future>& get_map(poll_type type) {
+			return type == poll_type::read ? _read_events : _write_events;
+		}
+
 		void schedule_event(event_pair event, std::optional<std::chrono::milliseconds> timeout, event_type::handle_type& handle) override;
 	};
 #endif
