@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-08-28 15:15+0200\n"
+"POT-Creation-Date: 2023-08-28 18:36+0200\n"
 "PO-Revision-Date: 2023-08-15 13:16+0200\n"
 "Last-Translator:  <dutchen18@gmail.com>\n"
 "Language-Team: Dutch <vertaling@vrijschrift.org>\n"
@@ -148,16 +148,16 @@ msgstr "niet een uitvoerbaar bestand"
 #: src/config.cc:699 src/config.cc:709
 #, fuzzy
 msgid "invalid response code"
-msgstr "ongeldig woord"
+msgstr "ongeldige reactiecode"
 
 #: src/config.cc:732 src/config.cc:743 src/config.cc:747
 #, fuzzy
 msgid "invalid redirect code"
-msgstr "ongeldig woord"
+msgstr "ongeldig omleidingscode"
 
 #: src/config.cc:761
 msgid "suspicious redirect code"
-msgstr ""
+msgstr "verdachte omleidingscode"
 
 #: src/config.cc:762
 #, c++-format
@@ -180,7 +180,7 @@ msgstr "lege filter"
 #: src/config.cc:879
 #, fuzzy
 msgid "consider specifying a handler using: `static`, `cgi`, etc..."
-msgstr "overweeg om een behandelaar op te geven met: `root`, `cgi`, etc..."
+msgstr "overweeg om een behandelaar op te geven met: `static`, `cgi`, etc..."
 
 #: src/config.cc:899 src/config.cc:912
 msgid "a address cannot be listened to with and without ssl at the same time"
@@ -192,14 +192,15 @@ msgstr "overweeg om naar een ander adres te luisteren"
 
 #: src/config.cc:902
 msgid "previously listened to here without ssl"
-msgstr "eerder hier naar geluisterd zonder ssl"
+msgstr "eerder hier beluisterd zonder ssl"
 
 #: src/config.cc:915
 msgid "previously listened to here with ssl"
-msgstr "eerder hier naar geluisterd met ssl"
+msgstr "eerder hier beluisterd met ssl"
 
 #: src/config.cc:943 src/config.cc:951 src/config.cc:978
-msgid "ambigious server"
+#, fuzzy
+msgid "ambiguous server"
 msgstr "onduidelijke server"
 
 #: src/config.cc:944
@@ -217,9 +218,7 @@ msgstr "ook hier beluisterd"
 
 #: src/config.cc:979
 msgid "another server listening to the same address has the same `server_name`"
-msgstr ""
-"een andere server die naar hetzelfde adres luistert heeft dezelfde "
-"`server_name`"
+msgstr "een andere server die naar hetzelfde adres luistert heeft dezelfde `server_name`"
 
 #: src/config.cc:980
 msgid "previously specified here"

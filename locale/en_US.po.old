@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-08-28 15:15+0200\n"
+"POT-Creation-Date: 2023-08-28 18:36+0200\n"
 "PO-Revision-Date: 2023-08-28 14:29+0200\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -175,9 +175,8 @@ msgid "empty filter"
 msgstr "empty filter"
 
 #: src/config.cc:879
-#, fuzzy
 msgid "consider specifying a handler using: `static`, `cgi`, etc..."
-msgstr "consider specifying a handler using: `root`, `cgi`, etc..."
+msgstr "consider specifying a handler using: `static`, `cgi`, etc..."
 
 #: src/config.cc:899 src/config.cc:912
 msgid "a address cannot be listened to with and without ssl at the same time"
@@ -196,8 +195,8 @@ msgid "previously listened to here with ssl"
 msgstr "previously listened to here with ssl"
 
 #: src/config.cc:943 src/config.cc:951 src/config.cc:978
-msgid "ambigious server"
-msgstr "ambigious server"
+msgid "ambiguous server"
+msgstr "ambiguous server"
 
 #: src/config.cc:944
 msgid "consider specifying a `server_name`"
@@ -214,8 +213,7 @@ msgstr "also listened to here"
 
 #: src/config.cc:979
 msgid "another server listening to the same address has the same `server_name`"
-msgstr ""
-"another server listening to the same address has the same `server_name`"
+msgstr "another server listening to the same address has the same `server_name`"
 
 #: src/config.cc:980
 msgid "previously specified here"

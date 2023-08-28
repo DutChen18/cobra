@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-08-28 15:15+0200\n"
+"POT-Creation-Date: 2023-08-28 18:36+0200\n"
 "PO-Revision-Date: 2023-08-15 14:05+0200\n"
 "Last-Translator:  <dutchen18@gmail.com>\n"
 "Language-Team: Japanese <translation-team-ja@lists.sourceforge.net>\n"
@@ -148,12 +148,12 @@ msgstr "実行形式的なファールではありません"
 #: src/config.cc:699 src/config.cc:709
 #, fuzzy
 msgid "invalid response code"
-msgstr "無効なワードです"
+msgstr ""
 
 #: src/config.cc:732 src/config.cc:743 src/config.cc:747
 #, fuzzy
 msgid "invalid redirect code"
-msgstr "無効なワードです"
+msgstr ""
 
 #: src/config.cc:761
 msgid "suspicious redirect code"
@@ -180,7 +180,7 @@ msgstr "フィルターが空っぽです"
 #: src/config.cc:879
 #, fuzzy
 msgid "consider specifying a handler using: `static`, `cgi`, etc..."
-msgstr "`root'、 `cgi` というハンドラーをお使いになってはどうですか？"
+msgstr "`static'、 `cgi` というハンドラーをお使いになってはどうですか？"
 
 #: src/config.cc:899 src/config.cc:912
 msgid "a address cannot be listened to with and without ssl at the same time"
@@ -199,7 +199,8 @@ msgid "previously listened to here with ssl"
 msgstr "すでにここにSSLを使っています"
 
 #: src/config.cc:943 src/config.cc:951 src/config.cc:978
-msgid "ambigious server"
+#, fuzzy
+msgid "ambiguous server"
 msgstr "定義されたサーバーが曖昧です"
 
 #: src/config.cc:944

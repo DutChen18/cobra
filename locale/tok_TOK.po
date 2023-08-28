@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-08-28 18:36+0200\n"
+"POT-Creation-Date: 2023-08-28 21:35+0200\n"
 "PO-Revision-Date: 2023-08-15 14:06+0200\n"
 "Last-Translator:  <dutchen18@gmail.com>\n"
 "Language-Team: Language tok\n"
@@ -145,12 +145,10 @@ msgid "not an executable file"
 msgstr "lipu pali ala"
 
 #: src/config.cc:699 src/config.cc:709
-#, fuzzy
 msgid "invalid response code"
 msgstr ""
 
 #: src/config.cc:732 src/config.cc:743 src/config.cc:747
-#, fuzzy
 msgid "invalid redirect code"
 msgstr ""
 
@@ -293,7 +291,7 @@ msgid "redefinition of `set_header`"
 msgstr "\"{}\" tu"
 
 #: src/config.cc:1299
-msgid "a previous definition with the same key will be overriden"
+msgid "a previous definition with the same key will be overridden"
 msgstr ""
 
 #: include/cobra/config.hh:282 include/cobra/config.hh:288
