@@ -6,7 +6,7 @@
 namespace cobra {
 	uri_abs_path::uri_abs_path(std::vector<uri_segment> segments)
 		: std::vector<uri_segment>(std::move(segments)) {}
-	//TODO only allow this constructor for absolute paths?
+	//ODOT only allow this constructor for absolute paths?
 	uri_abs_path::uri_abs_path(const std::filesystem::path& path) {
 		bool first = true;
 

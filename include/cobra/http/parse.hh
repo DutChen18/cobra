@@ -4,6 +4,9 @@
 #include "cobra/asyncio/stream.hh"
 #include "cobra/http/message.hh"
 #include "cobra/http/uri.hh"
+#include <limits>
+#include <optional>
+#include <charconv>
 
 namespace cobra {
 	constexpr std::size_t http_header_key_max_length = 256;
@@ -58,6 +61,22 @@ namespace cobra {
 	task<http_request> parse_http_request(buffered_istream_reference stream);
 	task<http_response> parse_http_response(buffered_istream_reference stream);
 	task<http_header_map> parse_cgi(buffered_istream_reference stream);
+
+	template <class UnsignedT>
+	std::optional<UnsignedT> parse_unsigned_strict(std::string_view str,
+											const UnsignedT max_value = std::numeric_limits<UnsignedT>::max()) {
+		UnsignedT value;
+
+		const std::from_chars_result result = std::from_chars(str.data(), str.data() + str.length(), value);
+
+		if (result.ec == std::errc::invalid_argument || result.ec == std::errc::result_out_of_range ||
+			value > max_value)
+			return std::nullopt;
+
+		if (result.ptr != str.data() + str.length())
+			return std::nullopt;
+		return value;
+	}
 }
 
 #endif

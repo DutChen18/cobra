@@ -1,6 +1,7 @@
 #include "cobra/http/handler.hh"
 #include "cobra/http/parse.hh"
 #include "cobra/asyncio/std_stream.hh"
+#include "cobra/asyncio/generator_stream.hh"
 #include "cobra/net/stream.hh"
 #include "cobra/process.hh"
 #include "cobra/print.hh"
@@ -9,11 +10,12 @@
 
 #include <exception>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <stdexcept>
 
 namespace cobra {
-	// TODO: sanitize header keys and values
+	// ODOT: sanitize header keys and values
 	static generator<std::pair<std::string, std::string>> get_cgi_params(const handle_context<cgi_config>& context) {
 		co_yield { "REQUEST_METHOD", context.request().method() };
 		co_yield { "SCRIPT_FILENAME", context.root() + context.file() };
@@ -51,8 +53,8 @@ namespace cobra {
 		}
 	}
 
-	// TODO: handle all the stuffs
-	// TODO: properly handle parse_http_response errors and stuff
+	// ODOT: handle all the stuffs
+	// ODOT: properly handle parse_http_response errors and stuff
 	/*
 	static task<std::pair<http_response, std::vector<char>>> get_response(basic_socket_stream& socket, const http_request& request) {
 		istream_buffer socket_istream(make_istream_ref(socket), COBRA_BUFFER_SIZE);
@@ -87,9 +89,69 @@ namespace cobra {
 	}
 	*/
 
+	generator<std::string> list_directories(const std::filesystem::path& path, const std::string& file) {
+		co_yield "<!DOCTYPE html>\n<html>\n<body>";
+		co_yield std::format("<h1>Index of {}</h1>", file);
+		co_yield "<table order=\"\">\n<thead>\n<tr>\n<th>Name</th><th>Size</th><th>Last Modified</th></tr></thead>";
+		co_yield "<tbody>";
+
+		if (file != "/") {
+			co_yield std::format("<tr><td><a href=\"..\">..</a></td><td></td><td></td></tr>");
+		}
+
+		for (const auto& entry : std::filesystem::directory_iterator(path)) {
+			std::error_code ec;
+
+			co_yield "<tr>";
+			std::string filename = entry.path().filename().string();
+
+			if (entry.is_directory(ec)) {
+				co_yield std::format("<td><a href=\"{}/\"i>{}</a></td>", filename, filename);
+				co_yield std::format("<td></td>");
+			} else {
+				if (ec) {
+					co_yield "<td>error</td>";
+					co_yield "<td>error</td>";
+				} else {
+				co_yield std::format("<td><a href=\"{}\"i>{}</a></td>", filename, filename);
+					co_yield std::format("<td>{}</td>", entry.file_size());
+				}
+
+			}
+
+			auto last_modified = entry.last_write_time(ec);
+
+			if (ec) {
+				co_yield "<td>error</td>";
+			} else {
+				co_yield std::format("<td>{}</td>", last_modified);
+			}
+			co_yield "</tr>";
+		}
+		co_yield "</table></body></html>";
+	}
+
 	task<void> handle_static(http_response_writer writer, const handle_context<static_config>& context) {
+		std::filesystem::path path = context.root() + context.file();
+
 		try {
-			std::filesystem::path path = context.root() + context.file();
+			if (std::filesystem::is_directory(path)) {
+				if (context.config().list_dir()) {
+					generator_stream dir_istream(list_directories(path, context.file()));
+					http_response resp(HTTP_OK);
+					resp.set_header("Content-type", "text/html");
+					http_ostream sock_ostream = co_await std::move(writer).send(resp);
+					co_await pipe(buffered_istream_reference(dir_istream), ostream_reference(sock_ostream));
+					co_return;
+				} else {
+					throw HTTP_NOT_FOUND;
+				}
+			}
+		} catch (const std::filesystem::filesystem_error&) {
+			throw HTTP_NOT_FOUND;
+		}
+
+		try {
 			std::size_t size = std::filesystem::file_size(path);
 			istream_buffer file_istream(file_istream(path.c_str()), COBRA_BUFFER_SIZE);
 
@@ -115,13 +177,28 @@ namespace cobra {
 	task<void> handle_cgi_response(buffered_istream_reference istream, http_response_writer writer) {
 		http_header_map header_map = co_await parse_cgi(istream);
 		http_response_code code = 200;
+		std::string reason_phrase;
 
 		if (header_map.contains("Status")) {
-			// TODO: use reason phrase from status
-			code = std::stoi(header_map.at("Status").substr(0, 3));
+			auto& val = header_map.at("Status");
+			if (val.length() < 5) {
+				throw HTTP_BAD_GATEWAY;
+			}
+
+			auto tmp = parse_unsigned_strict<http_response_code>(val.substr(0, 3), 999);
+			if (!tmp)
+				throw HTTP_BAD_GATEWAY;
+			code = *tmp;
+
+			//code = std::stoi(val.substr(0, 3));
+			if (val[3] != ' ') {
+				throw HTTP_BAD_GATEWAY;
+			}
+
+			reason_phrase = val.substr(4);
 		}
 
-		http_response response(code);
+		http_response response(code, std::move(reason_phrase));
 
 		response.set_header("Location", header_map);
 		response.set_header("Content-Type", header_map);

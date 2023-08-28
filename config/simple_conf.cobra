@@ -3,26 +3,25 @@ server {
 	error_page 404 /error/404.html
 
 	set_header server cobra
+	index index.html
 
 	#ssl cert.pem key.pem
-
-	#method GET {
-		location / {
-			#set_header cache-control max-age=14400
-			root /home/codam/cobra
-			static
-		}
-	#}
+	
+	location / {
+		#set_header cache-control max-age=14400
+		root /home/codam/cobra
+		static true
+	}
 
 	location /error {
 		root /home/codam/cobra/config/error
-		static
+		static false
 	}
 
 	root /
 
-	#max_body_size 1000
-	#location / { TODO FIX
-	#	root /home/codem/cobra
-	#}
+	max_body_size 1000
+	location / {
+		root /home/codem/cobra
+	}
 }

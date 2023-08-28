@@ -6,34 +6,17 @@
 #include "cobra/print.hh"
 #include "cobra/text.hh"
 
-//TODO check which headers aren't needed anymore
-#include <algorithm>
-#include <any>
-#include <cctype>
-#include <charconv>
-#include <compare>
-#include <concepts>
-#include <deque>
-#include <exception>
-#include <filesystem>
-#include <format>
-#include <functional>
-#include <iostream>
-#include <istream>
-#include <limits>
-#include <map>
-#include <optional>
-#include <ostream>
-#include <set>
-#include <stdexcept>
+#include <variant>
 #include <string>
-#include <string_view>
-#include <type_traits>
+#include <vector>
+#include <utility>
 #include <unordered_map>
 #include <unordered_set>
-#include <utility>
-#include <variant>
-#include <vector>
+#include <set>
+#include <map>
+#include <algorithm>
+#include <memory>
+#include <deque>
 
 extern "C" {
 #include <sys/stat.h>
@@ -91,7 +74,6 @@ namespace cobra {
 			return *std::min_element(c.begin(), c.end(), [str](auto a, auto b) { return levenshtein_dist(a, str) < levenshtein_dist(b, str); });
 		}
 
-		//TODO multiline diagnostics
 		struct buf_pos {
 			std::size_t line;
 			std::size_t col;
@@ -262,6 +244,18 @@ namespace cobra {
 		};
 
 		std::ostream& operator<<(std::ostream& stream, const diagnostic::level& level);
+
+		inline const char* diagnostic_level_name(const diagnostic::level& level) {
+			using namespace cobra::config;
+			switch (level) {
+			case diagnostic::level::error:
+				return "error";
+			case diagnostic::level::warning:
+				return "warning";
+			case diagnostic::level::note:
+				return "note";
+			}
+		}
 
 		class error : public std::runtime_error {
 			diagnostic _diag;
@@ -627,9 +621,19 @@ namespace cobra {
 		};
 
 		struct static_file_config {
+			bool list_dir;
+			
 			inline static static_file_config parse(parse_session& session) {
-				(void) session;
-				return {};
+				auto w = session.get_word_simple("string", "list directory");
+				if (w.str() == "true") {
+					return {true};
+				} else if (w.str() == "false") {
+					return {false};
+				} else {
+					diagnostic diag = diagnostic::error(w.part(), COBRA_TEXT("invalid directory listing option"),
+														COBRA_TEXT("expected either `true` or `false`"));
+					throw error(diag);
+				}
 			}
 
 			auto operator<=>(const static_file_config& other) const = default;
@@ -987,17 +991,16 @@ struct std::formatter<cobra::config::diagnostic::level, char> {
 		return fpc.begin();
 	}
 
-	// TODO: translate
 	template <class FormatContext>
 	constexpr auto format(cobra::config::diagnostic::level lvl, FormatContext& fc) const {
 		using namespace cobra::config;
 		switch (lvl) {
 		case diagnostic::level::error:
-			return std::format_to(fc.out(), "error");
+			return std::format_to(fc.out(), "{}", COBRA_TEXT("error"));
 		case diagnostic::level::warning:
-			return std::format_to(fc.out(), "warning");
+			return std::format_to(fc.out(), "{}", COBRA_TEXT("warning"));
 		case diagnostic::level::note:
-			return std::format_to(fc.out(), "note");
+			return std::format_to(fc.out(), "{}", COBRA_TEXT("note"));
 		}
 	}
 };

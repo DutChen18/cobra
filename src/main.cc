@@ -42,7 +42,7 @@ static void print_json_diags(const std::vector<cobra::config::diagnostic>& diags
 		print("\"start\":{{\"line\":{},\"col\":{}}},", diag.part.start.line, diag.part.start.col);
 		print("\"end\":{{\"line\":{},\"col\":{}}},", diag.part.end.line, diag.part.end.col);
 		print("\"message\":{},", cobra::quoted(diag.message));
-		print("\"lvl\":{},", cobra::quoted(std::format("{}", diag.lvl)));
+		print("\"lvl\":{},", cobra::quoted(diagnostic_level_name(diag.lvl)));
 		print("\"primary_label\":{},", cobra::quoted(diag.primary_label));
 		print("\"secondary_label\":{},", cobra::quoted(diag.secondary_label));
 		print("\"sub_diags\":");
@@ -57,14 +57,12 @@ static void print_json_diags(const std::vector<cobra::config::diagnostic>& diags
 struct args_type {
 	std::string program_name;
 	std::optional<std::string> config_file;
-	std::optional<std::string> compress_file;
-	std::optional<std::string> round_file;
-	std::optional<std::string> deflate_file;
-	std::optional<std::string> inflate_file;
+	std::optional<std::string> num_threads;
 	bool json = false;
 	bool check = false;
 	bool help = false;
 	bool threads = false;
+	bool verbose = false;
 };
 
 #ifndef COBRA_FUZZ
@@ -76,17 +74,23 @@ int main(int argc, char **argv) {
 
 	assert(signal(SIGPIPE, SIG_IGN) != SIG_ERR);
 
+	std::string file_help = COBRA_TEXT("path to configuration file");
+	std::string num_threads_help = COBRA_TEXT("number of threads to use (implies -t)");
+	std::string json_help = COBRA_TEXT("write diagnostics in json format");
+	std::string check_help = COBRA_TEXT("exit after reading configuration file");
+	std::string help_help = COBRA_TEXT("display this help message");
+	std::string threads_help = COBRA_TEXT("use the thread pool executor");
+	std::string verbose_help = COBRA_TEXT("show verbose output");
+
 	auto parser = argument_parser<args_type>()
 		.add_program_name(&args_type::program_name)
-		.add_positional(&args_type::config_file, false, "file", "path to configuration file")
-		.add_argument(&args_type::compress_file, "l", "ls", "test lempel-ziv")
-		.add_argument(&args_type::round_file, "r", "round", "test lempel-ziv round trip")
-		.add_argument(&args_type::deflate_file, "z", "deflate", "test deflate")
-		.add_argument(&args_type::inflate_file, "d", "inflate", "test inflate")
-		.add_flag(&args_type::json, true, "j", "json", "write diagnostics in json format")
-		.add_flag(&args_type::check, true, "c", "check", "exit after reading configuration file")
-		.add_flag(&args_type::help, true, "h", "help", "display this help message")
-		.add_flag(&args_type::threads, true, "t", "threads", "use the thread pool executor");
+		.add_positional(&args_type::config_file, false, "file", file_help.c_str())
+		.add_argument(&args_type::num_threads, "T", "num-threads", num_threads_help.c_str())
+		.add_flag(&args_type::json, true, "j", "json", json_help.c_str())
+		.add_flag(&args_type::check, true, "c", "check", check_help.c_str())
+		.add_flag(&args_type::help, true, "h", "help", help_help.c_str())
+		.add_flag(&args_type::threads, true, "t", "threads", threads_help.c_str())
+		.add_flag(&args_type::verbose, true, "v", "verbose", verbose_help.c_str());
 	auto args = parser.parse(argv, argv + argc);
 
 	if (args.help) {
@@ -94,7 +98,9 @@ int main(int argc, char **argv) {
 		return EXIT_SUCCESS;
 	}
 
-	if (args.threads) {
+	if (args.num_threads) {
+		exec = std::make_unique<thread_pool_executor>(std::stoull(*args.num_threads));
+	} else if (args.threads) {
 		exec = std::make_unique<thread_pool_executor>();
 	} else {
 		exec = std::make_unique<sequential_executor>();
@@ -102,6 +108,7 @@ int main(int argc, char **argv) {
 	
 	platform_event_loop loop(*exec);
 
+	/*
 	if (args.compress_file) {
 		std::fstream f = std::fstream(*args.compress_file, std::ios::in);
 		auto stream = istream_buffer<std_istream<std::fstream>>(std_istream<std::fstream>(std::move(f)), 1024);
@@ -146,8 +153,8 @@ int main(int argc, char **argv) {
 		block_task(pipe(buffered_istream_reference(infl_istream), ostream_reference(infl_ostream)));
 
 		return EXIT_SUCCESS;
-
 	}
+	*/
 
 	if (args.config_file) {
 		file = std::fstream(*args.config_file, std::ios::in);

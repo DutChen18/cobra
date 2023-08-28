@@ -116,7 +116,7 @@ namespace cobra {
 			length += 1;
 			size += value.size();
 
-			// TODO: Set-Cookie size
+			// ODOT: Set-Cookie size
 			if (!message.has_header(key)) {
 				size += key.size();
 			}
@@ -153,7 +153,7 @@ namespace cobra {
 			length += 1;
 			size += value.size();
 
-			// TODO: Set-Cookie size
+			// ODOT: Set-Cookie size
 			if (!map.contains(key)) {
 				size += key.size();
 			}

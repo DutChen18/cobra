@@ -10,7 +10,6 @@
 #include "cobra/asyncio/task.hh"
 #include "cobra/asyncio/stream.hh"
 #include "cobra/ringbuffer.hh"
-#include "cobra/chained_iterator.hh"
 
 #include <cstdint>
 #include <deque>
@@ -21,12 +20,13 @@
 #include <unordered_map>
 #include <algorithm>
 
-//TODO remove these headers
+#ifdef COBRA_DEBUG
 #include <iostream>
 #include <set>
 #include <vector>
 #include "cobra/print.hh"
 #include "cobra/compress/stream_ringbuffer.hh"
+#endif
 
 namespace cobra {
 
@@ -451,6 +451,15 @@ namespace cobra {
 			return _window.push_back(ch);
 		}
 
+		void push_hash(ringbuffer<uint8_t>::iterator it, uint32_t hash) {
+			assert(!_chain.full());
+			const auto chain_it = _chain.push_back(zchain(hash, it));
+			assert_table_correct();
+
+			update_table(hash, chain_it);
+			assert_correct();
+		}
+
 		task<ringbuffer<uint8_t>::iterator> write_literal_command(uint8_t ch) {
 			co_await _stream.write(lz_command(ch));
 			co_return write_literal(ch);
@@ -478,12 +487,7 @@ namespace cobra {
 			assert_correct();
 			const auto win_it = co_await write_literal_command(ch);
 
-			assert(!_chain.full());
-			const auto chain_it = _chain.push_back(zchain(hash, win_it));
-			assert_table_correct();
-
-			update_table(hash, chain_it);
-			assert_correct();
+			push_hash(win_it, hash);
 			co_return;
 		}
 
@@ -499,28 +503,17 @@ namespace cobra {
 
 		task<void> write_copy_command(uint32_t hash, uint16_t length, uint16_t dist) {
 			assert_correct();
-			if (_window.remaining() <= length) {
-				auto chain_it = _chain.begin();
-
-				const auto buffer_replace_end = _window.begin() + length - _window.remaining();
-				while (chain_it != _chain.end() && chain_it->pos() <= buffer_replace_end) {
-					chain_it = remove_oldest_link();
+			for (uint16_t i = 0; i < length; ++i) {
+				if (_buffer.size() < 3) {
+					auto ch = _buffer.pop_front();
+					write_literal(ch);
+				} else {
+					auto hash = peek_hash();
+					auto ch = _buffer.pop_front();
+					auto it = write_literal(ch);
+					push_hash(it, hash);
 				}
 			}
-			assert_correct();
-
-			if (_chain.full()) {
-				remove_oldest_link();
-			}
-			assert_correct();
-
-			//std::size_t n = std::min(length, static_cast<uint16_t>(_buffer.size()));
-			const auto win_it =_window.insert(_buffer.begin(), _buffer.begin() + length);
-			_buffer.erase_front(length);
-
-			const auto chain_it = _chain.push_back(zchain(hash, win_it));
-			update_table(hash, chain_it);
-			assert_correct();
 			co_await _stream.write(lz_command(length, dist));
 		}
 
@@ -536,7 +529,7 @@ namespace cobra {
 		task<void> produce_atleast(size_t at_least) {
 			assert(at_least <= _buffer.size() && "tried to produce  more than available");
 			const size_t before = _buffer.size();
-			while (!_buffer.empty() && before - _buffer.size() <= at_least) { // TODO: should this be < instead of <=?
+			while (!_buffer.empty() && before - _buffer.size() < at_least) {
 				co_await produce_one();
 			}
 		}

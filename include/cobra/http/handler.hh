@@ -8,12 +8,15 @@
 
 namespace cobra {
 	class static_config {
+		bool _list_dir;
 		std::optional<http_response_code> _code;
 
 	public:
-		static_config(std::optional<http_response_code> code = std::nullopt) : _code(code) {}
+		static_config(bool list_dir, std::optional<http_response_code> code = std::nullopt)
+			: _list_dir(list_dir), _code(code) {}
 
 		inline std::optional<http_response_code> code() const { return _code; }
+		inline bool list_dir() const { return _list_dir; }
 	};
 
 	class cgi_command {
@@ -43,8 +46,8 @@ namespace cobra {
 		}
 	};
 
-	// TODO: unix sockets?
-	// TODO: named pipes?
+	// ODOT: unix sockets?
+	// ODOT: named pipes?
 	class cgi_config {
 		std::variant<cgi_command, cgi_address> _config;
 

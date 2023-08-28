@@ -6,31 +6,7 @@
 #include "cobra/text.hh"
 #include "cobra/http/util.hh"
 
-// TODO check which headers aren't needed anymore
-#include <algorithm>
-#include <any>
 #include <cassert>
-#include <cctype>
-#include <cerrno>
-#include <compare>
-#include <cstddef>
-#include <cstring>
-#include <deque>
-#include <filesystem>
-#include <format>
-#include <functional>
-#include <limits>
-#include <memory>
-#include <optional>
-#include <ostream>
-#include <ranges>
-#include <stdexcept>
-#include <string>
-#include <string_view>
-#include <unordered_set>
-#include <utility>
-#include <variant>
-#include <vector>
 
 namespace cobra {
 
@@ -311,7 +287,7 @@ namespace cobra {
 				}
 			}
 
-			//TODO secondary labels
+			//ODOT secondary labels
 			if (primary_label.empty()) {
 				if (end_col <= leading_spaces.back()) {
 					auto line = diag_lines.back().substr(min_leading);
@@ -378,15 +354,14 @@ namespace cobra {
 			}
 		}
 
-		// TODO: translate
 		std::ostream& operator<<(std::ostream& stream, diagnostic::level lvl) {
 			switch (lvl) {
 			case diagnostic::level::error:
-				return stream << "error";
+				return stream << COBRA_TEXT("error");
 			case diagnostic::level::warning:
-				return stream << "warning";
+				return stream << COBRA_TEXT("warning");
 			case diagnostic::level::note:
-				return stream << "note";
+				return stream << COBRA_TEXT("note");
 			}
 		}
 
@@ -640,25 +615,24 @@ namespace cobra {
 			: _node(std::move(node)), _service(service) {}
 		constexpr listen_address::listen_address(port service) noexcept : _node(), _service(service) {}
 
-		// TODO: translate
-		static const char* get_filetype_name(fs::file_type type) {
+		static std::string get_filetype_name(fs::file_type type) {
 			switch (type) {
 			case fs::file_type::regular:
-				return "regular file";
+				return COBRA_TEXT("regular file");
 			case fs::file_type::directory:
-				return "directory";
+				return COBRA_TEXT("directory");
 			case fs::file_type::symlink:
-				return "symlink";
+				return COBRA_TEXT("symlink");
 			case fs::file_type::block:
-				return "block device";
+				return COBRA_TEXT("block device");
 			case fs::file_type::character:
-				return "character device";
+				return COBRA_TEXT("character device");
 			case fs::file_type::fifo:
-				return "fifo";
+				return COBRA_TEXT("fifo");
 			case fs::file_type::socket:
-				return "socket";
+				return COBRA_TEXT("socket");
 			default:
-				return "unknown";
+				return COBRA_TEXT("unknown");
 			}
 		}
 
@@ -902,7 +876,7 @@ namespace cobra {
 		void server_config::empty_filters_lint(const define<block_config>& config, const parse_session& session) {
 			if (!config->_handler && config->_filters.empty()) {
 				diagnostic diag = diagnostic::warn(config.part, COBRA_TEXT("empty filter"),
-												   COBRA_TEXT("consider specifying a handler using: `root`, `cgi`, etc..."));
+												   COBRA_TEXT("consider specifying a handler using: `static`, `cgi`, etc..."));
 				session.report(diag);
 			} else {
 				for (auto& [_, block_cfg] : config->_filters) {
@@ -1157,7 +1131,7 @@ namespace cobra {
 				}
 
 				_max_body_size = define<std::size_t>(
-					limit, file_part(session.file(), line, define_start, len)); // TODO use parse_define
+					limit, file_part(session.file(), line, define_start, len)); // ODOT use parse_define
 			} catch (error err) {
 				err.diag().message = COBRA_TEXT("invalid max_body_size");
 				err.diag().part = file_part(session.file(), line, col, word.length());

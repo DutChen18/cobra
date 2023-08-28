@@ -27,29 +27,35 @@ namespace cobra {
 		co_await write_u8(_ostream, 0);
 	}
 
-	task<std::size_t> fastcgi_client_connection::write(std::uint16_t request_id, fastcgi_record_type type, const char* data, std::size_t size) {
+	task<std::size_t> fastcgi_client_connection::write(fastcgi_client* client, fastcgi_record_type type, const char* data, std::size_t size) {
 		size = std::min(size, std::size_t(65535));
 
 		if (size > 0) {
 			async_lock lock = co_await async_lock::lock(_mutex);
-			co_await write_header(type, request_id, size);
-			co_await _ostream.write_all(data, size);
+
+			if (_clients.at(client->request_id()).get() == client) {
+				co_await write_header(type, client->request_id(), size);
+				co_await _ostream.write_all(data, size);
+			}
 		}
 
 		co_return size;
 	}
 
-	task<void> fastcgi_client_connection::flush(std::uint16_t request_id, fastcgi_record_type type) {
+	task<void> fastcgi_client_connection::flush(fastcgi_client* client, fastcgi_record_type type) {
 		async_lock lock = co_await async_lock::lock(_mutex);
 		co_await _ostream.flush();
-		(void) request_id;
+		(void) client;
 		(void) type;
 	}
 
-	task<void> fastcgi_client_connection::close(std::uint16_t request_id, fastcgi_record_type type) {
+	task<void> fastcgi_client_connection::close(fastcgi_client* client, fastcgi_record_type type) {
 		async_lock lock = co_await async_lock::lock(_mutex);
-		co_await write_header(type, request_id, 0);
-		co_await _ostream.flush();
+
+		if (_clients.at(client->request_id()).get() == client) {
+			co_await write_header(type, client->request_id(), 0);
+			co_await _ostream.flush();
+		}
 	}
 	
 	task<std::shared_ptr<fastcgi_client>> fastcgi_client_connection::begin() {
@@ -75,23 +81,38 @@ namespace cobra {
 		co_return client;
 	}
 
-	// TODO: error handling is shit
 	task<bool> fastcgi_client_connection::poll() {
-		co_await read_u8(_istream);
+		std::uint8_t version = co_await read_u8(_istream);
 		std::uint8_t type = co_await read_u8(_istream);
 		std::uint16_t request_id = co_await read_u16_be(_istream);
 		std::uint16_t content_length = co_await read_u16_be(_istream);
 		std::uint8_t padding_length = co_await read_u8(_istream);
 		co_await read_u8(_istream);
 
+		if (version != FCGI_VERSION_1) {
+			std::shared_ptr<fastcgi_client> client = co_await get_client(request_id);
+			co_await client->set_error(fastcgi_error::bad_version);
+		}
+
 		if (type == static_cast<std::uint8_t>(fastcgi_record_type::fcgi_end_request)) {
 			std::shared_ptr<fastcgi_client> client = co_await get_client(request_id);
 			co_await read_u32_be(_istream);
-			co_await read_u8(_istream);
+			std::uint8_t protocol_status = co_await read_u8(_istream);
 			co_await read_u8(_istream);
 			co_await read_u16_be(_istream);
 			co_await client->fcgi_stdout().close();
 			co_await client->fcgi_stderr().close();
+
+			if (protocol_status == FCGI_CANT_MPX_CONN) {
+				co_await client->set_error(fastcgi_error::cant_mpx_conn);
+			} else if (protocol_status == FCGI_OVERLOADED) {
+				co_await client->set_error(fastcgi_error::overloaded);
+			} else if (protocol_status == FCGI_UNKNOWN_ROLE) {
+				co_await client->set_error(fastcgi_error::unknown_role);
+			} else if (protocol_status != FCGI_REQUEST_COMPLETE) {
+				co_await client->set_error(fastcgi_error::unknown_error);
+			}
+
 			async_lock lock = co_await async_lock::lock(_mutex);
 			_clients.erase(request_id);
 		} else if (type == static_cast<std::uint8_t>(fastcgi_record_type::fcgi_stdout)) {
@@ -112,8 +133,9 @@ namespace cobra {
 			co_await _istream.read_all(buffer.data(), content_length);
 		}
 
-		char buffer[256];
-		co_await _istream.read_all(buffer, padding_length);
+		std::vector<char> buffer;
+		buffer.resize(padding_length);
+		co_await _istream.read_all(buffer.data(), padding_length);
 		async_lock lock = co_await async_lock::lock(_mutex);
 		co_return !_clients.empty();
 	}
@@ -129,8 +151,10 @@ namespace cobra {
 		return _connection;
 	}
 
-	void fastcgi_client::set_error(fastcgi_error error) {
+	task<void> fastcgi_client::set_error(fastcgi_error error) {
+		async_lock lock = co_await async_lock::lock(_connection->mutex());
 		_error = error;
+		_connection->condition_variable().notify_all();
 	}
 
 	void fastcgi_client::check_error() const {

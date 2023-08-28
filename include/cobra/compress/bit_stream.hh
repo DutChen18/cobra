@@ -8,7 +8,6 @@
 #include <cassert>
 
 namespace cobra {
-	// TODO: peek_bits?
 	template <AsyncInputStream Stream>
 	class bit_istream {
 		Stream _stream;

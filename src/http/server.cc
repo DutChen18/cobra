@@ -135,7 +135,7 @@ namespace cobra {
 			throw HTTP_BAD_REQUEST;
 		}
 
-		const config::config* last_config = nullptr;//TODO give other name
+		const config::config* last_config = nullptr;//ODOT give other name
 
 		const uri_abs_path normalized = org->path().normalize();
 		for (auto [filter, normalized] : match(socket, request, normalized)) {
@@ -255,7 +255,7 @@ namespace cobra {
 			writer.set_header(key, value);
 		}
 
-		// TODO properly match uri
+		// ODOT properly match uri
 		fs::path file("/");
 		for (std::size_t i = filt.match_count(); i < normalized.size(); ++i) {
 			file.append(normalized[i]);
@@ -263,6 +263,7 @@ namespace cobra {
 
 		// TODO do properly: https://datatracker.ietf.org/doc/html/rfc9112#name-message-body-length
 		// TODO utility file for int parsing etc..
+		//auto tmp = request.has_header("content-length")
 		std::size_t content_length =
 			request.has_header("content-length") ? std::stoull(request.header("content-length")) : 0;
 		auto limited_stream = istream_limit(std::move(in), content_length);
@@ -287,7 +288,7 @@ namespace cobra {
 								 request, in});
 		} else if (auto cfg = std::get_if<config::static_file_config>(&*filt.config().handler)) {
 			co_await handle_static(std::move(writer),
-								   {_loop, _exec, root, file.string(), {code}, request, in});
+								   {_loop, _exec, root, file.string(), {cfg->list_dir, code}, request, in});
 		} else if (auto cfg = std::get_if<config::redirect_config>(&*filt.config().handler)) {
 			co_await handle_redirect(std::move(writer),
 									 {_loop, _exec, root, file.string(), redirect_config(cfg->code, cfg->location),

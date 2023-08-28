@@ -162,7 +162,7 @@ namespace cobra {
 		value_type* _buffer;
 
 	public:
-		//TODO exception safety
+		//ODOT exception safety
 		constexpr ringbuffer(std::size_t buffer_capacity)
 			: _buffer_capacity(buffer_capacity), _allocator(), _buffer(_allocator.allocate(_buffer_capacity + 1)) {
 			if (_buffer_capacity == std::numeric_limits<size_type>::max())
@@ -172,7 +172,7 @@ namespace cobra {
 		constexpr ringbuffer(const ringbuffer& other)
 			: _buffer_capacity(other._buffer_capacity), _buffer_begin(other._buffer_begin),
 			  _buffer_size(other._buffer_size), _allocator(), _buffer(_allocator.allocate(_buffer_capacity + 1)) {
-			//TODO exception safety
+			//ODOT exception safety
 			std::uninitialized_copy(other._buffer, other._buffer + _buffer_size, _buffer);
 		}
 
@@ -305,14 +305,14 @@ namespace cobra {
 			return std::move(result);
 		}
 
-		//TODO exception safety
+		//ODOT exception safety
 		template <class InputIt>
 		constexpr iterator insert(InputIt first, InputIt last) noexcept {
 			iterator res = begin();
 			bool inserted = false;
 
 			for (; first != last; ++first) {
-				//TODO optimize
+				//ODOT optimize
 				iterator it = push_back(*first);
 				if (!inserted) {
 					res = it;
@@ -325,7 +325,7 @@ namespace cobra {
 		constexpr void erase_front(size_type count) noexcept {
 			assert(count <= size() && "tried to erase more than available");
 
-			//TODO optimize
+			//ODOT optimize
 			while (count--) {
 				pop_front();
 			}

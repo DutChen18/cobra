@@ -4,6 +4,7 @@
 #include "cobra/print.hh"
 #include "cobra/net/address.hh"
 
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <numeric>
@@ -12,8 +13,7 @@
 #include <unordered_map>
 #include <utility>
 
-
-#include <cassert> //TODO remove
+#include <cassert> // ODOT: remove
 
 extern "C" {
 #include <fcntl.h>
@@ -497,18 +497,36 @@ namespace cobra {
 		co_return co_await ssl_socket_stream::connect(exec, loop, std::move(socket), std::move(client));
 	}
 
+	static task<void> start_server(executor* exec, event_loop* loop, file socket,
+								   std::function<task<void>(socket_stream)> cb) {
+		while (true) {
+			co_await loop->wait_read(socket);
+			sockaddr_storage addr;
+			socklen_t len = sizeof addr;
+			file client_sock = check_return(accept(socket.fd(), reinterpret_cast<sockaddr*>(&addr), &len));
+			check_return(fcntl(client_sock.fd(), F_SETFL, O_NONBLOCK));
+			(void)exec->schedule(cb(socket_stream(loop, std::move(client_sock))));
+		}
+	}
+
 	task<void> start_server(executor* exec, event_loop* loop, const char* node, const char* service,
 							std::function<task<void>(socket_stream)> cb) {
 		static const int val = 1;
+		std::vector<task<void>> tasks;
 
-		// TODO: should listen to all results from get_address_info
+		bool bound = false;
 		for (const address_info& info : get_address_info(node, service)) {
 			file server_sock = check_return(socket(info.family(), info.socktype(), info.protocol()));
 			check_return(fcntl(server_sock.fd(), F_SETFL, O_NONBLOCK));
 			check_return(setsockopt(server_sock.fd(), SOL_SOCKET, SO_REUSEADDR, &val, sizeof val));
-			check_return(bind(server_sock.fd(), info.addr().addr(), info.addr().len()));
-			check_return(listen(server_sock.fd(), 5));
+			if (bind(server_sock.fd(), info.addr().addr(), info.addr().len()) != 0)
+				continue;
+			if (listen(server_sock.fd(), 5) != 0)
+				continue;
 
+			(void)exec->schedule(start_server(exec, loop, std::move(server_sock), cb));
+			bound = true;
+			/*
 			while (true) {
 				co_await loop->wait_read(server_sock);
 				sockaddr_storage addr;
@@ -516,7 +534,12 @@ namespace cobra {
 				file client_sock = check_return(accept(server_sock.fd(), reinterpret_cast<sockaddr*>(&addr), &len));
 				check_return(fcntl(client_sock.fd(), F_SETFL, O_NONBLOCK));
 				(void) exec->schedule(cb(socket_stream(loop, std::move(client_sock))));
-			}
+			}*/
+		}
+		if (!bound)
+			throw std::runtime_error(std::format("Failed to listen to {}:{}: {}", node, service, strerror(errno)));
+		for (auto&& task : tasks) {
+			co_await task;
 		}
 	}
 

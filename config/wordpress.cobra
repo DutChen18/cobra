@@ -12,16 +12,16 @@ server {
 	location / {
 		extension .js
 		set_header Content-Type text/javascript
-		static
+		static false
 	}
 
 	location / {
 		extension .css
 		set_header Content-Type text/css
-		static
+		static false
 	}
 
 	location / {
-		static
+		static false
 	}
 }

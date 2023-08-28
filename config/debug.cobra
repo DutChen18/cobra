@@ -4,7 +4,7 @@ server {
 	index index.php
 
 	location /static {
-		static
+		static false
 	}
 
 	location /cgi {

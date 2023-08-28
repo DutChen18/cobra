@@ -12,6 +12,10 @@
 #define FCGI_RESPONDER 1
 #define FCGI_AUTHORIZER 2
 #define FCGI_FILTER 3
+#define FCGI_REQUEST_COMPLETE 0
+#define FCGI_CANT_MPX_CONN 1
+#define FCGI_OVERLOADED 2
+#define FCGI_UNKNOWN_ROLE 3
 
 namespace cobra {
 	enum class fastcgi_error {
@@ -19,6 +23,7 @@ namespace cobra {
 		cant_mpx_conn,
 		overloaded,
 		unknown_role,
+		unknown_error,
 	};
 
 	enum class fastcgi_record_type {
@@ -62,13 +67,12 @@ namespace cobra {
 
 	class fastcgi_client;
 
-	// TODO: reuse connections
+	// ODOT: reuse connections
 	class fastcgi_client_connection {
 		async_mutex _mutex;
 		async_condition_variable _condition_variable;
 		istream_reference _istream;
 		ostream_reference _ostream;
-		// TODO: only remove client from list after caller is done with it
 		std::map<std::uint16_t, std::shared_ptr<fastcgi_client>> _clients;
 
 		task<std::shared_ptr<fastcgi_client>> get_client(std::uint16_t request_id);
@@ -80,9 +84,9 @@ namespace cobra {
 		async_mutex& mutex();
 		async_condition_variable& condition_variable();
 
-		task<std::size_t> write(std::uint16_t request_id, fastcgi_record_type type, const char* data, std::size_t size);
-		task<void> flush(std::uint16_t request_id, fastcgi_record_type type);
-		task<void> close(std::uint16_t request_id, fastcgi_record_type type);
+		task<std::size_t> write(fastcgi_client* client, fastcgi_record_type type, const char* data, std::size_t size);
+		task<void> flush(fastcgi_client* client, fastcgi_record_type type);
+		task<void> close(fastcgi_client* client, fastcgi_record_type type);
 
 		task<std::shared_ptr<fastcgi_client>> begin();
 		task<bool> poll();
@@ -98,7 +102,7 @@ namespace cobra {
 
 		std::uint16_t request_id() const;
 		fastcgi_client_connection* connection() const;
-		void set_error(fastcgi_error error);
+		task<void> set_error(fastcgi_error error);
 		void check_error() const;
 
 		fastcgi_ostream<fastcgi_record_type::fcgi_params>& fcgi_params();
@@ -114,6 +118,8 @@ namespace cobra {
 		async_lock lock = co_await async_lock::lock(client->connection()->mutex());
 
 		while (_data.empty()) {
+			client->check_error();
+
 			if (_closed) {
 				co_return 0;
 			}
@@ -148,19 +154,19 @@ namespace cobra {
 	template <fastcgi_record_type Type>
 	task<std::size_t> fastcgi_ostream<Type>::write(const typename fastcgi_ostream<Type>::char_type* data, std::size_t size) {
 		fastcgi_client* client = static_cast<fastcgi_client*>(this);
-		return client->connection()->write(client->request_id(), Type, data, size);
+		return client->connection()->write(client, Type, data, size);
 	}
 
 	template <fastcgi_record_type Type>
 	task<void> fastcgi_ostream<Type>::flush() {
 		fastcgi_client* client = static_cast<fastcgi_client*>(this);
-		return client->connection()->flush(client->request_id(), Type);
+		return client->connection()->flush(client, Type);
 	}
 
 	template <fastcgi_record_type Type>
 	task<void> fastcgi_ostream<Type>::close() {
 		fastcgi_client* client = static_cast<fastcgi_client*>(this);
-		return client->connection()->close(client->request_id(), Type);
+		return client->connection()->close(client, Type);
 	}
 }
 

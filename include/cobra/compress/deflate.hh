@@ -466,7 +466,7 @@ namespace cobra {
 		}
 	};
 
-	// TODO: the inheritence here is super janky
+	// ODOT: the inheritence here is super janky
 	template <AsyncOutputStream Stream>
 	class deflate_ostream : public buffered_ostream_impl<deflate_ostream<Stream>> {
 		using base = buffered_ostream_impl<deflate_ostream<Stream>>;

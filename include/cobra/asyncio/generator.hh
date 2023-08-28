@@ -16,6 +16,8 @@ namespace cobra {
 	template <class T>
 	class generator : public coroutine<generator_promise<T>> {
 	public:
+		using result_type = T;
+
 		generator_iterator<T> begin() const noexcept {
 			return this;
 		}
