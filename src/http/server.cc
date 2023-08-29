@@ -4,6 +4,7 @@
 #include "cobra/config.hh"
 #include "cobra/http/handler.hh"
 #include "cobra/http/parse.hh"
+#include "cobra/http/gluttonous_stream.hh"
 #include "cobra/counter.hh"
 
 #include <exception>
@@ -18,6 +19,7 @@
 #include <unordered_map>
 #include <utility>
 #include <variant>
+#include <cassert>
 
 namespace cobra {
 
@@ -78,7 +80,7 @@ namespace cobra {
 		if (!config().location.empty()) {
 			const std::size_t already_matched = match_count() - config().location.size();
 
-			// TODO: what if already_matched is greater than size of normalized?
+			assert(already_matched <= static_cast<std::size_t>(std::distance(normalized.begin(), normalized.end())));
 			auto it = normalized.begin() + already_matched;
 
 			for (auto& part : config().location) {
@@ -154,7 +156,6 @@ namespace cobra {
 					last_config = &filter->config();
 
 				// co_await (*handler)(std::move(writer), std::move(request), buffered_istream_reference(socket_istream));
-				// TODO limit socket_istream to client content-length
 				http_response_writer writer(&request, &out, logger);
 				co_await handle_request(*filter, request, normalized, in, std::move(writer), code);
 				co_return;
@@ -261,19 +262,20 @@ namespace cobra {
 			file.append(normalized[i]);
 		}
 
-		// TODO do properly: https://datatracker.ietf.org/doc/html/rfc9112#name-message-body-length
+		// NOTE do properly: https://datatracker.ietf.org/doc/html/rfc9112#name-message-body-length
 		auto content_length = request.has_header("content-length")
 								  ? parse_unsigned_strict<std::size_t>(request.header("content-length"))
 								  : 0;
 		if (!content_length)
 			throw HTTP_BAD_REQUEST;
-		auto limited_stream = istream_limit(std::move(in), *content_length);
+
+		gluttonous_stream limited_stream(istream_limit(std::move(in), *content_length), filt.config().max_body_size);
 		
 		if (!has_header_value(request, "Connection", "Upgrade") || !has_header_value(request, "Upgrade", "websocket")) {
 			in = limited_stream;
 		}
 
-		//TODO do without allocations
+		//ODOT do without allocations
 		auto root = filt.config().root.value_or("").string();
 		auto index = std::vector<std::string>(1, filt.config().index.value_or("").string());
 
@@ -290,6 +292,7 @@ namespace cobra {
 		}
 	}
 
+	// TODO: disable ssl in mandatory
 	task<void> server::start(executor* exec, event_loop* loop) {
 		std::string service = std::to_string(_address.service());
 		if (_contexts.empty()) {

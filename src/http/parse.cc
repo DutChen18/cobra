@@ -253,11 +253,11 @@ namespace cobra {
 	}
 	
 	uri_absolute parse_uri_absolute(std::string_view string) {
-		return uri_absolute(std::string(string)); // TODO: not checked
+		return uri_absolute(std::string(string)); // ODOT: not checked
 	}
 
 	uri_authority parse_uri_authority(std::string_view string) {
-		return uri_authority(std::string(string)); // TODO: not checked
+		return uri_authority(std::string(string)); // ODOT: not checked
 	}
 
 	uri_asterisk parse_uri_asterisk(std::string_view string) {

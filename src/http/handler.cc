@@ -214,6 +214,21 @@ namespace cobra {
 		}
 	}
 
+	template <class T>
+	static task<void> try_await(std::exception_ptr& ptr, T& awaitable) {
+		try {
+			co_await awaitable;
+		} catch (...) {
+			ptr = std::current_exception();
+		}
+	}
+
+	static void try_throw(std::exception_ptr ptr) {
+		if (ptr) {
+			std::rethrow_exception(ptr);
+		}
+	}
+
 	task<void> handle_cgi(http_response_writer writer, const handle_context<cgi_config>& context) {
 		if (const auto* config = context.config().cmd()) {
 			command cmd({ config->cmd(), context.root() + context.file() });
@@ -230,17 +245,23 @@ namespace cobra {
 			ostream_buffer proc_ostream(make_ostream_ref(proc.in()), COBRA_BUFFER_SIZE);
 
 			auto proc_writer = context.exec()->schedule([](auto sock, auto& proc) -> task<void> {
-				co_await pipe(sock, ostream_reference(proc));
+				std::exception_ptr ptr;
+				auto coro = pipe(sock, ostream_reference(proc));
+				co_await try_await(ptr, coro);
 				proc.inner().ptr()->close();
+				try_throw(ptr);
 			}(context.istream(), proc_ostream));
 
 			auto sock_writer = context.exec()->schedule([](auto& proc, auto writer) -> task<void> {
 				co_await handle_cgi_response(proc, std::move(writer));
 			}(proc_istream, std::move(writer)));
 
-			co_await proc_writer;
-			co_await sock_writer;
-			co_await proc.wait();
+			std::exception_ptr ptr;
+			co_await try_await(ptr, proc_writer);
+			co_await try_await(ptr, sock_writer);
+			auto coro = proc.wait();
+			co_await try_await(ptr, coro);
+			try_throw(ptr);
 		} else if (const auto* config = context.config().addr()) {
 			socket_stream fcgi = co_await open_connection(context.loop(), config->node().c_str(), config->service().c_str());
 			istream_buffer fcgi_connection_istream(make_istream_ref(fcgi), COBRA_BUFFER_SIZE);
@@ -272,8 +293,11 @@ namespace cobra {
 			*/
 
 			auto fcgi_writer = context.exec()->schedule([](auto sock, auto& fcgi) -> task<void> {
-				co_await pipe(sock, ostream_reference(fcgi));
+				std::exception_ptr ptr;
+				auto coro = pipe(sock, ostream_reference(fcgi));
+				co_await try_await(ptr, coro);
 				co_await fcgi.inner().ptr()->close();
+				try_throw(ptr);
 			}(context.istream(), fcgi_ostream));
 
 			auto sock_writer = context.exec()->schedule([](auto& fcgi, auto writer) -> task<void> {
@@ -283,8 +307,10 @@ namespace cobra {
 			while (co_await fcgi_connection.poll());
 
 			// co_await fcgi_logger;
-			co_await fcgi_writer;
-			co_await sock_writer;
+			std::exception_ptr ptr;
+			co_await try_await(ptr, fcgi_writer);
+			co_await try_await(ptr, sock_writer);
+			try_throw(ptr);
 		}
 	}
 

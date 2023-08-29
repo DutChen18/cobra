@@ -18,7 +18,9 @@
 extern "C" {
 #include <fcntl.h>
 #include <sys/socket.h>
+#ifndef COBRA_NO_SSL
 #include <openssl/err.h>
+#endif
 }
 
 namespace cobra {
@@ -42,9 +44,6 @@ namespace cobra {
 	task<std::size_t> socket_stream::read(char_type* data, std::size_t size) {
 		co_await _loop->wait_read(_file);
 		co_return check_return(recv(_file.fd(), data, size, 0));
-		// auto res = check_return(recv(_file.fd(), data, size, 0));
-		// eprintln("read fd={} size={} data=\"{}\"", _file.fd(), size, std::string_view(data, res));
-		// co_return res;
 	}
 
 	task<std::size_t> socket_stream::write(const char_type* data, std::size_t size) {
@@ -60,15 +59,12 @@ namespace cobra {
 		int h = 0;
 		switch (how) {
 		case shutdown_how::read: 
-			// eprintln("shutdown read {}", _file.fd());
 			h = SHUT_RD;
 			break;
 		case shutdown_how::write: 
-			// eprintln("shutdown write {}", _file.fd());
 			h = SHUT_WR;
 			break;
 		case shutdown_how::both:
-			// eprintln("shutdown read/write {}", _file.fd());
 			h = SHUT_WR;
 		}
 		check_return(::shutdown(_file.fd(), h));
@@ -86,6 +82,7 @@ namespace cobra {
 		return std::nullopt;
 	}
 
+#ifndef COBRA_NO_SSL
 	ssl_error::ssl_error(const std::string& what, std::vector<error_type> errors)
 		: std::runtime_error(what), _errors(std::move(errors)) {}
 	ssl_error::ssl_error(const std::string& what) : ssl_error(what, get_all_errors()) {}
@@ -115,7 +112,6 @@ namespace cobra {
 
 	ssl::~ssl() {
 		if (_ssl){
-			eprintln("freed ssl");
 			SSL_free(_ssl);
 		}
 	}
@@ -134,10 +130,8 @@ namespace cobra {
 				int error = SSL_get_error(ptr(), rc);
 
 				if (error == SSL_ERROR_WANT_READ) {
-					std::cerr << "want read" << std::endl;
 					co_await loop->wait_read(f);
 				} else if (error == SSL_ERROR_WANT_WRITE) {
-					std::cerr << "want write" << std::endl;
 					co_await loop->wait_write(f);
 				} else {
 					throw ssl_error("SSL_shutdown error");
@@ -301,8 +295,6 @@ namespace cobra {
 
 	ssl_socket_stream::~ssl_socket_stream() {
 		if (!bad() && !_write_shutdown) {
-			std::cerr << "here" << std::endl;
-			std::cerr << "ssl connection was not correctly shut down" << std::endl;
 			if (_exec) {
 				auto loop = _loop;
 				/*Why doesn't this work?!
@@ -377,7 +369,6 @@ namespace cobra {
 				break;
 			}
 		}
-		//eprintln("read: {}", std::string_view(data, nread));
 		co_return nread;
 	}
 
@@ -468,6 +459,39 @@ namespace cobra {
 		co_return true;
 	}
 
+	task<ssl_socket_stream> open_ssl_connection(executor* exec, event_loop* loop, const char* node, const char* service) {
+		socket_stream socket = co_await open_connection(loop, node, service);
+		ssl_ctx client_ctx = ssl_ctx::client();
+		ssl client(client_ctx);
+		SSL_set_connect_state(client.ptr());
+		if (SSL_set_tlsext_host_name(client.ptr(), node) == 0) {
+			throw std::runtime_error("failed to set sni");
+		}
+		if (SSL_set1_host(client.ptr(), node) == 0) {
+			throw std::runtime_error("set1_host failed");
+		}
+		co_return co_await ssl_socket_stream::connect(exec, loop, std::move(socket), std::move(client));
+	}
+
+	task<void> start_ssl_server(ssl_ctx ctx, executor* exec, event_loop* loop, const char* node, const char* service,
+								std::function<task<void>(ssl_socket_stream)> cb) {
+		co_await start_server(
+			exec, loop, node, service, [ctx, exec, loop, cb](socket_stream socket) mutable -> task<void> {
+				co_await cb(co_await ssl_socket_stream::accept(exec, loop, std::move(socket), ssl(ctx)));
+			});
+	}
+
+	task<void> start_ssl_server(std::unordered_map<std::string, ssl_ctx> server_names, executor* exec,
+								event_loop* loop, const char* node, const char* service,
+								std::function<task<void>(ssl_socket_stream)> cb) {
+		ssl_ctx ctx = ssl_ctx::server(std::move(server_names));
+		co_await start_server(
+			exec, loop, node, service, [ctx, exec, loop, cb](socket_stream socket) mutable -> task<void> {
+				co_await cb(co_await ssl_socket_stream::accept(exec, loop, std::move(socket), ssl(ctx)));
+			});
+	}
+#endif
+
 	task<socket_stream> open_connection(event_loop* loop, const char* node, const char* service) {
 		for (const address_info& info : get_address_info(node, service)) {
 			file sock = check_return(socket(info.family(), info.socktype(), info.protocol()));
@@ -481,20 +505,6 @@ namespace cobra {
 		}
 
 		throw connection_error("connection failed");
-	}
-
-	task<ssl_socket_stream> open_ssl_connection(executor* exec, event_loop* loop, const char* node, const char* service) {
-		socket_stream socket = co_await open_connection(loop, node, service);
-		ssl_ctx client_ctx = ssl_ctx::client();
-		ssl client(client_ctx);
-		SSL_set_connect_state(client.ptr());
-		if (SSL_set_tlsext_host_name(client.ptr(), node) == 0) {
-			throw std::runtime_error("failed to set sni");
-		}
-		if (SSL_set1_host(client.ptr(), node) == 0) {
-			throw std::runtime_error("set1_host failed");
-		}
-		co_return co_await ssl_socket_stream::connect(exec, loop, std::move(socket), std::move(client));
 	}
 
 	static task<void> start_server(executor* exec, event_loop* loop, file socket,
@@ -541,23 +551,5 @@ namespace cobra {
 		for (auto&& task : tasks) {
 			co_await task;
 		}
-	}
-
-	task<void> start_ssl_server(ssl_ctx ctx, executor* exec, event_loop* loop, const char* node, const char* service,
-								std::function<task<void>(ssl_socket_stream)> cb) {
-		co_await start_server(
-			exec, loop, node, service, [ctx, exec, loop, cb](socket_stream socket) mutable -> task<void> {
-				co_await cb(co_await ssl_socket_stream::accept(exec, loop, std::move(socket), ssl(ctx)));
-			});
-	}
-
-	task<void> start_ssl_server(std::unordered_map<std::string, ssl_ctx> server_names, executor* exec,
-								event_loop* loop, const char* node, const char* service,
-								std::function<task<void>(ssl_socket_stream)> cb) {
-		ssl_ctx ctx = ssl_ctx::server(std::move(server_names));
-		co_await start_server(
-			exec, loop, node, service, [ctx, exec, loop, cb](socket_stream socket) mutable -> task<void> {
-				co_await cb(co_await ssl_socket_stream::accept(exec, loop, std::move(socket), ssl(ctx)));
-			});
 	}
 } // namespace cobra

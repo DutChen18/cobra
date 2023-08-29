@@ -2,11 +2,12 @@ server {
 	listen 127.0.0.1:8080
 	root /home/codam/wordpress
 	index index.php
+	max_body_size 8192
 
 	location / {
 		extension .php
-		fast_cgi 127.0.0.1:9000
-		# cgi /usr/bin/php-cgi
+		# fast_cgi 127.0.0.1:9000
+		cgi /usr/bin/php-cgi
 	}
 
 	location / {

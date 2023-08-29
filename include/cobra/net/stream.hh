@@ -11,9 +11,11 @@
 #include <mutex>
 #include <unordered_map>
 
+#ifndef COBRA_NO_SSL
 extern "C" {
 #include <openssl/ssl.h>
 }
+#endif
 
 namespace cobra {
 	enum class shutdown_how {
@@ -57,6 +59,8 @@ namespace cobra {
 		std::optional<std::string_view> server_name() const override;
 		inline file leak() && { return std::move(_file); }
 	};
+
+#ifndef COBRA_NO_SSL
 
 	class ssl_error : std::runtime_error {
 		using error_type = unsigned long;
@@ -170,17 +174,21 @@ namespace cobra {
 		task<bool> rw_check(int rc);
 		task<void> shutdown_write();
 	};
+#endif
 
 	task<socket_stream> open_connection(event_loop* loop, const char* node, const char* service);
-	task<ssl_socket_stream> open_ssl_connection(executor* exec, event_loop* loop, const char* node, const char* service);
 	task<void> start_server(executor* exec, event_loop* loop, const char* node, const char* service,
 							std::function<task<void>(socket_stream)> cb);
+
+#ifndef COBRA_NO_SSL
+	task<ssl_socket_stream> open_ssl_connection(executor* exec, event_loop* loop, const char* node, const char* service);
 	//ODOT implement sessions? https://wiki.openssl.org/index.php/SSL_and_TLS_Protocols#Session_Resumption
 	task<void> start_ssl_server(ssl_ctx ctx, executor* exec, event_loop* loop, const char* node, const char* service,
 							std::function<task<void>(ssl_socket_stream)> cb);
 	task<void> start_ssl_server(std::unordered_map<std::string, ssl_ctx> server_names, executor* exec,
 								event_loop* loop, const char* node, const char* service,
 								std::function<task<void>(ssl_socket_stream)> cb);
+#endif
 } // namespace cobra
 
 #endif

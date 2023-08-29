@@ -93,7 +93,7 @@ namespace cobra {
 			if (_err_mode == command_stream_mode::pipe)
 				check_return(dup2(err.second.fd(), STDERR_FILENO));
 
-			// TODO: unhardcode 4096
+			// ODOT: unhardcode 4096
 			for (int fd = 3; fd < 4096; fd++)
 				close(fd);
 

@@ -135,32 +135,32 @@ namespace cobra {
 	}
 
 	http_ostream http_ostream_wrapper::get() {
-		return _stream;
+		return make_buffered_ostream_ref(_stream);
 	}
 
 	http_ostream http_ostream_wrapper::get_chunked() {
 		_stream = ostream_buffer(chunked_ostream(inner()), COBRA_BUFFER_SIZE);
-		return _stream;
+		return make_buffered_ostream_ref(_stream);
 	}
 
 	http_ostream http_ostream_wrapper::get(std::size_t limit) {
 		_stream = ostream_limit(inner(), limit);
-		return _stream;
+		return make_buffered_ostream_ref(_stream);
 	}
 
 	http_ostream http_ostream_wrapper::get_deflate() {
 		_stream = deflate_ostream(inner(), deflate_mode::zlib);
-		return _stream;
+		return make_buffered_ostream_ref(_stream);
 	}
 
 	http_ostream http_ostream_wrapper::get_deflate_chunked() {
 		_stream = deflate_ostream(ostream_buffer(chunked_ostream(inner()), COBRA_BUFFER_SIZE), deflate_mode::zlib);
-		return _stream;
+		return make_buffered_ostream_ref(_stream);
 	}
 
 	http_ostream http_ostream_wrapper::get_deflate(std::size_t limit) {
 		_stream = ostream_limit(deflate_ostream(inner(), deflate_mode::zlib), limit);
-		return _stream;
+		return make_buffered_ostream_ref(_stream);
 	}
 
 	task<void> http_ostream_wrapper::end() {
@@ -231,7 +231,12 @@ namespace cobra {
 
 		_stream->set_sent();
 		co_await write_http_response(_stream->inner(), response);
-		co_return to_stream(_stream, response);
+
+		if (_request && _request->method() == "HEAD") {
+			co_return null_ostream();
+		} else {
+			co_return to_stream(_stream, response);
+		}
 	}
 
 	static task<void> write_http_header_map(ostream_reference stream, const http_message& message) {

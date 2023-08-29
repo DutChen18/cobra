@@ -7,331 +7,331 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-08-28 18:36+0200\n"
+"POT-Creation-Date: 2023-08-28 21:35+0200\n"
 "PO-Revision-Date: 2023-08-28 14:49+0200\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
 "Language: sv\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=ASCII\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #: src/main.cc:77
 msgid "path to configuration file"
-msgstr ""
+msgstr "sökväg till konfigurationsfil"
 
 #: src/main.cc:78
 msgid "number of threads to use (implies -t)"
-msgstr ""
+msgstr "antal trådar att använda"
 
 #: src/main.cc:79
 msgid "write diagnostics in json format"
-msgstr ""
+msgstr "skriv diagnostik i json-format"
 
 #: src/main.cc:80
 msgid "exit after reading configuration file"
-msgstr ""
+msgstr "avsluta efter att ha läst konfigurationsfilen"
 
 #: src/main.cc:81
 msgid "display this help message"
-msgstr ""
+msgstr "visa detta hjälpmeddelandet"
 
 #: src/main.cc:82
 msgid "use the thread pool executor"
-msgstr ""
+msgstr "använd trådpoolsexekveraren"
 
 #: src/main.cc:83
 msgid "show verbose output"
-msgstr ""
+msgstr "visa utförlig utdata"
 
 #: src/config.cc:360 include/cobra/config.hh:999
 msgid "error"
-msgstr ""
+msgstr "error"
 
 #: src/config.cc:362 include/cobra/config.hh:1001
 msgid "warning"
-msgstr ""
+msgstr "varning"
 
 #: src/config.cc:364 include/cobra/config.hh:1003
 msgid "note"
-msgstr ""
+msgstr "notera"
 
 #: src/config.cc:417
 msgid "unexpected EOF"
-msgstr ""
+msgstr "oväntat slut på filen"
 
 #: src/config.cc:417 src/config.cc:420 src/config.cc:431
 #, c++-format
 msgid "expected `{}`"
-msgstr ""
+msgstr "förväntade `{}`"
 
 #: src/config.cc:419
 #, c++-format
 msgid "unexpected `{}`"
-msgstr ""
+msgstr "oväntat `{}`"
 
 #: src/config.cc:431
 msgid "unexpected word"
-msgstr ""
+msgstr "oväntat ord"
 
 #: src/config.cc:432
 #, c++-format
 msgid "consider replacing `{}` with `{}`"
-msgstr ""
+msgstr "överväg att ersätta `{}` med `{}`"
 
 #: src/config.cc:486
 msgid "unclosed quote"
-msgstr ""
+msgstr "oavslutat citat"
 
 #: src/config.cc:491 src/config.cc:507
 msgid "invalid word"
-msgstr ""
+msgstr "ogiltigt ord"
 
 #: src/config.cc:491
 msgid "expected at least one character"
-msgstr ""
+msgstr "förväntade minst ett tecken"
 
 #: src/config.cc:507
 msgid "expected at least one graphical character"
-msgstr ""
+msgstr "förväntade minst ett grafiskt tecken"
 
 #: src/config.cc:621
 msgid "regular file"
-msgstr ""
+msgstr "vanlig fil"
 
 #: src/config.cc:623
 msgid "directory"
-msgstr ""
+msgstr "mapp"
 
 #: src/config.cc:625
 msgid "symlink"
-msgstr ""
+msgstr "symbolisk länk"
 
 #: src/config.cc:627
 msgid "block device"
-msgstr ""
+msgstr "blockera enhet"
 
 #: src/config.cc:629
 msgid "character device"
-msgstr ""
+msgstr "teckenenhet"
 
 #: src/config.cc:631
 msgid "fifo"
-msgstr ""
+msgstr "först-in-först-ut"
 
 #: src/config.cc:633
 msgid "socket"
-msgstr ""
+msgstr "socket"
 
 #: src/config.cc:635
 msgid "unknown"
-msgstr ""
+msgstr "okänd"
 
 #: src/config.cc:643
 msgid "failed to stat file"
-msgstr ""
+msgstr "misslyckade att exekvera stat för filen"
 
 #: src/config.cc:656 src/config.cc:678
 msgid "not a normal file"
-msgstr ""
+msgstr "inte en vanlig fil"
 
 #: src/config.cc:656 src/config.cc:678
 msgid "is a directory"
-msgstr ""
+msgstr "är en mapp"
 
 #: src/config.cc:684
 msgid "not an executable file"
-msgstr ""
+msgstr "inte en exekverbar fil"
 
 #: src/config.cc:699 src/config.cc:709
 msgid "invalid response code"
-msgstr ""
+msgstr "ogiltigt svarskod"
 
 #: src/config.cc:732 src/config.cc:743 src/config.cc:747
 msgid "invalid redirect code"
-msgstr ""
+msgstr "ogiltig omdirigeringskod"
 
 #: src/config.cc:761
 msgid "suspicious redirect code"
-msgstr ""
+msgstr "misstänksam omdirigeringskod"
 
 #: src/config.cc:762
 #, c++-format
 msgid "did you mean one of: {}, {}, {}, {}?"
-msgstr ""
+msgstr "menade du någon av: {}, {}, {}, {}?"
 
 #: src/config.cc:782
 msgid "not a directory"
-msgstr ""
+msgstr "inte en mapp"
 
 #: src/config.cc:783
 #, c++-format
 msgid "is a {}"
-msgstr ""
+msgstr "är en {}"
 
 #: src/config.cc:878
 msgid "empty filter"
-msgstr ""
+msgstr "tomt filter"
 
 #: src/config.cc:879
 msgid "consider specifying a handler using: `static`, `cgi`, etc..."
-msgstr ""
+msgstr "överväg att ange en handerare med: `static`,  `cgi`, osv..."
 
 #: src/config.cc:899 src/config.cc:912
 msgid "a address cannot be listened to with and without ssl at the same time"
-msgstr ""
+msgstr "kan inte lyssna på en adress med och utan ssl samtidigt"
 
 #: src/config.cc:900 src/config.cc:913
 msgid "consider listening to another address"
-msgstr ""
+msgstr "överväg att lyssna på en annan adress"
 
 #: src/config.cc:902
 msgid "previously listened to here without ssl"
-msgstr ""
+msgstr "tidigare lyssnat på här utan ssl"
 
 #: src/config.cc:915
 msgid "previously listened to here with ssl"
-msgstr ""
+msgstr "tidigare lyssnat på här med ssl"
 
 #: src/config.cc:943 src/config.cc:951 src/config.cc:978
 msgid "ambiguous server"
-msgstr ""
+msgstr "tvetydig server"
 
 #: src/config.cc:944
 msgid "consider specifying a `server_name`"
-msgstr ""
+msgstr "överväg att specifiera ett ´server_name`"
 
 #: src/config.cc:952
 #, c++-format
 msgid "another server is also listening to `{}`"
-msgstr ""
+msgstr "en annan server lyssnar också på `{}`"
 
 #: src/config.cc:958 src/config.cc:966
 msgid "also listened to here"
-msgstr ""
+msgstr "lyssnade också på här"
 
 #: src/config.cc:979
 msgid "another server listening to the same address has the same `server_name`"
-msgstr ""
+msgstr "en annan server som lyssnar på samma adress har samma `server_name`"
 
 #: src/config.cc:980
 msgid "previously specified here"
-msgstr ""
+msgstr "tidigare angivits här"
 
 #: src/config.cc:992
 msgid "server not listening to an address"
-msgstr ""
+msgstr "servern lyssnar inte på en adress"
 
 #: src/config.cc:993
 msgid "consider specifying an address using: `listen`"
-msgstr ""
+msgstr "överväg att specifiera en adress med: `listen`"
 
 #: src/config.cc:1032
 msgid "invalid port"
-msgstr ""
+msgstr "ogiltig port"
 
 #: src/config.cc:1119
 msgid "invalid number"
-msgstr ""
+msgstr "ogiltigt nummer"
 
 #: src/config.cc:1128
 msgid "redefinition of max_body_size"
-msgstr ""
+msgstr "omdefiniering av max_body_size"
 
 #: src/config.cc:1129 src/config.cc:1167 src/config.cc:1188
 msgid "previously defined here"
-msgstr ""
+msgstr "tidigare definierad här"
 
 #: src/config.cc:1136
 msgid "invalid max_body_size"
-msgstr ""
+msgstr "ogiltig max_body_size"
 
 #: src/config.cc:1166
 #, c++-format
 msgid "redefinition of {}"
-msgstr ""
+msgstr "omdefiniering av {}"
 
 #: src/config.cc:1187
 #, c++-format
 msgid "duplicate {}"
-msgstr ""
+msgstr "duplikat {}"
 
 #: src/config.cc:1206 src/config.cc:1210 src/config.cc:1215 src/config.cc:1220
 #: src/config.cc:1225
 msgid "request handler"
-msgstr ""
+msgstr "begäranhanterare"
 
 #: src/config.cc:1272
 msgid "invalid header key"
-msgstr ""
+msgstr "ogiltig huvudnyckel"
 
 #: src/config.cc:1273
 #, c++-format
 msgid "because of invalid character `{}`"
-msgstr ""
+msgstr "på grund av ogiltigt tecken `{}`"
 
 #: src/config.cc:1280
 msgid "invalid header value"
-msgstr ""
+msgstr "ogiltigt huvudvärde"
 
 #: src/config.cc:1281
 #, c++-format
 msgid "because of a reserved control character `{}`"
-msgstr ""
+msgstr "på grund av ett reserverat kontrolltecken `{}`"
 
 #: src/config.cc:1298
 msgid "redefinition of `set_header`"
-msgstr ""
+msgstr "omdefiniering av `set_header`"
 
 #: src/config.cc:1299
-msgid "a previous definition with the same key will be overriden"
-msgstr ""
+msgid "a previous definition with the same key will be overridden"
+msgstr "en tidigare definering med samma nyckel kommer skrivas över"
 
 #: include/cobra/config.hh:282 include/cobra/config.hh:288
 #: include/cobra/config.hh:301
 msgid "not a number"
-msgstr ""
+msgstr "inte ett nummer"
 
 #: include/cobra/config.hh:282 include/cobra/config.hh:302
 msgid "a number must only contain digits"
-msgstr ""
+msgstr "ett nummer får endast innehålla siffror"
 
 #: include/cobra/config.hh:284
 msgid "number too large"
-msgstr ""
+msgstr "för stort nummer"
 
 #: include/cobra/config.hh:285
 #, c++-format
 msgid "maximum accepted value is {}"
-msgstr ""
+msgstr "högsta tillåtna värde är {}"
 
 #: include/cobra/config.hh:288
 msgid "a number must contain at least one digit"
-msgstr ""
+msgstr "ett nummer måste innehålla åtminstone en siffra"
 
 #: include/cobra/config.hh:633
 msgid "invalid directory listing option"
-msgstr ""
+msgstr "ogiltigt alternativ för mapp-listning"
 
 #: include/cobra/config.hh:634
 msgid "expected either `true` or `false`"
-msgstr ""
+msgstr "förväntade antingen `true` eller `false`"
 
 #: include/cobra/config.hh:888
 #, c++-format
 msgid "unknown directive `{}`"
-msgstr ""
+msgstr "okänt direktiv `{}`"
 
 #: include/cobra/config.hh:889
 #, c++-format
 msgid "did you mean `{}`?"
-msgstr ""
+msgstr "menade du `{}`?"
 
 #: include/cobra/config.hh:933
 msgid "unrooted handler"
-msgstr ""
+msgstr "orotad hanterare"
 
 #: include/cobra/config.hh:934
 msgid "consider rooting it using: `root`"
-msgstr ""
+msgstr "överväg att rota den med: `root`"

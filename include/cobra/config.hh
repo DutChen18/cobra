@@ -38,11 +38,18 @@ extern "C" {
 	X(proxy)                                                                                                           \
 	X(extension)
 
+#ifndef COBRA_NO_SSL
 #define COBRA_SERVER_KEYWORDS                                                                                          \
 	X(listen)                                                                                                          \
 	X(ssl)                                                                                                             \
 	X(server_name)                                                                                                     \
 	COBRA_BLOCK_KEYWORDS
+#else
+#define COBRA_SERVER_KEYWORDS                                                                                          \
+	X(listen)                                                                                                          \
+	X(server_name)                                                                                                     \
+	COBRA_BLOCK_KEYWORDS
+#endif
 
 namespace cobra {
 	namespace config {

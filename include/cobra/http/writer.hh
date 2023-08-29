@@ -3,6 +3,7 @@
 
 #include "cobra/asyncio/stream.hh"
 #include "cobra/asyncio/stream_buffer.hh"
+#include "cobra/asyncio/null_stream.hh"
 #include "cobra/compress/deflate.hh"
 #include "cobra/http/message.hh"
 #include "cobra/http/parse.hh"
@@ -156,7 +157,7 @@ namespace cobra {
 	>;
 
 	using http_istream = buffered_istream_ref<http_istream_variant<buffered_istream_reference>>;
-	using http_ostream = buffered_ostream_ref<http_ostream_variant<buffered_ostream_reference>>;
+	using http_ostream = buffered_ostream_variant<buffered_ostream_ref<http_ostream_variant<buffered_ostream_reference>>, null_ostream>;
 
 	bool has_header_value(const http_message& message, const std::string& key, std::string_view target);
 

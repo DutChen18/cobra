@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-08-28 21:35+0200\n"
+"POT-Creation-Date: 2023-08-29 10:13+0200\n"
 "PO-Revision-Date: 2023-08-28 14:49+0200\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -23,7 +23,7 @@ msgstr "cesta ke konfiguračnímu souboru"
 
 #: src/main.cc:78
 msgid "number of threads to use (implies -t)"
-msgstr ""
+msgstr "počet vláken (automaticky zapíná -t)"
 
 #: src/main.cc:79
 msgid "write diagnostics in json format"
@@ -39,299 +39,300 @@ msgstr "zobrazit tuto pomocnou zprávu"
 
 #: src/main.cc:82
 msgid "use the thread pool executor"
-msgstr ""
+msgstr "použít více vláken"
 
 #: src/main.cc:83
 msgid "show verbose output"
 msgstr "zobrazit zdlouhavý výstup"
 
-#: src/config.cc:360 include/cobra/config.hh:999
+#: src/config.cc:361 include/cobra/config.hh:1006
 msgid "error"
 msgstr "chyba"
 
-#: src/config.cc:362 include/cobra/config.hh:1001
+#: src/config.cc:363 include/cobra/config.hh:1008
 msgid "warning"
 msgstr "varování"
 
-#: src/config.cc:364 include/cobra/config.hh:1003
+#: src/config.cc:365 include/cobra/config.hh:1010
 msgid "note"
 msgstr "poznámka"
 
-#: src/config.cc:417
+#: src/config.cc:418
 msgid "unexpected EOF"
 msgstr "neočekávaný EOF"
 
-#: src/config.cc:417 src/config.cc:420 src/config.cc:431
+#: src/config.cc:418 src/config.cc:421 src/config.cc:432
 #, c++-format
 msgid "expected `{}`"
 msgstr "očekáváno `{}`"
 
-#: src/config.cc:419
+#: src/config.cc:420
 #, c++-format
 msgid "unexpected `{}`"
 msgstr "neočekávané `{}`"
 
-#: src/config.cc:431
+#: src/config.cc:432
 msgid "unexpected word"
 msgstr "neočekávané slovo"
 
-#: src/config.cc:432
+#: src/config.cc:433
 #, c++-format
 msgid "consider replacing `{}` with `{}`"
 msgstr "zvažte nahrazení `{}` za `{}`"
 
-#: src/config.cc:486
+#: src/config.cc:487
 msgid "unclosed quote"
 msgstr "neuzavřené uvozovky"
 
-#: src/config.cc:491 src/config.cc:507
+#: src/config.cc:492 src/config.cc:508
 msgid "invalid word"
 msgstr "neplatné slovo"
 
-#: src/config.cc:491
+#: src/config.cc:492
 msgid "expected at least one character"
 msgstr "očekáván alespoň jeden znak"
 
-#: src/config.cc:507
+#: src/config.cc:508
 msgid "expected at least one graphical character"
 msgstr "očekáván alespoň jeden viditelný znak"
 
-#: src/config.cc:621
+#: src/config.cc:622
 msgid "regular file"
 msgstr "obyčejný soubor"
 
-#: src/config.cc:623
+#: src/config.cc:624
 msgid "directory"
-msgstr "složka"
+msgstr "adresář"
 
-#: src/config.cc:625
+#: src/config.cc:626
 msgid "symlink"
 msgstr "symlink"
 
-#: src/config.cc:627
+#: src/config.cc:628
 msgid "block device"
-msgstr ""
+msgstr "blokové zařízení"
 
-#: src/config.cc:629
+#: src/config.cc:630
 msgid "character device"
-msgstr ""
+msgstr "znakové zařízení"
 
-#: src/config.cc:631
+#: src/config.cc:632
 msgid "fifo"
 msgstr "fifo"
 
-#: src/config.cc:633
+#: src/config.cc:634
 msgid "socket"
 msgstr "socket"
 
-#: src/config.cc:635
+#: src/config.cc:636
 msgid "unknown"
-msgstr ""
+msgstr "neznámý"
 
-#: src/config.cc:643
+#: src/config.cc:644
 msgid "failed to stat file"
 msgstr "nepovedlo se provést stat na souboru"
 
-#: src/config.cc:656 src/config.cc:678
+#: src/config.cc:657 src/config.cc:679
 msgid "not a normal file"
-msgstr ""
+msgstr "neobyčejný soubor"
 
-#: src/config.cc:656 src/config.cc:678
+#: src/config.cc:657 src/config.cc:679
 msgid "is a directory"
-msgstr ""
+msgstr "je adresář"
 
-#: src/config.cc:684
+#: src/config.cc:685
 msgid "not an executable file"
-msgstr ""
+msgstr "nespustitelný soubor"
 
-#: src/config.cc:699 src/config.cc:709
+#: src/config.cc:700 src/config.cc:710
 msgid "invalid response code"
 msgstr "neplatný kód odpovědi"
 
-#: src/config.cc:732 src/config.cc:743 src/config.cc:747
+#: src/config.cc:733 src/config.cc:744 src/config.cc:748
 msgid "invalid redirect code"
 msgstr "neplatný kód přesměrování"
 
-#: src/config.cc:761
+#: src/config.cc:762
 msgid "suspicious redirect code"
 msgstr "podivný kód přesměrování"
 
-#: src/config.cc:762
+#: src/config.cc:763
 #, c++-format
 msgid "did you mean one of: {}, {}, {}, {}?"
 msgstr "měli jste na mysli jedno z následujících: {}, {}, {}, {}?"
 
-#: src/config.cc:782
-msgid "not a directory"
-msgstr ""
-
 #: src/config.cc:783
+msgid "not a directory"
+msgstr "není adresář"
+
+#: src/config.cc:784
 #, c++-format
 msgid "is a {}"
 msgstr "je"
 
-#: src/config.cc:878
+#: src/config.cc:879
 msgid "empty filter"
 msgstr "prázdný filtr"
 
-#: src/config.cc:879
+#: src/config.cc:880
 msgid "consider specifying a handler using: `static`, `cgi`, etc..."
 msgstr "zvažte specifikování handleru pomocí: `static`, `cgi`, atd..."
 
-#: src/config.cc:899 src/config.cc:912
+#: src/config.cc:900 src/config.cc:913
 msgid "a address cannot be listened to with and without ssl at the same time"
 msgstr "nelze odposlouchávat adresu zároveň s a bez ssl"
 
-#: src/config.cc:900 src/config.cc:913
+#: src/config.cc:901 src/config.cc:914
 msgid "consider listening to another address"
 msgstr "zvažte odposlouchávat na jiné adrese"
 
-#: src/config.cc:902
+#: src/config.cc:903
 msgid "previously listened to here without ssl"
 msgstr "původně odposloucháváno odsud bez ssl"
 
-#: src/config.cc:915
+#: src/config.cc:916
 msgid "previously listened to here with ssl"
 msgstr "původně odposloucháváno odsud s ssl"
 
-#: src/config.cc:943 src/config.cc:951 src/config.cc:978
+#: src/config.cc:944 src/config.cc:952 src/config.cc:979
 msgid "ambiguous server"
 msgstr "nejednoznačný server"
 
-#: src/config.cc:944
+#: src/config.cc:945
 msgid "consider specifying a `server_name`"
 msgstr "zvažte specifikování `server_name`"
 
-#: src/config.cc:952
+#: src/config.cc:953
 #, c++-format
 msgid "another server is also listening to `{}`"
 msgstr "jiný server také odposlouchává na `{}`"
 
-#: src/config.cc:958 src/config.cc:966
+#: src/config.cc:959 src/config.cc:967
 msgid "also listened to here"
 msgstr "také odposloucháváno odsud"
 
-#: src/config.cc:979
-msgid "another server listening to the same address has the same `server_name`"
-msgstr "jiný server odposlouchávající na stejné adrese má stejný název `server_name`"
-
 #: src/config.cc:980
+msgid "another server listening to the same address has the same `server_name`"
+msgstr ""
+"jiný server odposlouchávající na stejné adrese má stejný název `server_name`"
+
+#: src/config.cc:981
 msgid "previously specified here"
 msgstr "původně definováno zde"
 
-#: src/config.cc:992
+#: src/config.cc:993
 msgid "server not listening to an address"
 msgstr "server neodposlouchává adresu"
 
-#: src/config.cc:993
+#: src/config.cc:994
 msgid "consider specifying an address using: `listen`"
 msgstr "zvažte specifikování adresy pomocí: `listen`"
 
-#: src/config.cc:1032
+#: src/config.cc:1033
 msgid "invalid port"
 msgstr "neplatný port"
 
-#: src/config.cc:1119
+#: src/config.cc:1120
 msgid "invalid number"
 msgstr "neplatné číslo"
 
-#: src/config.cc:1128
+#: src/config.cc:1129
 msgid "redefinition of max_body_size"
 msgstr "redefinice max_body_size"
 
-#: src/config.cc:1129 src/config.cc:1167 src/config.cc:1188
+#: src/config.cc:1130 src/config.cc:1168 src/config.cc:1189
 msgid "previously defined here"
-msgstr ""
+msgstr "původně definováno zde"
 
-#: src/config.cc:1136
+#: src/config.cc:1137
 msgid "invalid max_body_size"
 msgstr "neplatné max_body_size"
 
-#: src/config.cc:1166
+#: src/config.cc:1167
 #, c++-format
 msgid "redefinition of {}"
 msgstr "redefinice {}"
 
-#: src/config.cc:1187
+#: src/config.cc:1188
 #, c++-format
 msgid "duplicate {}"
 msgstr "duplikát {}"
 
-#: src/config.cc:1206 src/config.cc:1210 src/config.cc:1215 src/config.cc:1220
-#: src/config.cc:1225
+#: src/config.cc:1207 src/config.cc:1211 src/config.cc:1216 src/config.cc:1221
+#: src/config.cc:1226
 msgid "request handler"
-msgstr ""
-
-#: src/config.cc:1272
-msgid "invalid header key"
-msgstr ""
+msgstr "handler requestů"
 
 #: src/config.cc:1273
+msgid "invalid header key"
+msgstr "neplatný klíč v hlavičce"
+
+#: src/config.cc:1274
 #, c++-format
 msgid "because of invalid character `{}`"
-msgstr ""
-
-#: src/config.cc:1280
-msgid "invalid header value"
-msgstr ""
+msgstr "kvůli neplatnému znaku `{}`"
 
 #: src/config.cc:1281
+msgid "invalid header value"
+msgstr "neplatná hodnota v hlavičce"
+
+#: src/config.cc:1282
 #, c++-format
 msgid "because of a reserved control character `{}`"
-msgstr ""
-
-#: src/config.cc:1298
-msgid "redefinition of `set_header`"
-msgstr ""
+msgstr "kvůli rezervovanému řídícímu znaku `{}`"
 
 #: src/config.cc:1299
+msgid "redefinition of `set_header`"
+msgstr "redefinice`set_header`"
+
+#: src/config.cc:1300
 msgid "a previous definition with the same key will be overridden"
-msgstr ""
+msgstr "předchozí definice se stejným klíčem bude přepsána"
 
-#: include/cobra/config.hh:282 include/cobra/config.hh:288
-#: include/cobra/config.hh:301
+#: include/cobra/config.hh:283 include/cobra/config.hh:289
+#: include/cobra/config.hh:302
 msgid "not a number"
-msgstr ""
+msgstr "není číslo"
 
-#: include/cobra/config.hh:282 include/cobra/config.hh:302
+#: include/cobra/config.hh:283 include/cobra/config.hh:303
 msgid "a number must only contain digits"
 msgstr "číslo musí obsahovat pouze číslice"
 
-#: include/cobra/config.hh:284
+#: include/cobra/config.hh:285
 msgid "number too large"
 msgstr "číslo je příliš velké"
 
-#: include/cobra/config.hh:285
+#: include/cobra/config.hh:286
 #, c++-format
 msgid "maximum accepted value is {}"
 msgstr "největší povolené hodnota je {}"
 
-#: include/cobra/config.hh:288
+#: include/cobra/config.hh:289
 msgid "a number must contain at least one digit"
 msgstr "číslo musí obsahovat alespoň jednu číslici"
 
-#: include/cobra/config.hh:633
+#: include/cobra/config.hh:634
 msgid "invalid directory listing option"
 msgstr "neplatná možnost výpisu adresářů"
 
-#: include/cobra/config.hh:634
+#: include/cobra/config.hh:635
 msgid "expected either `true` or `false`"
 msgstr "očekáváno buď `true` nebo `false`"
 
-#: include/cobra/config.hh:888
-#, c++-format
-msgid "unknown directive `{}`"
-msgstr ""
-
 #: include/cobra/config.hh:889
 #, c++-format
-msgid "did you mean `{}`?"
-msgstr ""
+msgid "unknown directive `{}`"
+msgstr "neznámý pokyn `{}`"
 
-#: include/cobra/config.hh:933
-msgid "unrooted handler"
-msgstr ""
+#: include/cobra/config.hh:890
+#, c++-format
+msgid "did you mean `{}`?"
+msgstr "měli jste na mysli `{}`?"
 
 #: include/cobra/config.hh:934
+msgid "unrooted handler"
+msgstr "handler bez kořenu"
+
+#: include/cobra/config.hh:935
 msgid "consider rooting it using: `root`"
-msgstr ""
+msgstr "zvažte přidání kořenu pomocí: `root`"

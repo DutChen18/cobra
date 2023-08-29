@@ -8,7 +8,7 @@ namespace cobra {
 	template <class T>
 	class event_handle_base {
 	protected:
-		std::coroutine_handle<T> _next;
+		std::coroutine_handle<> _next;
 		result<T> _result;
 
 	public:

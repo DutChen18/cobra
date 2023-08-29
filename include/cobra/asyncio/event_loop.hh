@@ -53,8 +53,16 @@ namespace cobra {
 			void operator()(event_handle<void>& handle);
 		};
 
+		struct event_loop_process_event {
+			std::reference_wrapper<event_loop> _loop;
+			pid_t _pid;
+
+			void operator()(event_handle<int>& handle);
+		};
+
 	public:
 		using event_type = event<void, event_loop_event>;
+		using process_event_type = event<int, event_loop_process_event>;
 
 		virtual ~event_loop();
 
@@ -63,7 +71,7 @@ namespace cobra {
 		event_type wait_read(const file& fd, std::optional<std::chrono::milliseconds> timeout = std::nullopt);
 		event_type wait_write(const file& fd, std::optional<std::chrono::milliseconds> timeout = std::nullopt);
 
-		task<int> wait_pid(int pid, std::optional<std::chrono::milliseconds> timeout = std::nullopt);
+		process_event_type wait_pid(int pid, std::optional<std::chrono::milliseconds> timeout = std::nullopt);
 
 		virtual void poll() = 0;
 		virtual bool has_events() const = 0;
@@ -71,6 +79,7 @@ namespace cobra {
 	private:
 		virtual void schedule_event(event_pair event, std::optional<std::chrono::milliseconds> timeout,
 									event_type::handle_type& handle) = 0;
+		virtual void schedule_process_event(pid_t pid, process_event_type::handle_type& handle) = 0;
 	};
 
 #ifdef COBRA_LINUX
@@ -78,6 +87,7 @@ namespace cobra {
 	public:
 		using clock = std::chrono::steady_clock;
 		using future_type = event_handle<void>;
+		using process_future = event_handle<int>;
 		using time_point = clock::time_point;
 		using event_pair = std::pair<int, poll_type>;
 
@@ -93,6 +103,7 @@ namespace cobra {
 
 		std::unordered_map<int, timed_future> _write_events;
 		std::unordered_map<int, timed_future> _read_events;
+		std::unordered_map<pid_t, std::reference_wrapper<process_future>> _process_events;
 
 		using event_list = std::vector<event_pair>;
 
@@ -104,9 +115,11 @@ namespace cobra {
 		void poll() override;
 		bool has_events() const override;
 
+
 	private:
 		void schedule_event(event_pair event, std::optional<std::chrono::milliseconds> timeout,
 							event_type::handle_type& handle) override;
+		void schedule_process_event(pid_t pid, process_event_type::handle_type& handle) override;
 
 		std::vector<epoll_event> epoll(std::size_t count, std::optional<clock::duration> timeout);
 		static generator<std::pair<int, poll_type>> convert(epoll_event event);
@@ -119,6 +132,9 @@ namespace cobra {
 		void remove_before(time_point point);
 		std::optional<time_point> get_timeout(const std::unordered_map<int, timed_future>& map);
 		std::optional<time_point> get_timeout();
+
+		std::vector<std::pair<pid_t, int>> wait_processes();
+		std::optional<std::reference_wrapper<process_future>> remove_process_event(pid_t pid);
 
 		inline std::unordered_map<int, timed_future>& get_map(poll_type type) {
 			return type == poll_type::read ? _read_events : _write_events;

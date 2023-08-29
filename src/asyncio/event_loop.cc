@@ -40,25 +40,17 @@ namespace cobra {
 		return event_loop::event_loop_event{*this, std::make_pair(fd.fd(), type), timeout};
 	}
 
-	task<int> event_loop::wait_pid(int pid, std::optional<std::chrono::milliseconds> timeout) {
-		int result;
-		
-		while (true) {
-			int ret = waitpid(pid, &result, 0); // TODO: very very very bad
-			
-			if (ret >= 0) {
-				break;
-			} else if (errno != EINTR) {
-				throw errno_exception();
-			}
-		}
-
-		(void) timeout;
-		co_return WEXITSTATUS(result);
+	event_loop::process_event_type event_loop::wait_pid(int pid, std::optional<std::chrono::milliseconds> timeout) {
+		(void)timeout;
+		return event_loop::event_loop_process_event{*this, pid};
 	}
 
 	void event_loop::event_loop_event::operator()(event_handle<void>& handle) {
 		_loop.get().schedule_event(_event, _timeout, handle);
+	}
+
+	void event_loop::event_loop_process_event::operator()(event_handle<int>& handle) {
+		_loop.get().schedule_process_event(_pid, handle);
 	}
 
 #ifdef COBRA_LINUX
@@ -78,6 +70,15 @@ namespace cobra {
 		if (timeout)
 			converted = clock::duration(*timeout);
 		add_event(event, converted, handle);
+	}
+
+	//ODOT implement timeout
+	void epoll_event_loop::schedule_process_event(pid_t pid, process_event_type::handle_type& handle) {
+		std::lock_guard guard(_mutex);
+
+		if (!_process_events.emplace(std::make_pair(pid, std::reference_wrapper(handle))).second) {
+			throw std::invalid_argument("already scheduled an event for the same pid");
+		}
 	}
 
 	std::vector<epoll_event> epoll_event_loop::epoll(std::size_t count, std::optional<clock::duration> timeout) {
@@ -162,6 +163,18 @@ namespace cobra {
 		_mutex.unlock();
 
 		event_list events = poll(10, timeout);
+		std::vector pids = wait_processes();
+
+		for (auto&& [pid, status] : pids) {
+			auto future = remove_process_event(pid);
+
+			if (future) {
+				auto handle = future.value();
+				_exec.get().schedule([handle, status]() {
+					handle.get().set_value(status);
+				});
+			}
+		}
 
 		for (auto&& event : events) {
 			auto future = remove_event(event);
@@ -177,7 +190,7 @@ namespace cobra {
 
 	bool epoll_event_loop::has_events() const {
 		std::lock_guard guard(_mutex);
-		return !_write_events.empty() || !_read_events.empty() || _exec.get().has_jobs();
+		return !_write_events.empty() || !_read_events.empty() || !_process_events.empty() || _exec.get().has_jobs();
 	}
 
 	void epoll_event_loop::remove_before(std::unordered_map<int, timed_future>& map, time_point point) {
@@ -289,6 +302,41 @@ namespace cobra {
 			throw errno_exception();
 		return result;
 	}
+
+	std::vector<std::pair<pid_t, int>> epoll_event_loop::wait_processes() {
+		std::vector<std::pair<pid_t, int>> result;
+
+		std::unique_lock guard(_mutex);
+
+		while (_process_events.size() > result.size()) {
+			int status;
+			pid_t pid = waitpid(-1, &status, WNOHANG);
+			if (pid == 0) {
+				break;
+			} else if (pid == -1) {
+				throw errno_exception();
+			} else if (WIFEXITED(status)) {
+				result.push_back({pid, WEXITSTATUS(status)});
+			}
+		}
+
+		guard.unlock();
+
+		return result;
+	}
+
+	std::optional<std::reference_wrapper<epoll_event_loop::process_future>> epoll_event_loop::remove_process_event(pid_t pid) {
+		std::lock_guard guard(_mutex);
+
+		auto it = _process_events.find(pid);
+		if (it == _process_events.end())
+			return std::nullopt;
+		auto result = it->second;
+		_process_events.erase(it);
+		return result;
+	}
+
+
 #endif
 
 #ifdef COBRA_MACOS

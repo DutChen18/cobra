@@ -12,16 +12,31 @@
 #include <algorithm>
 
 namespace cobra {
+	template <std::size_t Bits>
+	void validate_tree_size(const std::size_t* size, std::size_t n) {
+		std::uintmax_t used = 0;
+
+		for (std::size_t i = 0; i < n; i++) {
+			if (size[i] != 0) {
+				used += 1 << (Bits - size[i]);
+			}
+		}
+
+		if (used > (1 << Bits)) {
+			throw compress_error::tree_too_stupid;
+		}
+	}
+
 	template <class T, std::size_t Size, std::size_t Bits>
 	class inflate_tree {
 		std::array<T, Size> _data;
 		std::array<T, Bits + 1> _count;
 
 	public:
-		// TODO: sanitize
 		inflate_tree(const std::size_t* size, std::size_t n) {
 			std::array<T, Bits + 1> next;
 
+			validate_tree_size<Bits>(size, n);
 			std::fill(_count.begin(), _count.end(), 0);
 
 			for (T i = 0; i < n; i++) {
@@ -98,11 +113,11 @@ namespace cobra {
 		}
 
 	public:
-		// TODO: sanitize
 		deflate_tree(const std::size_t* size, std::size_t n) {
 			std::array<T, Bits + 1> count;
 			std::array<T, Bits + 1> next;
 
+			validate_tree_size<Bits>(size, n);
 			std::fill(count.begin(), count.end(), 0);
 			std::copy(size, size + n, _size.data());
 

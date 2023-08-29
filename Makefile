@@ -49,7 +49,7 @@ else ifeq ($(config), profile)
 	CXXFLAGS += -g3 -Ofast -flto -march=native -pg
 	LDFLAGS += -g3 -Ofast -flto -march=native -pg
 else ifeq ($(config), distr)
-	CXXFLAGS += -Ofast -flto -march=native
+	CXXFLAGS += -Ofast -flto -march=native -DNDEBUG
 	LDFLAGS += -Ofast -flto -march=native
 else
 $(error "unknown config $(config)")
