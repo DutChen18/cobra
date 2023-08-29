@@ -24,6 +24,7 @@ for file, strings in locales.items():
                 msgid = ast.literal_eval(line[6:])
             elif line.startswith("msgstr "):
                 if msgid != "" and msgid in strings:
+                    msgstr = strings[msgid].replace("\\", "\\\\")
                     msgstr = strings[msgid].replace("\"", "\\\"")
                     result += f"msgstr \"{msgstr}\"\n"
                 else:
