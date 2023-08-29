@@ -92,12 +92,14 @@ namespace cobra {
 
 	generator<std::string> list_directories(const std::filesystem::path& path, const std::string& file) {
 		co_yield "<!DOCTYPE html>\n<html>\n<body>";
-		co_yield std::format("<h1>Index of {}</h1>", file);
+		co_yield "<h1>";
+		co_yield file;
+		co_yield "</h1>";
 		co_yield "<table order=\"\">\n<thead>\n<tr>\n<th>Name</th><th>Size</th><th>Last Modified</th></tr></thead>";
 		co_yield "<tbody>";
 
 		if (file != "/") {
-			co_yield std::format("<tr><td><a href=\"..\">..</a></td><td></td><td></td></tr>");
+			co_yield "<tr><td><a href=\"..\">..</a></td><td></td><td></td></tr>";
 		}
 
 		for (const auto& entry : std::filesystem::directory_iterator(path)) {
@@ -107,15 +109,24 @@ namespace cobra {
 			std::string filename = entry.path().filename().string();
 
 			if (entry.is_directory(ec)) {
-				co_yield std::format("<td><a href=\"{}/\"i>{}</a></td>", filename, filename);
-				co_yield std::format("<td></td>");
+				co_yield "<td><a href=\"";
+				co_yield filename;
+				co_yield "/\"i>";
+				co_yield filename;
+				co_yield "</a></td><td></td>";
 			} else {
 				if (ec) {
 					co_yield "<td>error</td>";
 					co_yield "<td>error</td>";
 				} else {
-				co_yield std::format("<td><a href=\"{}\"i>{}</a></td>", filename, filename);
-					co_yield std::format("<td>{}</td>", entry.file_size());
+					//co_yield std::format("<td><a href=\"{}\"i>{}</a></td>", filename, filename);
+					co_yield "<td><a href=\"";
+					co_yield filename;
+					co_yield "\"i>";
+					co_yield filename;
+					co_yield "</a></td><td>";
+					co_yield std::format("{}", entry.file_size());
+					co_yield "</td>";
 				}
 
 			}
@@ -125,7 +136,8 @@ namespace cobra {
 			if (ec) {
 				co_yield "<td>error</td>";
 			} else {
-				co_yield std::format("<td>{}</td>", last_modified);
+				co_yield "<td>never</td>";
+				//co_yield std::format("<td>{}</td>", last_modified);
 			}
 			co_yield "</tr>";
 		}

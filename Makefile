@@ -1,4 +1,4 @@
-CXX := clang++
+CXX := clang++-15
 CXXFLAGS := -Wall -Wextra -std=c++20 -Iinclude
 LDFLAGS :=
 # CXXFLAGS = -Wall -Wextra -std=c++11 -Iinclude -fsanitize=thread -g3
@@ -36,6 +36,16 @@ else
 $(error "unknown platform $(platform)")
 endif
 
+ifndef cxx_install
+	cxx_install = /home/dmeijer/.capt/root/usr/lib/llvm-15
+endif
+
+ifdef codam
+	CXXFLAGS += -nostdinc++ -isystem "$(cxx_install)/include/c++/v1" -fexperimental-library
+	LDFLAGS += -nostdlib++ -L "$(cxx_install)/lib" -Wl,-rpath,"$(cxx_install)/lib" -l:libc++.a -lc++experimental -fexperimental-library 
+	#LDFLAGS += -nodefaultlibs -L "$(cxx_install)/lib" -Wl,-rpath,"$(cxx_install)/lib" -lc++ -lc++abi -lm -lc -lgc_s -lgcc
+endif
+
 ifeq ($(config), debug)
 	CXXFLAGS += -DCOBRA_DEBUG -fno-inline -g3 -O0
 	LDFLAGS += -DCOBRA_DEBUG -fno-inline -g3 -O0
@@ -43,8 +53,8 @@ ifeq ($(config), debug)
 		san := addr
 	endif
 else ifeq ($(config), release)
-	CXXFLAGS += -g3 -O2 #-DCOBRA_DEBUG
-	LDFLAGS += -g3 -O2 #-DCOBRA_DEBUG
+	CXXFLAGS += -g3 -O2 -gdwarf-4 #-DCOBRA_DEBUG
+	LDFLAGS += -g3 -O2 -gdwarf-4 #-DCOBRA_DEBUG
 else ifeq ($(config), profile)
 	CXXFLAGS += -g3 -Ofast -flto -march=native -pg
 	LDFLAGS += -g3 -Ofast -flto -march=native -pg
@@ -63,8 +73,8 @@ endif
 
 ifdef san
 	ifeq ($(san), addr)
-		CXXFLAGS += -fsanitize=address,undefined -fsanitize-trap=all
-		LDFLAGS += -fsanitize=address,undefined -fsanitize-trap=all
+		CXXFLAGS += -fsanitize=address,undefined
+		LDFLAGS += -fsanitize=address,undefined
 	else ifeq ($(san), mem)
 		CXXFLAGS += -fsanitize=memory,undefined -fsanitize-memory-track-origins
 		LDFLAGS += -fsanitize=memory,undefined -fsanitize-memory-track-origins
