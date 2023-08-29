@@ -49,6 +49,7 @@ namespace cobra {
 		std::queue<std::function<void()>> _queue;
 		std::mutex _mutex;
 		std::condition_variable _condition_variable;
+		std::atomic_size_t _jobs = 0;
 		bool _stop = false;
 
 		void create_threads(std::size_t count);

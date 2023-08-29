@@ -498,7 +498,8 @@ namespace cobra {
 		}
 
 		task<Stream> end()&& {
-			Stream tmp = co_await (co_await std::move(_inner).end()).end();
+			auto tmp2 = co_await std::move(_inner).end();
+			Stream tmp = co_await std::move(tmp2).end();
 
 			if (_mode == deflate_mode::zlib) {
 				co_await cobra::write_u32_be(tmp, adler32_b << 16 | adler32_a);

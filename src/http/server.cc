@@ -40,7 +40,7 @@ namespace cobra {
 		if (eval(socket, request, normalized)) {
 			for (auto& filter : _sub_filters) {
 				for (auto& result : filter.match(socket, request, normalized)) {
-					co_yield std::move(result);
+					co_yield result;
 				}
 			}
 			
@@ -52,7 +52,7 @@ namespace cobra {
 
 				for (auto& filter : _sub_filters) {
 					for (auto& result : filter.match(socket, request, normalized_clone)) {
-						co_yield std::move(result);
+						co_yield result;
 					}
 				}
 
@@ -208,7 +208,6 @@ namespace cobra {
 					co_await match_and_handle(socket, request, socket_istream, wrapper, &logger);
 				} catch (std::pair<int, const config::config*> err) {
 					error = err;
-					eprintln("http error {}", err.first);
 					//error = code;
 				}
 
@@ -242,7 +241,9 @@ namespace cobra {
 					}
 				} else if (!wrapper.sent() && error.has_value()) {
 					// eprintln("no error_page ({}) {}", error->first, error->second->error_pages.contains(error->first));
-					co_await http_response_writer(&request, &wrapper ,nullptr).send(error->first);
+					co_await http_response_writer(&request, &wrapper, &logger).send(error->first);
+				} else if (error.has_value()) {
+					eprintln("http error {}", error->first);
 				}
 
 				co_await wrapper.end();

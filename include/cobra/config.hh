@@ -7,6 +7,7 @@
 #include "cobra/print.hh"
 #include "cobra/text.hh"
 
+#include <exception>
 #include <variant>
 #include <string>
 #include <vector>
@@ -263,6 +264,7 @@ namespace cobra {
 			case diagnostic::level::note:
 				return "note";
 			}
+			std::terminate();
 		}
 
 		class error : public std::runtime_error {
@@ -1016,6 +1018,7 @@ struct std::formatter<cobra::config::diagnostic::level, char> {
 		case diagnostic::level::note:
 			return std::format_to(fc.out(), "{}", COBRA_TEXT("note"));
 		}
+		std::terminate();
 	}
 };
 

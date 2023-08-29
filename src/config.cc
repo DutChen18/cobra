@@ -8,6 +8,7 @@
 #include "cobra/http/util.hh"
 
 #include <cassert>
+#include <exception>
 
 namespace cobra {
 
@@ -353,6 +354,7 @@ namespace cobra {
 			case diagnostic::level::note:
 				return term::fg_white() | term::set_faint();
 			}
+			std::terminate();
 		}
 
 		std::ostream& operator<<(std::ostream& stream, diagnostic::level lvl) {
@@ -364,6 +366,7 @@ namespace cobra {
 			case diagnostic::level::note:
 				return stream << COBRA_TEXT("note");
 			}
+			std::terminate();
 		}
 
 		error::error(diagnostic diag) : std::runtime_error(diag.message), _diag(diag) {}
@@ -507,7 +510,8 @@ namespace cobra {
 			if (res.empty())
 				throw error(make_error(COBRA_TEXT("invalid word"), COBRA_TEXT("expected at least one graphical character")));
 			consume(res.length());
-			return word(file_part(file(), start_line, start_col, res.length()), std::move(res));
+			std::size_t len = res.length();
+			return word(file_part(file(), start_line, start_col, len), std::move(res));
 		}
 
 		void parse_session::expect_word_simple(std::string_view str, std::string type) {
@@ -696,7 +700,7 @@ namespace cobra {
 
 			try {
 				w = session.get_word_simple("number", "error code");
-			} catch (error err) {
+			} catch (error& err) {
 				err.diag().message = COBRA_TEXT("invalid response code");
 				throw err;
 			}
@@ -706,7 +710,7 @@ namespace cobra {
 			http_response_code code;
 			try {
 				code = parse_unsigned<http_response_code>(w->str(), 505);
-			} catch (error err) {
+			} catch (error& err) {
 				err.diag().message = COBRA_TEXT("invalid response code");
 				err.diag().part = w->part();
 				throw err;
@@ -729,7 +733,7 @@ namespace cobra {
 
 			try {
 				w = session.get_word_simple("number", "error code");
-			} catch (error err) {
+			} catch (error& err) {
 				err.diag().message = COBRA_TEXT("invalid redirect code");
 				throw err;
 			}
@@ -744,7 +748,7 @@ namespace cobra {
 					diagnostic diag = diagnostic::error(w->part(), COBRA_TEXT("invalid redirect code"), "value may not be smaller than 300");
 					throw error(diag);
 				}
-			} catch (error err) {
+			} catch (error& err) {
 				err.diag().message = COBRA_TEXT("invalid redirect code");
 				err.diag().part = w->part();
 				throw err;
@@ -1029,7 +1033,7 @@ namespace cobra {
 
 			try {
 				p = parse_unsigned<port>(port_str);
-			} catch (error err) {
+			} catch (error& err) {
 				err.diag().message = COBRA_TEXT("invalid port");
 				err.diag().part = file_part(session.file(), w.part().start.line, port_start, port_length);
 				throw err;
@@ -1116,7 +1120,7 @@ namespace cobra {
 			std::string word;
 			try {
 				word = session.get_word_simple("number", "size");
-			} catch (error err) {
+			} catch (error& err) {
 				err.diag().message = COBRA_TEXT("invalid number");
 				throw err;
 			}
@@ -1133,7 +1137,7 @@ namespace cobra {
 
 				_max_body_size = define<std::size_t>(
 					limit, file_part(session.file(), line, define_start, len)); // ODOT use parse_define
-			} catch (error err) {
+			} catch (error& err) {
 				err.diag().message = COBRA_TEXT("invalid max_body_size");
 				err.diag().part = file_part(session.file(), line, col, word.length());
 				throw err;

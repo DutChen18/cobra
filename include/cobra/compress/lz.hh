@@ -504,6 +504,7 @@ namespace cobra {
 		}
 
 		task<void> write_copy_command(uint32_t hash, uint16_t length, uint16_t dist) {
+			(void)hash;
 			assert_correct();
 			for (uint16_t i = 0; i < length; ++i) {
 				if (_buffer.size() < 3) {

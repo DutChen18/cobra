@@ -38,18 +38,22 @@ namespace cobra {
 			_condition_variable.notify_all();
 		}
 
+		for (std::thread& thread : _threads) {
+			thread.join();
+		}
+
 		_threads.clear();
 	}
 
 	void thread_pool_executor::schedule(std::function<void()> func) {
 		std::lock_guard lock(_mutex);
 		_queue.emplace(func);
+		_jobs.fetch_add(1);
 		_condition_variable.notify_one();
 	}
 
 	bool thread_pool_executor::has_jobs() {
-		std::lock_guard lock(_mutex);
-		return !_queue.empty();
+		return _jobs.load() > 0;
 	}
 
 	void thread_pool_executor::create_threads(std::size_t count) {
@@ -64,6 +68,7 @@ namespace cobra {
 						lock.unlock();
 						func();
 						lock.lock();
+						_jobs.fetch_sub(1);
 						continue;
 					}
 

@@ -66,7 +66,8 @@ namespace cobra {
 		return is_http_ws(ch) || !is_http_ctl(ch);
 	}
 
-	bool is_cgi_value(char ch) {
-		return (!is_http_ctl(ch) && ch >= 0 && ch <= 127) || ch == '\t';
+	bool is_cgi_value(char c) {
+		unsigned char ch = c;
+		return (!is_http_ctl(ch) && ch <= 127) || ch == '\t';
 	}
 }

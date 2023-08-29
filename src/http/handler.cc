@@ -155,9 +155,10 @@ namespace cobra {
 
 		try {
 			std::size_t size = std::filesystem::file_size(path);
-			istream_buffer file_istream(file_istream(path.c_str()), COBRA_BUFFER_SIZE);
+			//istream_buffer file_istream(file_istream(path.c_str()), COBRA_BUFFER_SIZE); doesn't work on g++
+			istream_buffer fis(file_istream(path.c_str()), COBRA_BUFFER_SIZE);
 
-			if (!file_istream.inner()) {
+			if (!fis.inner()) {
 				throw HTTP_NOT_FOUND;
 			}
 
@@ -168,7 +169,7 @@ namespace cobra {
 			}
 
 			http_ostream sock_ostream = co_await std::move(writer).send(resp);
-			co_await pipe(buffered_istream_reference(file_istream), ostream_reference(sock_ostream));
+			co_await pipe(buffered_istream_reference(fis), ostream_reference(sock_ostream));
 		} catch (const std::filesystem::filesystem_error&) {
 			throw HTTP_NOT_FOUND;
 		} catch (const std::ifstream::failure&) {
