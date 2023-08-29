@@ -53,8 +53,8 @@ ifeq ($(config), debug)
 		san := addr
 	endif
 else ifeq ($(config), release)
-	CXXFLAGS += -g3 -O2 #-DCOBRA_DEBUG
-	LDFLAGS += -g3 -O2 #-DCOBRA_DEBUG
+	CXXFLAGS += -g3 -O2 -gdwarf-4 #-DCOBRA_DEBUG
+	LDFLAGS += -g3 -O2 -gdwarf-4 #-DCOBRA_DEBUG
 else ifeq ($(config), profile)
 	CXXFLAGS += -g3 -Ofast -flto -march=native -pg
 	LDFLAGS += -g3 -Ofast -flto -march=native -pg
@@ -109,7 +109,7 @@ SRC_DIR := src
 OBJ_DIR := build
 DEP_DIR := build
 # SRC_FILES = $(shell find $(SRC_DIR) -type f -name "*.cc")
-SRC_FILES := src/main.cc src/asyncio/executor.cc src/exception.cc src/asyncio/event_loop.cc src/exception.cc src/file.cc src/net/address.cc src/net/stream.cc src/http/parse.cc src/process.cc src/http/message.cc src/http/writer.cc src/http/uri.cc src/http/util.cc src/http/handler.cc src/http/server.cc src/config.cc src/fastcgi.cc src/serde.cc src/asyncio/mutex.cc src/fuzz_config.cc src/fuzz_request.cc src/fuzz_uri.cc src/fuzz_inflate.cc
+SRC_FILES := src/main.cc src/asyncio/executor.cc src/exception.cc src/asyncio/event_loop.cc src/exception.cc src/file.cc src/net/address.cc src/net/stream.cc src/http/parse.cc src/process.cc src/http/message.cc src/http/writer.cc src/http/uri.cc src/http/util.cc src/http/handler.cc src/http/server.cc src/config.cc src/fastcgi.cc src/serde.cc src/asyncio/mutex.cc src/fuzz_config.cc src/fuzz_request.cc src/fuzz_uri.cc src/fuzz_inflate.cc src/locale.cc
 OBJ_FILES := $(patsubst $(SRC_DIR)/%.cc,$(OBJ_DIR)/%.o,$(SRC_FILES))
 DEP_FILES := $(patsubst $(SRC_DIR)/%.cc,$(DEP_DIR)/%.d,$(SRC_FILES))
 PO_FILES := locale/en_US.po locale/nl_NL.po locale/ja_JP.po locale/en_AU.po locale/tok_TOK.po locale/tr_TR.po locale/cs_CZ.po locale/gd_GB.po locale/sl_SI.po locale/fr_FR.po locale/de_DE.po locale/pl_PL.po locale/sv_SE.po locale/pt_BR.po locale/uk_UA.po locale/ru_RU.po locale/en_PT.po
