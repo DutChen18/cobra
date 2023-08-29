@@ -10,6 +10,7 @@
 #include <stdexcept>
 #include <mutex>
 #include <unordered_map>
+#include <cstring>
 
 #ifndef COBRA_NO_SSL
 extern "C" {
@@ -174,6 +175,15 @@ namespace cobra {
 		task<bool> rw_check(int rc);
 		task<void> shutdown_write();
 	};
+#else
+
+	struct ssl_ctx {
+
+		inline static ssl_ctx server(const std::filesystem::path&, const std::filesystem::path&) {
+			return {};
+		}
+	};
+
 #endif
 
 	task<socket_stream> open_connection(event_loop* loop, const char* node, const char* service);

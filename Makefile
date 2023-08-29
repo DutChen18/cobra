@@ -1,6 +1,6 @@
 CXX := clang++
 CXXFLAGS := -Wall -Wextra -std=c++20 -Iinclude
-LDFLAGS := -lssl -lcrypto
+LDFLAGS :=
 # CXXFLAGS = -Wall -Wextra -std=c++11 -Iinclude -fsanitize=thread -g3
 # LDFLAGS = -fsanitize=thread
 # CXXFLAGS = -Wall -Wextra -std=c++11 -Iinclude -Ofast -march=native -flto
@@ -53,6 +53,12 @@ else ifeq ($(config), distr)
 	LDFLAGS += -Ofast -flto -march=native
 else
 $(error "unknown config $(config)")
+endif
+
+ifdef ssl
+	LDFLAGS += -lcrypto -lssl
+else
+	CXXFLAGS += -DCOBRA_NO_SSL
 endif
 
 ifdef san

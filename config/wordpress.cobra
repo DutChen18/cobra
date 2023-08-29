@@ -6,8 +6,8 @@ server {
 
 	location / {
 		extension .php
-		# fast_cgi 127.0.0.1:9000
-		cgi /usr/bin/php-cgi
+		fast_cgi 127.0.0.1:9000
+		# cgi /usr/bin/php-cgi
 	}
 
 	location / {

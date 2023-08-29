@@ -292,7 +292,6 @@ namespace cobra {
 		}
 	}
 
-	// TODO: disable ssl in mandatory
 	task<void> server::start(executor* exec, event_loop* loop) {
 		std::string service = std::to_string(_address.service());
 		if (_contexts.empty()) {
@@ -301,7 +300,9 @@ namespace cobra {
 											[this](socket_stream socket) -> task<void> {
 												co_return co_await on_connect(socket);
 											});
-		} else if (_contexts.size() == 1 && _contexts.begin()->first.empty()) {
+		} 
+#ifndef COBRA_NO_SSL
+		else if (_contexts.size() == 1 && _contexts.begin()->first.empty()) {
 			//No SNI
 			eprintln("ssl {}:{}", _address.node(), service);
 			co_return co_await start_ssl_server(_contexts.begin()->second, exec, loop, _address.node().data(),
@@ -316,6 +317,7 @@ namespace cobra {
 													co_return co_await on_connect(socket);
 												});
 		}
+#endif
 	}
 
 	std::vector<server> server::convert(const std::vector<std::shared_ptr<config::server>>& configs,
