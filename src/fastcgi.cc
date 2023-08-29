@@ -1,5 +1,6 @@
 #include "cobra/fastcgi.hh"
 #include "cobra/serde.hh"
+#include "cobra/print.hh"
 
 namespace cobra {
 	fastcgi_client_connection::fastcgi_client_connection(istream_reference istream, ostream_reference ostream) : _istream(istream), _ostream(ostream) {
@@ -54,6 +55,15 @@ namespace cobra {
 
 		if (_clients.at(client->request_id()).get() == client) {
 			co_await write_header(type, client->request_id(), 0);
+			co_await _ostream.flush();
+		}
+	}
+
+	task<void> fastcgi_client_connection::abort(fastcgi_client* client) {
+		async_lock lock = co_await async_lock::lock(_mutex);
+
+		if (_clients.at(client->request_id()).get() == client) {
+			co_await write_header(fastcgi_record_type::fcgi_abort_request, client->request_id(), 0);
 			co_await _ostream.flush();
 		}
 	}

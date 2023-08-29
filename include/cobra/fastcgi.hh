@@ -87,6 +87,7 @@ namespace cobra {
 		task<std::size_t> write(fastcgi_client* client, fastcgi_record_type type, const char* data, std::size_t size);
 		task<void> flush(fastcgi_client* client, fastcgi_record_type type);
 		task<void> close(fastcgi_client* client, fastcgi_record_type type);
+		task<void> abort(fastcgi_client* client);
 
 		task<std::shared_ptr<fastcgi_client>> begin();
 		task<bool> poll();

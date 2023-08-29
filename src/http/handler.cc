@@ -242,6 +242,8 @@ namespace cobra {
 		}
 	}
 
+	// TODO: slow cgi does not respond until another request is sent
+	// TODO: file uploads with max_body_size are broken
 	task<void> handle_cgi(http_response_writer writer, const handle_context<cgi_config>& context) {
 		if (const auto* config = context.config().cmd()) {
 			command cmd({ config->cmd(), context.root() + context.file() });
@@ -305,13 +307,24 @@ namespace cobra {
 			}(fcgi_estream));
 			*/
 
-			auto fcgi_writer = context.exec()->schedule([](auto sock, auto& fcgi) -> task<void> {
+			auto fcgi_writer = context.exec()->schedule([](auto sock, auto& fcgi, auto& connection, auto& client, auto& socket) -> task<void> {
 				std::exception_ptr ptr;
 				auto coro = pipe(sock, ostream_reference(fcgi));
 				co_await try_await(ptr, coro);
-				co_await fcgi.inner().ptr()->close();
+
+				if (ptr) {
+					co_await connection.abort(&client);
+
+					// php-fpm does not care that we aborted the request
+					// it will maintain the connection anyways, so we must shut
+					// it down forcefully.
+					co_await socket.shutdown(shutdown_how::both);
+				} else {
+					co_await fcgi.inner().ptr()->close();
+				}
+
 				try_throw(ptr);
-			}(context.istream(), fcgi_ostream));
+			}(context.istream(), fcgi_ostream, fcgi_connection, *fcgi_client, fcgi));
 
 			auto sock_writer = context.exec()->schedule([](auto& fcgi, auto writer) -> task<void> {
 				co_await handle_cgi_response(fcgi, std::move(writer));
@@ -319,7 +332,6 @@ namespace cobra {
 
 			while (co_await fcgi_connection.poll());
 
-			// co_await fcgi_logger;
 			std::exception_ptr ptr;
 			co_await try_await(ptr, fcgi_writer);
 			co_await try_await(ptr, sock_writer);

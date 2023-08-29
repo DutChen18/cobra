@@ -1,6 +1,7 @@
 #include "cobra/asyncio/event_loop.hh"
 
 #include "cobra/exception.hh"
+#include "cobra/print.hh"
 
 #include <atomic>
 #include <chrono>
@@ -92,20 +93,15 @@ namespace cobra {
 			timeout_point = now + timeout.value();
 
 		while (true) {
-			auto epoll_timeout = clock::duration(std::chrono::milliseconds(-1));
+			auto epoll_timeout = clock::duration(std::chrono::milliseconds(10));
 			if (timeout_point.has_value())
 				epoll_timeout = timeout_point.value() - now;
 
-			int rc = epoll_wait(_epoll_fd.fd(), events.data(), count, epoll_timeout.count());
+			int rc = epoll_wait(_epoll_fd.fd(), events.data(), count, std::chrono::duration_cast<std::chrono::milliseconds>(epoll_timeout).count());
 
 			if (rc == -1) {
 				if (errno == EINTR) {
-					now = clock::now();
-					if (clock::now() >= timeout_point.value_or(time_point::max())) {
-						return std::vector<epoll_event>();
-					} else {
-						continue;
-					}
+					return std::vector<epoll_event>();
 				} else {
 					throw errno_exception();
 				}
@@ -309,12 +305,12 @@ namespace cobra {
 
 		std::unique_lock guard(_mutex);
 
-		while (_process_events.size() > result.size()) {
+		for (const auto& [pid, _] : _process_events) {
 			int status;
-			pid_t pid = waitpid(-1, &status, WNOHANG);
-			if (pid == 0) {
+			pid_t ret = waitpid(pid, &status, WNOHANG);
+			if (ret == 0) {
 				break;
-			} else if (pid == -1) {
+			} else if (ret == -1) {
 				throw errno_exception();
 			} else if (WIFEXITED(status)) {
 				result.push_back({pid, WEXITSTATUS(status)});
