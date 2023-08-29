@@ -1,8 +1,0 @@
-#URL=127.0.0.1:7070
-URL=127.0.0.1:8181
-
-#$(URL)/webserv
-$(URL)/Makefile
-$(URL)/src/config.cc
-
-#$(URL)/p

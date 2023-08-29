@@ -19,3 +19,7 @@
 /callgrind.out.*
 /vgcore.*
 /locale/*.mo
+/urls.txt
+/siege.conf
+/*.dict
+/main
