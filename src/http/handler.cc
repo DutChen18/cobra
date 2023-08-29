@@ -242,8 +242,6 @@ namespace cobra {
 		}
 	}
 
-	// TODO: slow cgi does not respond until another request is sent
-	// TODO: file uploads with max_body_size are broken
 	task<void> handle_cgi(http_response_writer writer, const handle_context<cgi_config>& context) {
 		if (const auto* config = context.config().cmd()) {
 			command cmd({ config->cmd(), context.root() + context.file() });
