@@ -34,6 +34,8 @@ namespace cobra {
 	std::string address::string() const {
 		char host[1024];
 		char service[1024];
+		std::memset(host, 0, sizeof host);
+		std::memset(service, 0, sizeof service);
 		check_return(getnameinfo(_addr, _len, host, sizeof host, service, sizeof service, NI_NUMERICHOST | NI_NUMERICSERV));
 		return std::format("{}:{}", host, service);
 	}
