@@ -170,8 +170,9 @@ namespace cobra {
 
 			if (future) {
 				auto handle = future.value();
-				_exec.get().schedule([handle, status]() {
-					handle.get().set_value(status);
+				auto status_code = status;
+				_exec.get().schedule([handle, status_code]() {
+					handle.get().set_value(status_code);
 				});
 			}
 		}

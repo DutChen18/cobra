@@ -27,7 +27,6 @@
 
 extern "C" {
 #include <sys/socket.h>
-#include <openssl/ssl.h>
 }
 
 #ifndef COBRA_TEST
