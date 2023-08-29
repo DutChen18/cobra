@@ -1,6 +1,7 @@
 #include "cobra/config.hh"
 
 #include "cobra/exception.hh"
+#include "cobra/http/handler.hh"
 #include "cobra/net/address.hh"
 #include "cobra/print.hh"
 #include "cobra/text.hh"
@@ -1316,11 +1317,29 @@ namespace cobra {
 		}
 
 		config::config(config* parent, const block_config& cfg)
-			: parent(parent), max_body_size(cfg._max_body_size), handler(cfg._handler) {
+			: parent(parent), max_body_size(cfg._max_body_size) {
 			if (cfg._index)
 				index = cfg._index->def.file();
 			if (cfg._root)
 				root = cfg._root->def.dir();
+
+			if (cfg._handler) {
+				if (auto h = std::get_if<static_file_config>(&cfg._handler->def)) {
+					handler = cobra::static_config(h->list_dir);
+				} else if (auto h = std::get_if<cgi_config>(&cfg._handler->def)) {
+					handler = cobra::cgi_config(cgi_command(h->command.file()));
+				} else if (auto h = std::get_if<fast_cgi_config>(&cfg._handler->def)) {
+					auto service = std::format("{}", h->address.service());
+					handler = cobra::cgi_config(cgi_address(h->address.node(), service));
+				} else if (auto h = std::get_if<redirect_config>(&cfg._handler->def)) {
+					handler = cobra::redirect_config(h->code, h->location);
+				} else if (auto h = std::get_if<proxy_config>(&cfg._handler->def)) {
+					auto service = std::format("{}", h->address.service());
+					handler = cobra::proxy_config(h->address.node(), service);
+				} else {
+					assert(0 && "Unimplemented handler");
+				}
+			}
 
 			for (auto [name, _] : cfg._server_names) {
 				server_names.insert(name);
@@ -1413,10 +1432,10 @@ namespace cobra {
 
 			print(stream, "{}handler: ", spacing);
 			if (handler) {
-				if (std::holds_alternative<static_file_config>(*handler)) {
+				if (std::holds_alternative<cobra::static_config>(*handler)) {
 					println(stream, "static");
 				} else {
-					println(stream, "cgi");
+					println(stream, "other");
 				}
 			} else {
 				println(stream, "none");

@@ -189,6 +189,7 @@ namespace cobra {
 		lhs.swap(rhs);
 	}
 
+#ifdef COBRA_DEBUG
 	class lz_debug_istream {
 		ringbuffer<uint8_t> _window;
 
@@ -252,6 +253,7 @@ namespace cobra {
 			co_return;
 		}
 	};
+#endif
 
 	template <class Stream>
 	class lz_ostream : public ostream_impl<lz_ostream<Stream>> {

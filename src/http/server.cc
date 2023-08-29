@@ -262,11 +262,12 @@ namespace cobra {
 		}
 
 		// TODO do properly: https://datatracker.ietf.org/doc/html/rfc9112#name-message-body-length
-		// TODO utility file for int parsing etc..
-		//auto tmp = request.has_header("content-length")
-		std::size_t content_length =
-			request.has_header("content-length") ? std::stoull(request.header("content-length")) : 0;
-		auto limited_stream = istream_limit(std::move(in), content_length);
+		auto content_length = request.has_header("content-length")
+								  ? parse_unsigned_strict<std::size_t>(request.header("content-length"))
+								  : 0;
+		if (!content_length)
+			throw HTTP_BAD_REQUEST;
+		auto limited_stream = istream_limit(std::move(in), *content_length);
 		
 		if (!has_header_value(request, "Connection", "Upgrade") || !has_header_value(request, "Upgrade", "websocket")) {
 			in = limited_stream;
@@ -276,30 +277,16 @@ namespace cobra {
 		auto root = filt.config().root.value_or("").string();
 		auto index = std::vector<std::string>(1, filt.config().index.value_or("").string());
 
-		if (auto cfg = std::get_if<config::cgi_config>(&*filt.config().handler)) {
-			co_await handle_cgi(std::move(writer),
-								{_loop, _exec, root, file.string(), // TODO avoid duplicating strings
-								 cgi_config(cgi_command(cfg->command.file())), request, in});
-		} else if (auto cfg = std::get_if<config::fast_cgi_config>(&*filt.config().handler)) {
-			auto service = std::format("{}", cfg->address.service());
-			co_await handle_cgi(std::move(writer),
-								{_loop, _exec, root, file.string(),
-								 cgi_config(cgi_address(cfg->address.node(), service)),
-								 request, in});
-		} else if (auto cfg = std::get_if<config::static_file_config>(&*filt.config().handler)) {
-			co_await handle_static(std::move(writer),
-								   {_loop, _exec, root, file.string(), {cfg->list_dir, code}, request, in});
-		} else if (auto cfg = std::get_if<config::redirect_config>(&*filt.config().handler)) {
-			co_await handle_redirect(std::move(writer),
-									 {_loop, _exec, root, file.string(), redirect_config(cfg->code, cfg->location),
-									  request, in});
-		} else if (auto cfg = std::get_if<config::proxy_config>(&*filt.config().handler)) {
-			auto service = std::format("{}", cfg->address.service());
-			co_await handle_proxy(std::move(writer),
-								  {_loop, _exec, root, file.string(), proxy_config(cfg->address.node(), service),
-								   request, in});
+		if (auto cfg = std::get_if<cobra::cgi_config>(&*filt.config().handler)) {
+			co_await handle_cgi(std::move(writer), {_loop, _exec, root, file.string(), *cfg, request, in});
+		} else if (auto cfg = std::get_if<cobra::static_config>(&*filt.config().handler)) {
+			co_await handle_static(std::move(writer), {_loop, _exec, root, file.string(), *cfg, request, in}, code);
+		} else if (auto cfg = std::get_if<cobra::redirect_config>(&*filt.config().handler)) {
+			co_await handle_redirect(std::move(writer), {_loop, _exec, root, file.string(), *cfg, request, in});
+		} else if (auto cfg = std::get_if<cobra::proxy_config>(&*filt.config().handler)) {
+			co_await handle_proxy(std::move(writer), {_loop, _exec, root, file.string(), *cfg, request, in});
 		} else {
-			assert(0 && "unimplemented");
+			assert(0 && "Unimplemented");
 		}
 	}
 

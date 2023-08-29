@@ -4,7 +4,6 @@
 #include "cobra/asyncio/event_loop.hh"
 #include "cobra/asyncio/stream.hh"
 #include "cobra/net/address.hh"
-#include "cobra/config.hh"
 
 #include <filesystem>
 #include <functional>

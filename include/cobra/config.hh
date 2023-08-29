@@ -3,6 +3,7 @@
 
 #include "cobra/http/message.hh"
 #include "cobra/http/uri.hh"
+#include "cobra/http/handler.hh"
 #include "cobra/print.hh"
 #include "cobra/text.hh"
 
@@ -951,8 +952,14 @@ namespace cobra {
 			std::optional<std::size_t> max_body_size;
 			std::optional<fs::path> index;
 			std::optional<fs::path> root;
-			std::optional<std::variant<static_file_config, cgi_config, fast_cgi_config, redirect_config, proxy_config>>
-				handler; // TODO use configs from handler.hh
+			std::optional<
+				std::variant<cobra::static_config, cobra::cgi_config, cobra::redirect_config, cobra::proxy_config>>
+				handler;
+			/*
+			std::optional<
+				std::variant<static_file_config, cgi_config, fast_cgi_config, redirect_config, proxy_config>>
+				handler;
+				*/
 			std::unordered_set<http_request_method> methods;
 			std::unordered_set<std::string> extensions;
 			std::unordered_set<std::string> server_names;

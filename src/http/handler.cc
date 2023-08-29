@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <optional>
 #include <stdexcept>
 
 namespace cobra {
@@ -131,14 +132,15 @@ namespace cobra {
 		co_yield "</table></body></html>";
 	}
 
-	task<void> handle_static(http_response_writer writer, const handle_context<static_config>& context) {
+	task<void> handle_static(http_response_writer writer, const handle_context<static_config>& context,
+							 std::optional<http_response_code> code) {
 		std::filesystem::path path = context.root() + context.file();
 
 		try {
 			if (std::filesystem::is_directory(path)) {
 				if (context.config().list_dir()) {
 					generator_stream dir_istream(list_directories(path, context.file()));
-					http_response resp(HTTP_OK);
+					http_response resp(code.value_or(HTTP_OK));
 					resp.set_header("Content-type", "text/html");
 					http_ostream sock_ostream = co_await std::move(writer).send(resp);
 					co_await pipe(buffered_istream_reference(dir_istream), ostream_reference(sock_ostream));
@@ -159,7 +161,7 @@ namespace cobra {
 				throw HTTP_NOT_FOUND;
 			}
 
-			http_response resp(context.config().code().value_or(HTTP_OK));
+			http_response resp(code.value_or(HTTP_OK));
 
 			if (!writer.can_compress()) {
 				resp.add_header("Content-Length", std::format("{}", size));

@@ -9,13 +9,10 @@
 namespace cobra {
 	class static_config {
 		bool _list_dir;
-		std::optional<http_response_code> _code;
 
 	public:
-		static_config(bool list_dir, std::optional<http_response_code> code = std::nullopt)
-			: _list_dir(list_dir), _code(code) {}
+		static_config(bool list_dir) : _list_dir(list_dir) {}
 
-		inline std::optional<http_response_code> code() const { return _code; }
 		inline bool list_dir() const { return _list_dir; }
 	};
 
@@ -140,7 +137,8 @@ namespace cobra {
 		}
 	};
 
-	task<void> handle_static(http_response_writer writer, const handle_context<static_config>& context);
+	task<void> handle_static(http_response_writer writer, const handle_context<static_config>& context,
+							 std::optional<http_response_code> = std::nullopt);
 	task<void> handle_cgi(http_response_writer writer, const handle_context<cgi_config>& context);
 	task<void> handle_redirect(http_response_writer writer, const handle_context<redirect_config>& context);
 	task<void> handle_proxy(http_response_writer writer, const handle_context<proxy_config>& context);

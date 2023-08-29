@@ -1,12 +1,10 @@
 server {
-	listen 127.0.0.1:80
+	listen 127.0.0.1:7070
 	error_page 404 /error/404.html
 
 	set_header server cobra
 	index index.html
 
-	ssl / /
-	
 	location / {
 		#set_header cache-control max-age=14400
 		root /home/codam/cobra
@@ -20,8 +18,8 @@ server {
 
 	root /
 
-	max_body_size 1000
-	location / {
-		root /home/codem/cobra
-	}
+	#max_body_size 1000
+	#location / {
+	#	root /home/codem/cobra
+	#}
 }
