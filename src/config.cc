@@ -965,7 +965,7 @@ namespace cobra {
 							auto other_address_define =
 								std::find_if(ambiguous_define.get().def._addresses.begin(),
 											 ambiguous_define.get().def._addresses.end(), [address_hack](auto addr) {
-												 return addr == address_hack;
+												 return addr.def == address_hack;
 											 });
 							sub_diag.sub_diags.push_back(
 								diagnostic::note(other_address_define->part, COBRA_TEXT("also listened to here")));

@@ -27,7 +27,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 		sequential_executor exec;
 		epoll_event_loop loop(exec);
 
-		/*(void)server::convert(servers, &exec, &loop);*/
+		(void)server::convert(servers, &exec, &loop);
 
 	} catch (const config::error& err) {
 	}

@@ -481,12 +481,7 @@ namespace cobra {
 				return _service;
 			}
 
-			auto operator<=>(const listen_address& other) const {
-				if (_node != other._node)
-					return _node < other._node ? std::strong_ordering::less : std::strong_ordering::greater;
-				return std::strong_ordering::equal;
-			}
-			
+			auto operator<=>(const listen_address& other) const = default;
 			bool operator==(const listen_address& other) const = default;
 			bool operator!=(const listen_address& other) const = default;
 			bool operator>(const listen_address& other) const = default;
