@@ -9,7 +9,42 @@ extern "C" {
 #include <netdb.h>
 }
 
+#ifdef COBRA_FUZZ_HANDLER
+#include <cassert>
+#endif
+
 namespace cobra {
+
+#ifdef COBRA_FUZZ_HANDLER
+	class address {
+		sockaddr* _addr = nullptr;
+                std::string _name;
+	public:
+		address(std::string name) : _name(std::move(name)) {}
+		address(const sockaddr*, std::size_t) {
+                        assert(0);
+                }
+		//address(const address& other) = default;
+		//address(address&& other) = default;
+		//~address() {}
+
+		//address& operator=(address other) = default;
+
+		inline const sockaddr* addr() const {
+                        assert(0);
+                        return _addr;
+		}
+
+		inline std::size_t len() const {
+                        assert(0);
+                        return 0;
+		}
+
+		inline std::string string() const {
+                        return _name;
+                }
+	};
+#else
 	class address {
 		sockaddr* _addr;
 		std::size_t _len;
@@ -32,6 +67,7 @@ namespace cobra {
 
 		std::string string() const;
 	};
+#endif
 
 	class address_info {
 		int _family;

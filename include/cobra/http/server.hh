@@ -52,9 +52,14 @@ namespace cobra {
 
 		static std::vector<server> convert(const std::vector<std::shared_ptr<config::server>>& configs,
 										   executor* exec, event_loop* loop);
+#ifdef COBRA_FUZZ_HANDLER
+		task<void> on_connect(basic_socket_stream& socket);
+#endif
 
 	private:
+#ifndef COBRA_FUZZ_HANDLER
 		task<void> on_connect(basic_socket_stream& socket);
+#endif
 		task<void> match_and_handle(basic_socket_stream& socket, const http_request& request,
 									buffered_istream_reference in, http_ostream_wrapper& out,
 									http_server_logger* logger, std::optional<http_response_code> code = std::nullopt);

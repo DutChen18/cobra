@@ -7,6 +7,7 @@
 #include <format>
 
 namespace cobra {
+#ifndef COBRA_FUZZ_HANDLER
 	address::address(const sockaddr* addr, std::size_t len) : _len(len) {
 		_addr = static_cast<sockaddr*>(std::malloc(len));
 		std::memcpy(_addr, addr, len);
@@ -39,6 +40,7 @@ namespace cobra {
 		check_return(getnameinfo(_addr, _len, host, sizeof host, service, sizeof service, NI_NUMERICHOST | NI_NUMERICSERV));
 		return std::format("{}:{}", host, service);
 	}
+#endif
 
 	address_info::address_info(const addrinfo* info)
 		: _family(info->ai_family), _socktype(info->ai_socktype), _protocol(info->ai_protocol),

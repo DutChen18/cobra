@@ -183,13 +183,19 @@ namespace cobra {
 		http_server_logger logger;
 		logger.set_socket(socket);
 
+#ifdef COBRA_FUZZ_HANDLER
+                http_server_logger* logger_ptr = nullptr;
+#else
+                http_server_logger* logger_ptr = &logger;
+#endif
+
 		counter c(_num_connections);
 
 		if (false && c.prev_val() >= max_connections()) {
 			co_await socket_istream.fill_buf();
 			http_response response(HTTP_SERVICE_UNAVAILABLE);
 			response.set_header("Retry-After", "10");
-			co_await http_response_writer(nullptr, &wrapper, &logger).send(std::move(response));
+			co_await http_response_writer(nullptr, &wrapper, logger_ptr).send(std::move(response));
 			co_await wrapper.end();
 		} else {
 			http_request request("GET", parse_uri("/", "GET"));
@@ -205,11 +211,13 @@ namespace cobra {
 						throw HTTP_BAD_REQUEST;
 					}
 
-					co_await match_and_handle(socket, request, socket_istream, wrapper, &logger);
+					co_await match_and_handle(socket, request, socket_istream, wrapper, logger_ptr);
 				} catch (std::pair<int, const config::config*> err) {
 					error = err;
 					//error = code;
-				}
+				} catch (int err) {
+                                        error = std::make_pair(err, nullptr);
+                                }
 
 				if (!wrapper.sent() && error.has_value() && error->second &&
 					error->second->error_pages.contains(error->first)) {
@@ -231,17 +239,17 @@ namespace cobra {
 
 					bool errored_again = false;
 					try {
-						co_await match_and_handle(socket, error_request, socket_istream, wrapper, &logger, error->first);
+						co_await match_and_handle(socket, error_request, socket_istream, wrapper, logger_ptr, error->first);
 					} catch (...) {
 						errored_again = true;
 					}
 
 					if (errored_again) {
-						co_await http_response_writer(&request, &wrapper, &logger).send(HTTP_NOT_FOUND);
+						co_await http_response_writer(&request, &wrapper, logger_ptr).send(HTTP_NOT_FOUND);
 					}
 				} else if (!wrapper.sent() && error.has_value()) {
 					// eprintln("no error_page ({}) {}", error->first, error->second->error_pages.contains(error->first));
-					co_await http_response_writer(&request, &wrapper, &logger).send(error->first);
+					co_await http_response_writer(&request, &wrapper, logger_ptr).send(error->first);
 				} else if (error.has_value()) {
 					eprintln("http error {}", error->first);
 				}
