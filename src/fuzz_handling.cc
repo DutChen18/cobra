@@ -1,4 +1,3 @@
-//#define COBRA_FUZZ_HANDLER
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -99,28 +98,53 @@ static auto generate() {
         return server::convert(servers, &exec, &loop);
 }
 
-extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
+void test_one(const uint8_t *data, size_t size, cobra::server& server) {
 	using namespace cobra;
 
         std::stringstream out;
         address addr("127.0.0.1:5423");
 	fuzz_socket_stream stream(std::stringstream(std::string(reinterpret_cast<const char*>(data), size)), out, addr);
 
-        static auto servers = generate();
-
-        //sequential_executor exec;
-        //platform_event_loop loop(exec);
-
-        //auto job = make_future_task(servers.at(0).on_connect(stream));
-        //job.get_future().get();
-
-        block_task(servers.at(0).on_connect(stream));
+        block_task(server.on_connect(stream));
 
         auto cobra_stream = std_istream<std::stringstream>(std::move(out));
         auto cobra_stream_buf = istream_buffer(std::move(cobra_stream), 1024);
 
         http_response resp = block_task(parse_http_response(cobra_stream_buf));
         assert(resp.code() != 500);
-	return 0;
 }
+
+#ifndef COBRA_FUZZ_AFLPP
+
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
+
+        static auto servers = generate();
+        test_one(data, size, servers.at(0));
+        return 0;
+}
+
+#else
+__AFL_FUZZ_INIT();
+
+main() {
+
+        auto servers = generate();
+
+#ifdef __AFL_HAVE_MANUAL_CONTROL
+  __AFL_INIT();
+#endif
+
+        unsigned char *buf = __AFL_FUZZ_TESTCASE_BUF;
+
+        while (__AFL_LOOP(10000)) {
+
+                size_t len = __AFL_FUZZ_TESTCASE_LEN;
+
+                if (len < 8) continue;
+                test_one(buf, len, servers.at(0));
+        }
+        return 0;
+}
+
+#endif
 #endif
