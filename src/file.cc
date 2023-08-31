@@ -31,6 +31,14 @@ namespace cobra {
 	}
 
 	ssize_t check_return(ssize_t ret) {
+		if (ret < 0) {
+			throw errno_exception();
+		} else {
+			return ret;
+		}
+	}
+
+	ssize_t check_return_connect(ssize_t ret) {
 		if (ret < 0 && errno != EINPROGRESS) {
 			throw errno_exception();
 		} else {

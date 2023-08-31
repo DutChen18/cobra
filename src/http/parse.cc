@@ -40,7 +40,7 @@ namespace cobra {
 		co_return true;
 	}
 
-	static void assert(bool condition, http_parse_error error) {
+	static void parse_assert(bool condition, http_parse_error error) {
 		if (!condition) {
 			throw error;
 		}
@@ -48,7 +48,7 @@ namespace cobra {
 
 	static task<bool> parse_http_eol(buffered_istream_reference stream) {
 		bool cr = co_await take(stream, '\r');
-		assert(co_await take(stream, '\n') == cr, http_parse_error::bad_eol);
+		parse_assert(co_await take(stream, '\n') == cr, http_parse_error::bad_eol);
 		co_return cr;
 	}
 
@@ -65,7 +65,7 @@ namespace cobra {
 
 		while (pred(co_await peek(stream))) {
 			result.push_back(*co_await stream.get());
-			assert(result.size() <= max_length, error);
+			parse_assert(result.size() <= max_length, error);
 		}
 
 		co_return result;
@@ -73,15 +73,15 @@ namespace cobra {
 
 	static task<int> parse_http_digit(buffered_istream_reference stream, http_parse_error error) {
 		char ch = *co_await stream.get();
-		assert(ch >= '0' && ch <= '9', error);
+		parse_assert(ch >= '0' && ch <= '9', error);
 		co_return ch - '0';
 	}
 
 	static task<http_header_key> parse_http_header_key(buffered_istream_reference stream) {
 		http_header_key key = co_await parse_http_string(stream, is_http_token, http_header_key_max_length,
 														 http_parse_error::header_key_too_long);
-		assert(co_await take(stream, ':'), http_parse_error::bad_header_key);
-		assert(!key.empty(), http_parse_error::empty_header_key);
+		parse_assert(co_await take(stream, ':'), http_parse_error::bad_header_key);
+		parse_assert(!key.empty(), http_parse_error::empty_header_key);
 		co_return key;
 	}
 
@@ -98,7 +98,7 @@ namespace cobra {
 				}
 
 				value.push_back(*co_await stream.get());
-				assert(value.size() <= http_header_value_max_length, http_parse_error::header_value_too_long);
+				parse_assert(value.size() <= http_header_value_max_length, http_parse_error::header_value_too_long);
 			} else if (co_await parse_http_eol(stream)) {
 				if (!is_http_ws(co_await peek(stream))) {
 					co_return value;
@@ -124,26 +124,26 @@ namespace cobra {
 				size += key.size();
 			}
 
-			assert(length <= http_header_map_max_length, http_parse_error::header_map_too_long);
-			assert(size <= http_header_map_max_size, http_parse_error::header_map_too_large);
+			parse_assert(length <= http_header_map_max_length, http_parse_error::header_map_too_long);
+			parse_assert(size <= http_header_map_max_size, http_parse_error::header_map_too_large);
 			message.add_header(std::move(key), std::move(value));
 		}
 
-		assert(co_await parse_http_eol(stream), http_parse_error::bad_header);
+		parse_assert(co_await parse_http_eol(stream), http_parse_error::bad_header);
 	}
 
 	static task<http_header_key> parse_cgi_header_key(buffered_istream_reference stream) {
 		http_header_key key = co_await parse_http_string(stream, is_http_token, cgi_header_key_max_length,
 														 http_parse_error::header_key_too_long);
-		assert(co_await take(stream, ':'), http_parse_error::bad_header_key);
-		assert(!key.empty(), http_parse_error::empty_header_key);
+		parse_assert(co_await take(stream, ':'), http_parse_error::bad_header_key);
+		parse_assert(!key.empty(), http_parse_error::empty_header_key);
 		co_return key;
 	}
 
 	static task<http_header_value> parse_cgi_header_value(buffered_istream_reference stream) {
 		http_header_value value = co_await parse_http_string(stream, is_cgi_value, cgi_header_value_max_length,
 															 http_parse_error::header_value_too_long);
-		assert(co_await parse_cgi_eol(stream), http_parse_error::bad_header_value);
+		parse_assert(co_await parse_cgi_eol(stream), http_parse_error::bad_header_value);
 		co_return value;
 	}
 
@@ -163,8 +163,8 @@ namespace cobra {
 				size += key.size();
 			}
 
-			assert(length <= cgi_header_map_max_length, http_parse_error::header_map_too_long);
-			assert(size <= cgi_header_map_max_size, http_parse_error::header_map_too_large);
+			parse_assert(length <= cgi_header_map_max_length, http_parse_error::header_map_too_long);
+			parse_assert(size <= cgi_header_map_max_size, http_parse_error::header_map_too_large);
 
 			std::size_t begin = value.find_first_not_of(" \t");
 
@@ -179,14 +179,14 @@ namespace cobra {
 			map.insert(std::move(key), std::move(value));
 		}
 
-		assert(co_await parse_cgi_eol(stream), http_parse_error::bad_header);
+		parse_assert(co_await parse_cgi_eol(stream), http_parse_error::bad_header);
 		co_return map;
 	}
 
 	static task<http_version> parse_http_version(buffered_istream_reference stream) {
-		assert(co_await take(stream, "HTTP/"), http_parse_error::bad_version);
+		parse_assert(co_await take(stream, "HTTP/"), http_parse_error::bad_version);
 		http_version_type major = co_await parse_http_digit(stream, http_parse_error::bad_version);
-		assert(co_await take(stream, '.'), http_parse_error::bad_version);
+		parse_assert(co_await take(stream, '.'), http_parse_error::bad_version);
 		http_version_type minor = co_await parse_http_digit(stream, http_parse_error::bad_version);
 		co_return http_version(major, minor);
 	}
@@ -288,15 +288,15 @@ namespace cobra {
 	task<http_request> parse_http_request(buffered_istream_reference stream) {
 		http_request_method method = co_await parse_http_string(stream, is_http_token, http_request_method_max_length,
 																http_parse_error::request_method_too_long);
-		assert(co_await take(stream, ' '), http_parse_error::bad_request_method);
-		assert(!method.empty(), http_parse_error::empty_request_method);
+		parse_assert(co_await take(stream, ' '), http_parse_error::bad_request_method);
+		parse_assert(!method.empty(), http_parse_error::empty_request_method);
 
 		std::string uri = co_await parse_http_string(stream, is_http_uri, http_request_uri_max_length,
 													 http_parse_error::request_uri_too_long);
-		assert(co_await take(stream, ' '), http_parse_error::bad_request_uri);
+		parse_assert(co_await take(stream, ' '), http_parse_error::bad_request_uri);
 
 		http_version version = co_await parse_http_version(stream);
-		assert(co_await parse_http_eol(stream), http_parse_error::bad_version);
+		parse_assert(co_await parse_http_eol(stream), http_parse_error::bad_version);
 
 		http_request request(version, method, parse_uri(uri, method));
 		co_await parse_http_header_map(stream, request);
@@ -305,17 +305,17 @@ namespace cobra {
 
 	task<http_response> parse_http_response(buffered_istream_reference stream) {
 		http_version version = co_await parse_http_version(stream);
-		assert(co_await take(stream, ' '), http_parse_error::bad_version);
+		parse_assert(co_await take(stream, ' '), http_parse_error::bad_version);
 
 		http_response_code code = 0;
 		code += co_await parse_http_digit(stream, http_parse_error::bad_response_code) * 100;
 		code += co_await parse_http_digit(stream, http_parse_error::bad_response_code) * 10;
 		code += co_await parse_http_digit(stream, http_parse_error::bad_response_code) * 1;
-		assert(co_await take(stream, ' '), http_parse_error::bad_response_code);
+		parse_assert(co_await take(stream, ' '), http_parse_error::bad_response_code);
 
 		http_response_reason reason = co_await parse_http_string(
 			stream, is_http_reason, http_response_reason_max_length, http_parse_error::response_reason_too_long);
-		assert(co_await parse_http_eol(stream), http_parse_error::bad_response_reason);
+		parse_assert(co_await parse_http_eol(stream), http_parse_error::bad_response_reason);
 
 		http_response response(version, code, reason);
 		co_await parse_http_header_map(stream, response);

@@ -495,7 +495,7 @@ namespace cobra {
 		for (const address_info& info : get_address_info(node, service)) {
 			file sock = check_return(socket(info.family(), info.socktype(), info.protocol()));
 			check_return(fcntl(sock.fd(), F_SETFL, O_NONBLOCK));
-			check_return(connect(sock.fd(), info.addr().addr(), info.addr().len()));
+			check_return_connect(connect(sock.fd(), info.addr().addr(), info.addr().len()));
 			co_await loop->wait_write(sock);
 
 			if (check_sock(sock.fd())) {

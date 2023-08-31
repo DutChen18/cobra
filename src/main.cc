@@ -16,6 +16,8 @@
 
 #include <cassert>
 #include <cstdlib>
+#include <cstring>
+#include <exception>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -70,7 +72,10 @@ int main(int argc, char** argv) {
 	std::fstream file;
 	std::istream* input = &std::cin;
 
-	assert(signal(SIGPIPE, SIG_IGN) != SIG_ERR);
+	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
+		eprintln("failed to ignore sigpipe: {}", std::strerror(errno));
+		std::terminate();
+	}
 
 	std::string file_help = COBRA_TEXT("path to configuration file");
 	std::string num_threads_help = COBRA_TEXT("number of threads to use (implies -t)");

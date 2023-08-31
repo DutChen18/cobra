@@ -161,6 +161,10 @@ namespace cobra {
 							 std::optional<http_response_code> code) {
 		std::filesystem::path path = context.root() + context.file();
 
+		if (context.request().method() != "GET") {
+			throw HTTP_METHOD_NOT_ALLOWED;
+		}
+
 		try {
 			if (std::filesystem::is_directory(path)) {
 				if (context.config().list_dir()) {

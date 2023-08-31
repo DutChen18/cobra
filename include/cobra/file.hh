@@ -27,6 +27,7 @@ namespace cobra {
 	};
 
 	ssize_t check_return(ssize_t ret);
+	ssize_t check_return_connect(ssize_t ret);
 } // namespace cobra
 
 #endif
