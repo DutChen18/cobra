@@ -1,9 +1,9 @@
 #ifndef COBRA_HTTP_WRITER_HH
 #define COBRA_HTTP_WRITER_HH
 
+#include "cobra/asyncio/null_stream.hh"
 #include "cobra/asyncio/stream.hh"
 #include "cobra/asyncio/stream_buffer.hh"
-#include "cobra/asyncio/null_stream.hh"
 #include "cobra/compress/deflate.hh"
 #include "cobra/http/message.hh"
 #include "cobra/http/parse.hh"
@@ -23,8 +23,7 @@ namespace cobra {
 	public:
 		using typename buffered_istream_impl<chunked_istream<Stream>>::char_type;
 
-		chunked_istream(Stream&& stream) : _stream(std::move(stream)) {
-		}
+		chunked_istream(Stream&& stream) : _stream(std::move(stream)) {}
 
 		task<std::pair<const char_type*, std::size_t>> fill_buf() {
 			while (true) {
@@ -39,14 +38,14 @@ namespace cobra {
 
 					_crlf -= 1;
 				}
-				
+
 				if (_done) {
-					co_return { nullptr, 0 };
+					co_return {nullptr, 0};
 				}
-				
+
 				if (_remaining > 0) {
 					auto [data, size] = co_await _stream.fill_buf();
-					co_return { data, std::min(size, _remaining) };
+					co_return {data, std::min(size, _remaining)};
 				}
 
 				if (auto digit = unhexify(co_await _stream.peek())) {
@@ -79,7 +78,7 @@ namespace cobra {
 			}
 		}
 
-		task<Stream> end()&& {
+		task<Stream> end() && {
 			while (!_done) {
 				auto [data, size] = co_await fill_buf();
 
@@ -101,8 +100,7 @@ namespace cobra {
 	public:
 		using typename ostream_impl<chunked_ostream<Stream>>::char_type;
 
-		chunked_ostream(Stream&& stream) : _stream(std::move(stream)) {
-		}
+		chunked_ostream(Stream&& stream) : _stream(std::move(stream)) {}
 
 		task<std::size_t> write(const char_type* data, std::size_t size) {
 			if (size != 0) {
@@ -130,34 +128,26 @@ namespace cobra {
 			return _stream.flush();
 		}
 
-		task<Stream> end()&& {
+		task<Stream> end() && {
 			co_await _stream.write_all("0\r\n\r\n", 5);
 			co_return std::move(_stream);
 		}
 	};
 
 	template <AsyncBufferedInputStream Stream>
-	using http_istream_variant = buffered_istream_variant<
-		Stream,
-		chunked_istream<Stream>,
-		istream_limit<Stream>,
-		inflate_istream<Stream>,
-		inflate_istream<chunked_istream<Stream>>,
-		istream_limit<inflate_istream<Stream>>
-	>;
+	using http_istream_variant =
+		buffered_istream_variant<Stream, chunked_istream<Stream>, istream_limit<Stream>, inflate_istream<Stream>,
+								 inflate_istream<chunked_istream<Stream>>, istream_limit<inflate_istream<Stream>>>;
 
 	template <AsyncBufferedOutputStream Stream>
-	using http_ostream_variant = buffered_ostream_variant<
-		Stream,
-		ostream_buffer<chunked_ostream<Stream>>,
-		ostream_limit<Stream>,
-		deflate_ostream<Stream>,
-		deflate_ostream<ostream_buffer<chunked_ostream<Stream>>>,
-		ostream_limit<deflate_ostream<Stream>>
-	>;
+	using http_ostream_variant =
+		buffered_ostream_variant<Stream, ostream_buffer<chunked_ostream<Stream>>, ostream_limit<Stream>,
+								 deflate_ostream<Stream>, deflate_ostream<ostream_buffer<chunked_ostream<Stream>>>,
+								 ostream_limit<deflate_ostream<Stream>>>;
 
 	using http_istream = buffered_istream_ref<http_istream_variant<buffered_istream_reference>>;
-	using http_ostream = buffered_ostream_variant<buffered_ostream_ref<http_ostream_variant<buffered_ostream_reference>>, null_ostream>;
+	using http_ostream =
+		buffered_ostream_variant<buffered_ostream_ref<http_ostream_variant<buffered_ostream_reference>>, null_ostream>;
 
 	bool has_header_value(const http_message& message, const std::string& key, std::string_view target);
 
@@ -203,7 +193,9 @@ namespace cobra {
 		void set_sent();
 		bool keep_alive() const;
 
-		inline bool sent() const { return _sent; }
+		inline bool sent() const {
+			return _sent;
+		}
 	};
 
 	class http_request_writer {
@@ -212,7 +204,7 @@ namespace cobra {
 	public:
 		http_request_writer(http_ostream_wrapper* stream);
 
-		task<http_ostream> send(http_request request)&&;
+		task<http_ostream> send(http_request request) &&;
 	};
 
 	class http_response_writer {
@@ -222,16 +214,17 @@ namespace cobra {
 		std::vector<std::pair<std::string, std::string>> _headers;
 
 	public:
-		http_response_writer(const http_request* request, http_ostream_wrapper* stream, http_server_logger* logger = nullptr);
+		http_response_writer(const http_request* request, http_ostream_wrapper* stream,
+							 http_server_logger* logger = nullptr);
 
 		void set_header(std::string key, std::string value);
 
 		bool can_compress() const;
-		task<http_ostream> send(http_response response)&&;
+		task<http_ostream> send(http_response response) &&;
 	};
 
 	task<void> write_http_request(ostream_reference stream, const http_request& request);
 	task<void> write_http_response(ostream_reference stream, const http_response& response);
-}
+} // namespace cobra
 
 #endif

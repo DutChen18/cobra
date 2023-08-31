@@ -73,7 +73,7 @@ namespace cobra {
 		add_event(event, converted, handle);
 	}
 
-	//ODOT implement timeout
+	// ODOT implement timeout
 	void epoll_event_loop::schedule_process_event(pid_t pid, process_event_type::handle_type& handle) {
 		std::lock_guard guard(_mutex);
 
@@ -97,7 +97,8 @@ namespace cobra {
 			if (timeout_point.has_value())
 				epoll_timeout = timeout_point.value() - now;
 
-			int rc = epoll_wait(_epoll_fd.fd(), events.data(), count, std::chrono::duration_cast<std::chrono::milliseconds>(epoll_timeout).count());
+			int rc = epoll_wait(_epoll_fd.fd(), events.data(), count,
+								std::chrono::duration_cast<std::chrono::milliseconds>(epoll_timeout).count());
 
 			if (rc == -1) {
 				if (errno == EINTR) {
@@ -322,7 +323,8 @@ namespace cobra {
 		return result;
 	}
 
-	std::optional<std::reference_wrapper<epoll_event_loop::process_future>> epoll_event_loop::remove_process_event(pid_t pid) {
+	std::optional<std::reference_wrapper<epoll_event_loop::process_future>>
+	epoll_event_loop::remove_process_event(pid_t pid) {
 		std::lock_guard guard(_mutex);
 
 		auto it = _process_events.find(pid);
@@ -333,7 +335,6 @@ namespace cobra {
 		return result;
 	}
 
-
 #endif
 
 #ifdef COBRA_MACOS
@@ -343,7 +344,7 @@ namespace cobra {
 	}
 
 	void kqueue_event_loop::schedule_event(event_pair event, std::optional<std::chrono::milliseconds> timeout,
-										  event_handle<void>& handle) {
+										   event_handle<void>& handle) {
 		std::optional<time_point> timeout_point;
 
 		if (timeout)
@@ -358,12 +359,14 @@ namespace cobra {
 		struct kevent change;
 
 		(void)timeout;
-		EV_SET(&change, event.first, EV_ADD | EV_ONESHOT, event.second == poll_type::read ? EVFILT_READ : EVFILT_WRITE, 0, 0, NULL);
+		EV_SET(&change, event.first, EV_ADD | EV_ONESHOT, event.second == poll_type::read ? EVFILT_READ : EVFILT_WRITE,
+			   0, 0, NULL);
 		if (kevent(_kqueue_fd.fd(), &change, 1, NULL, 0, NULL) == -1)
 			throw errno_exception();
 	}
 
-	std::optional<std::reference_wrapper<kqueue_event_loop::future_type>> kqueue_event_loop::remove_event(event_pair event) {
+	std::optional<std::reference_wrapper<kqueue_event_loop::future_type>>
+	kqueue_event_loop::remove_event(event_pair event) {
 		std::lock_guard guard(_mutex);
 		auto& map = get_map(event.second);
 		auto it = map.find(event.first);
@@ -393,7 +396,6 @@ namespace cobra {
 				});
 			}
 		}
-
 	}
 
 	bool kqueue_event_loop::has_events() const {

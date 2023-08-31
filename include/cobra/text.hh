@@ -3,8 +3,8 @@
 
 #include "cobra/print.hh"
 
-#include <string>
 #include <format>
+#include <string>
 
 #ifdef COBRA_USE_GETTEXT
 #include <locale>
@@ -16,7 +16,7 @@
 #define COBRA_TEXT(...) cobra::translate(__VA_ARGS__)
 
 namespace cobra {
-	template<class... Args>
+	template <class... Args>
 	std::string translate(std::string fmt, Args&&... args) {
 #ifdef COBRA_USE_GETTEXT
 		static std::once_flag flag;
@@ -25,7 +25,7 @@ namespace cobra {
 		static std::messages<char>::catalog cat;
 
 		std::call_once(flag, []() {
-			//loc = std::locale("nl_NL.UTF-8");
+			// loc = std::locale("nl_NL.UTF-8");
 			loc = std::locale("");
 			facet = &std::use_facet<std::messages<char>>(loc);
 			cat = facet->open("cobra", loc);
@@ -40,6 +40,6 @@ namespace cobra {
 
 		return std::vformat(fmt, std::make_format_args(std::forward<Args>(args)...));
 	}
-}
+} // namespace cobra
 
 #endif

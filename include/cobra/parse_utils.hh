@@ -5,10 +5,10 @@
 #include "cobra/asyncio/stream_utils.hh"
 #include "cobra/exception.hh"
 
+#include <concepts>
 #include <optional>
 #include <stdexcept>
 #include <string>
-#include <concepts>
 
 namespace cobra {
 
@@ -43,7 +43,9 @@ namespace cobra {
 	}
 
 	template <AsyncInputStream Stream, class UnaryPredicate>
-	task<void> expect(Stream& stream,  UnaryPredicate p) requires std::predicate<UnaryPredicate, typename Stream::int_type> {
+	task<void> expect(Stream& stream, UnaryPredicate p)
+		requires std::predicate<UnaryPredicate, typename Stream::int_type>
+	{
 		auto ch = co_await expect(stream);
 		if (!p(ch)) {
 			throw parse_error("Unexpected char");
@@ -51,9 +53,8 @@ namespace cobra {
 	}
 
 	template <AsyncInputStream Stream, class String>
-	task<void> expect(Stream& stream, const String& str) requires requires(String str, std::size_t idx) {
-		str[idx];
-	}
+	task<void> expect(Stream& stream, const String& str)
+		requires requires(String str, std::size_t idx) { str[idx]; }
 	{
 		for (auto&& expected_ch : str) {
 			auto ch = co_await stream.get();

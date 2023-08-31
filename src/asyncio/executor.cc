@@ -77,6 +77,6 @@ namespace cobra {
 			});
 		}
 	}
-	
+
 	sequential_executor global_executor;
 } // namespace cobra

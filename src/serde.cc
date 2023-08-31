@@ -120,4 +120,4 @@ namespace cobra {
 		ret |= static_cast<std::uint64_t>(co_await read_u8(is)) << 56;
 		co_return ret;
 	}
-}
+} // namespace cobra

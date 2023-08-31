@@ -3,19 +3,17 @@
 
 #include "cobra/print.hh"
 
-#include <string_view>
-#include <ranges>
 #include <format>
+#include <ranges>
+#include <string_view>
 #include <vector>
 
 namespace cobra {
 	class argument_error : public std::runtime_error {
 	public:
-		argument_error(const std::string& what) : std::runtime_error(what) {
-		}
+		argument_error(const std::string& what) : std::runtime_error(what) {}
 
-		argument_error(const char* what) : std::runtime_error(what) {
-		}
+		argument_error(const char* what) : std::runtime_error(what) {}
 	};
 
 	template <class Result>
@@ -40,12 +38,11 @@ namespace cobra {
 	public:
 		using result_type = Result;
 
-		store_conv(Result value) : _value(std::move(value)) {
-		}
+		store_conv(Result value) : _value(std::move(value)) {}
 
 		template <std::input_iterator I, std::sentinel_for<I> S>
 		result_type convert(I& begin, S end, const char* name) const {
-			(void) begin, (void) end, (void) name;
+			(void)begin, (void)end, (void)name;
 
 			return _value;
 		}
@@ -73,7 +70,7 @@ namespace cobra {
 			std::string long_name_str = long_name ? std::format("--{}", long_name) : "";
 			std::string help_str = help ? help : "";
 
-			_named_help.push_back({ short_name_str, long_name_str, help_str });
+			_named_help.push_back({short_name_str, long_name_str, help_str});
 		}
 
 		inline void positional_argument(bool required, const char* name, const char* help) {
@@ -81,7 +78,7 @@ namespace cobra {
 			std::string name_str = required ? name_str_tmp : std::format("[{}]", name_str_tmp);
 			std::string help_str = help ? help : "";
 
-			_positional_help.push_back({ name_str, help_str });
+			_positional_help.push_back({name_str, help_str});
 		}
 
 		inline void finish() {
@@ -93,21 +90,21 @@ namespace cobra {
 				if (help.short_name.size() > short_name_size) {
 					short_name_size = help.short_name.size();
 				}
-				
+
 				if (help.long_name.size() > long_name_size) {
 					long_name_size = help.long_name.size();
 				}
 			}
 
 			for (const positional_argument_help& help : _positional_help) {
-				if (help.name.size() > name_size ) {
+				if (help.name.size() > name_size) {
 					name_size = help.name.size();
 				}
 			}
 
 			name_size = std::max(long_name_size + short_name_size + 1, name_size);
 			long_name_size = name_size - short_name_size - 1;
-			
+
 			for (const named_argument_help& help : _named_help) {
 				if (short_name_size != 0) {
 					eprint("{:{}} ", help.short_name, short_name_size);
@@ -116,7 +113,7 @@ namespace cobra {
 				if (long_name_size != 0) {
 					eprint("{:{}} ", help.long_name, long_name_size);
 				}
-				
+
 				eprintln(" {}", help.help);
 			}
 
@@ -134,58 +131,57 @@ namespace cobra {
 
 		struct state_type {
 			state_type(const argument_base& argument) {
-				(void) argument;
+				(void)argument;
 			}
 		};
 
 		void program_name(result_type& result, state_type& state, std::string_view str) const {
-			(void) result, (void) state, (void) str;
+			(void)result, (void)state, (void)str;
 		}
 
 		template <std::input_iterator I, std::sentinel_for<I> S>
 		bool long_argument(result_type& result, state_type& state, std::string_view arg, I& begin, S end) const {
-			(void) result, (void) state, (void) arg, (void) begin, (void) end;
+			(void)result, (void)state, (void)arg, (void)begin, (void)end;
 			return false;
 		}
 
 		template <std::input_iterator I, std::sentinel_for<I> S>
 		bool short_argument(result_type& result, state_type& state, char arg, I& begin, S end) const {
-			(void) result, (void) state, (void) arg, (void) begin, (void) end;
+			(void)result, (void)state, (void)arg, (void)begin, (void)end;
 			return false;
 		}
 
 		bool positional_argument(result_type& result, state_type& state, std::string_view str) const {
-			(void) result, (void) state, (void) str;
+			(void)result, (void)state, (void)str;
 			return false;
 		}
 
 		void reset(result_type& result, state_type& state) const {
-			(void) result, (void) state;
+			(void)result, (void)state;
 		}
 
 		void validate(result_type& result, state_type& state) const {
-			(void) result, (void) state;
+			(void)result, (void)state;
 		}
 
 		template <class Helper>
 		void get_help(Helper& helper) const {
-			(void) helper;
+			(void)helper;
 		}
 	};
 
 	template <class Result>
 	class program_name_arg : public argument_base<Result> {
-		std::string Result::* _dest;
+		std::string Result::*_dest;
 
 	public:
 		using typename argument_base<Result>::result_type;
 		using typename argument_base<Result>::state_type;
 
-		program_name_arg(std::string Result::* dest) : _dest(dest) {
-		}
+		program_name_arg(std::string Result::*dest) : _dest(dest) {}
 
 		void program_name(result_type& result, state_type& state, std::string_view str) const {
-			(void) state;
+			(void)state;
 
 			result.*_dest = str;
 		}
@@ -193,7 +189,7 @@ namespace cobra {
 
 	template <class Result, class Convert>
 	class positional_arg : public argument_base<Result> {
-		typename Convert::result_type Result::* _dest;
+		typename Convert::result_type Result::*_dest;
 		Convert _convert;
 		bool _required = false;
 		const char* _name;
@@ -201,16 +197,16 @@ namespace cobra {
 
 	public:
 		using typename argument_base<Result>::result_type;
-		
+
 		struct state_type : argument_base<Result>::state_type {
 			bool defined = false;
-			
-			state_type(const positional_arg& argument) : argument_base<Result>::state_type(argument) {
-			}
+
+			state_type(const positional_arg& argument) : argument_base<Result>::state_type(argument) {}
 		};
 
-		positional_arg(typename Convert::result_type Result::* dest, Convert&& convert, bool required, const char* name, const char* help) : _dest(dest), _convert(std::move(convert)), _required(required), _name(name), _help(help) {
-		}
+		positional_arg(typename Convert::result_type Result::*dest, Convert&& convert, bool required, const char* name,
+					   const char* help)
+			: _dest(dest), _convert(std::move(convert)), _required(required), _name(name), _help(help) {}
 
 		bool positional_argument(result_type& result, state_type& state, std::string_view str) const {
 			if (std::exchange(state.defined, true)) {
@@ -229,7 +225,7 @@ namespace cobra {
 		}
 
 		void validate(result_type& result, state_type& state) const {
-			(void) result;
+			(void)result;
 
 			if (!state.defined && _required) {
 				throw argument_error(std::format("missing required position argument: {}", _name));
@@ -252,13 +248,14 @@ namespace cobra {
 		using typename argument_base<Result>::result_type;
 		using typename argument_base<Result>::state_type;
 
-		named_argument_base(const char* short_name, const char* long_name, const char* help) : _short_name(short_name), _long_name(long_name), _help(help) {
-		}
+		named_argument_base(const char* short_name, const char* long_name, const char* help)
+			: _short_name(short_name), _long_name(long_name), _help(help) {}
 
 		template <std::input_iterator I, std::sentinel_for<I> S>
 		bool long_argument(result_type& result, state_type& state, std::string_view arg, I& begin, S end) const {
 			if (_long_name && arg == _long_name) {
-				static_cast<const Base*>(this)->parse_argument(result, static_cast<typename Base::state_type&>(state), begin, end, _long_name);
+				static_cast<const Base*>(this)->parse_argument(result, static_cast<typename Base::state_type&>(state),
+															   begin, end, _long_name);
 
 				return true;
 			}
@@ -269,7 +266,8 @@ namespace cobra {
 		template <std::input_iterator I, std::sentinel_for<I> S>
 		bool short_argument(result_type& result, state_type& state, char arg, I& begin, S end) const {
 			if (_short_name && arg == *_short_name) {
-				static_cast<const Base*>(this)->parse_argument(result, static_cast<typename Base::state_type&>(state), begin, end, _short_name);
+				static_cast<const Base*>(this)->parse_argument(result, static_cast<typename Base::state_type&>(state),
+															   begin, end, _short_name);
 
 				return true;
 			}
@@ -287,7 +285,7 @@ namespace cobra {
 	class argument_arg : public named_argument_base<argument_arg<Result, Convert>, Result> {
 		using base = named_argument_base<argument_arg<Result, Convert>, Result>;
 
-		typename Convert::result_type Result::* _dest;
+		typename Convert::result_type Result::*_dest;
 		Convert _convert;
 
 	public:
@@ -295,13 +293,13 @@ namespace cobra {
 
 		struct state_type : base::state_type {
 			bool defined = false;
-			
-			state_type(const argument_arg& argument) : base::state_type(argument) {
-			}
+
+			state_type(const argument_arg& argument) : base::state_type(argument) {}
 		};
 
-		argument_arg(typename Convert::result_type Result::* dest, Convert&& convert, const char* short_name, const char* long_name, const char* help) : base(short_name, long_name, help), _dest(dest), _convert(std::move(convert)) {
-		}
+		argument_arg(typename Convert::result_type Result::*dest, Convert&& convert, const char* short_name,
+					 const char* long_name, const char* help)
+			: base(short_name, long_name, help), _dest(dest), _convert(std::move(convert)) {}
 
 		template <std::input_iterator I, std::sentinel_for<I> S>
 		void parse_argument(result_type& result, state_type& state, I& begin, S end, const char* name) const {
@@ -312,7 +310,7 @@ namespace cobra {
 			result.*_dest = _convert.convert(begin, end, name);
 		}
 	};
-	
+
 	template <class Base, class Argument>
 	class argument_parser_chain;
 
@@ -321,23 +319,26 @@ namespace cobra {
 	public:
 		using result_type = Result;
 
-		auto add_program_name(std::string Result::* dest)&& {
+		auto add_program_name(std::string Result::*dest) && {
 			return argument_parser_chain(std::move(*static_cast<Base*>(this)), program_name_arg(dest));
 		}
 
 		template <class T>
-		auto add_argument(T Result::* dest, const char* short_name, const char* long_name, const char* help)&& {
-			return argument_parser_chain(std::move(*static_cast<Base*>(this)), argument_arg(dest, parse_conv<T>(), short_name, long_name, help));
+		auto add_argument(T Result::*dest, const char* short_name, const char* long_name, const char* help) && {
+			return argument_parser_chain(std::move(*static_cast<Base*>(this)),
+										 argument_arg(dest, parse_conv<T>(), short_name, long_name, help));
 		}
 
 		template <class T>
-		auto add_flag(T Result::* dest, T value, const char* short_name, const char* long_name, const char* help)&& {
-			return argument_parser_chain(std::move(*static_cast<Base*>(this)), argument_arg(dest, store_conv(std::move(value)), short_name, long_name, help));
+		auto add_flag(T Result::*dest, T value, const char* short_name, const char* long_name, const char* help) && {
+			return argument_parser_chain(std::move(*static_cast<Base*>(this)),
+										 argument_arg(dest, store_conv(std::move(value)), short_name, long_name, help));
 		}
 
 		template <class T>
-		auto add_positional(T Result::* dest, bool required, const char* name, const char* help)&& {
-			return argument_parser_chain(std::move(*static_cast<Base*>(this)), positional_arg(dest, parse_conv<T>(), required, name, help));
+		auto add_positional(T Result::*dest, bool required, const char* name, const char* help) && {
+			return argument_parser_chain(std::move(*static_cast<Base*>(this)),
+										 positional_arg(dest, parse_conv<T>(), required, name, help));
 		}
 
 		template <std::input_iterator I, std::sentinel_for<I> S>
@@ -357,63 +358,63 @@ namespace cobra {
 
 		struct state_type {
 			state_type(const argument_parser& parser) {
-				(void) parser;
+				(void)parser;
 			}
 		};
 
 		void program_name(result_type& result, state_type& state, std::string_view str) const {
-			(void) result, (void) state, (void) str;
+			(void)result, (void)state, (void)str;
 		}
 
 		template <std::input_iterator I, std::sentinel_for<I> S>
 		bool long_argument(result_type& result, state_type& state, std::string_view arg, I& begin, S end) const {
-			(void) result, (void) state, (void) arg, (void) begin, (void) end;
+			(void)result, (void)state, (void)arg, (void)begin, (void)end;
 			return false;
 		}
 
 		template <std::input_iterator I, std::sentinel_for<I> S>
 		bool short_argument(result_type& result, state_type& state, char arg, I& begin, S end) const {
-			(void) result, (void) state, (void) arg, (void) begin, (void) end;
+			(void)result, (void)state, (void)arg, (void)begin, (void)end;
 			return false;
 		}
 
 		bool positional_argument(result_type& result, state_type& state, std::string_view str) const {
-			(void) result, (void) state, (void) str;
+			(void)result, (void)state, (void)str;
 			return false;
 		}
 
 		void reset(result_type& result, state_type& state) const {
-			(void) result, (void) state;
+			(void)result, (void)state;
 		}
 
 		void validate(result_type& result, state_type& state) const {
-			(void) result, (void) state;
+			(void)result, (void)state;
 		}
 
 		template <class Helper>
 		void get_help(Helper& helper) const {
-			(void) helper;
+			(void)helper;
 		}
 	};
 
 	template <class Base, class Argument>
-	class argument_parser_chain : public argument_parser_base<argument_parser_chain<Base, Argument>, typename Base::result_type> {
+	class argument_parser_chain
+		: public argument_parser_base<argument_parser_chain<Base, Argument>, typename Base::result_type> {
 		Base _base;
 		Argument _arg;
 
 	public:
-		using typename argument_parser_base<argument_parser_chain<Base, Argument>, typename Base::result_type>::result_type;
+		using typename argument_parser_base<argument_parser_chain<Base, Argument>,
+											typename Base::result_type>::result_type;
 
 		struct state_type {
 			typename Base::state_type _base_state;
 			typename Argument::state_type _arg_state;
 
-			state_type(const argument_parser_chain& parser) : _base_state(parser._base), _arg_state(parser._arg) {
-			}
+			state_type(const argument_parser_chain& parser) : _base_state(parser._base), _arg_state(parser._arg) {}
 		};
 
-		argument_parser_chain(Base&& base, Argument&& arg) : _base(std::move(base)), _arg(std::move(arg)) {
-		}
+		argument_parser_chain(Base&& base, Argument&& arg) : _base(std::move(base)), _arg(std::move(arg)) {}
 
 		void program_name(result_type& result, state_type& state, std::string_view str) const {
 			_base.program_name(result, state._base_state, str);
@@ -464,7 +465,8 @@ namespace cobra {
 	};
 
 	template <class Parser, std::input_iterator I, std::sentinel_for<I> S>
-	bool parse_arg(const Parser& parser, typename Parser::result_type& result, typename Parser::state_type& state, std::string_view arg, I& begin, S end) {
+	bool parse_arg(const Parser& parser, typename Parser::result_type& result, typename Parser::state_type& state,
+				   std::string_view arg, I& begin, S end) {
 		if (arg.starts_with("--")) {
 			if (!parser.long_argument(result, state, arg.substr(2), begin, end)) {
 				throw argument_error(std::format("bad argument: {}", arg));
@@ -548,6 +550,6 @@ namespace cobra {
 		parser.get_help(helper);
 		helper.finish();
 	}
-}
+} // namespace cobra
 
 #endif

@@ -1,4 +1,5 @@
 #include "cobra/asyncio/mutex.hh"
+
 #include "cobra/asyncio/task.hh"
 
 namespace cobra {
@@ -19,11 +20,10 @@ namespace cobra {
 		}
 	}
 
-	async_mutex::async_mutex(executor* exec) : _exec(exec) {
-	}
+	async_mutex::async_mutex(executor* exec) : _exec(exec) {}
 
 	event<void, async_mutex::lock_event> async_mutex::lock() {
-		return { { this } };
+		return {{this}};
 	}
 
 	bool async_mutex::try_lock() {
@@ -52,11 +52,9 @@ namespace cobra {
 		}
 	}
 
-	async_lock::async_lock(async_mutex& mutex) : _mutex(&mutex) {
-	}
+	async_lock::async_lock(async_mutex& mutex) : _mutex(&mutex) {}
 
-	async_lock::async_lock(async_lock&& other) : _mutex(std::exchange(other._mutex, nullptr)) {
-	}
+	async_lock::async_lock(async_lock&& other) : _mutex(std::exchange(other._mutex, nullptr)) {}
 
 	async_lock::~async_lock() {
 		if (_mutex) {
@@ -77,21 +75,20 @@ namespace cobra {
 		co_await mutex.lock();
 		co_return mutex;
 	}
-	
+
 	void async_condition_variable::wait_event::operator()(event_handle<void>& handle) {
 		{
 			std::lock_guard lock(_condition_variable->_mutex);
-			_condition_variable->_queue.push({ &handle, _lock });
+			_condition_variable->_queue.push({&handle, _lock});
 		}
 
 		_lock->mutex()->unlock();
 	}
 
-	async_condition_variable::async_condition_variable(executor* exec) : _exec(exec) {
-	}
+	async_condition_variable::async_condition_variable(executor* exec) : _exec(exec) {}
 
 	void async_condition_variable::notify_one() {
-		std::pair<event_handle<void>*, async_lock*> next = { nullptr, nullptr };
+		std::pair<event_handle<void>*, async_lock*> next = {nullptr, nullptr};
 
 		{
 			std::lock_guard lock(_mutex);
@@ -103,7 +100,7 @@ namespace cobra {
 		}
 
 		if (next.first) {
-			(void) _exec->schedule([](event_handle<void>* handle, async_lock* lock) -> task<void> {
+			(void)_exec->schedule([](event_handle<void>* handle, async_lock* lock) -> task<void> {
 				co_await lock->mutex()->lock();
 				handle->set_value();
 			}(next.first, next.second));
@@ -124,6 +121,6 @@ namespace cobra {
 	}
 
 	event<void, async_condition_variable::wait_event> async_condition_variable::wait(async_lock& lock) {
-		return { { this, &lock } };
+		return {{this, &lock}};
 	}
-}
+} // namespace cobra

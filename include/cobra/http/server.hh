@@ -1,15 +1,15 @@
 #ifndef COBRA_HTTP_SERVER_HH
 #define COBRA_HTTP_SERVER_HH
 
-#include "cobra/asyncio/executor.hh"
 #include "cobra/asyncio/event_loop.hh"
+#include "cobra/asyncio/executor.hh"
+#include "cobra/config.hh"
 #include "cobra/http/message.hh"
 #include "cobra/http/writer.hh"
 #include "cobra/net/stream.hh"
-#include "cobra/config.hh"
 
-#include <optional>
 #include <memory>
+#include <optional>
 
 namespace cobra {
 
@@ -19,17 +19,23 @@ namespace cobra {
 		std::size_t _match_count;
 
 		http_filter(std::shared_ptr<const config::config> config, std::size_t match_count);
+
 	protected:
 		http_filter() = delete;
-	
+
 	public:
 		http_filter(std::shared_ptr<const config::config> config);
 		http_filter(std::shared_ptr<const config::config> config, std::vector<http_filter> filters);
 
-		generator<std::pair<http_filter*, uri_abs_path>> match(const basic_socket_stream& socket, const http_request& request, const uri_abs_path& normalized);
+		generator<std::pair<http_filter*, uri_abs_path>>
+		match(const basic_socket_stream& socket, const http_request& request, const uri_abs_path& normalized);
 
-		inline const config::config& config() const { return *_config.get(); }
-		inline std::size_t match_count() const { return _match_count; }
+		inline const config::config& config() const {
+			return *_config.get();
+		}
+		inline std::size_t match_count() const {
+			return _match_count;
+		}
 
 	protected:
 		bool eval(const basic_socket_stream& socket, const http_request& request, const uri_abs_path& normalized) const;
@@ -48,10 +54,10 @@ namespace cobra {
 
 	public:
 		server(server&& other);
-		task<void> start(executor* exec, event_loop *loop);
+		task<void> start(executor* exec, event_loop* loop);
 
-		static std::vector<server> convert(const std::vector<std::shared_ptr<config::server>>& configs,
-										   executor* exec, event_loop* loop);
+		static std::vector<server> convert(const std::vector<std::shared_ptr<config::server>>& configs, executor* exec,
+										   event_loop* loop);
 #ifdef COBRA_FUZZ_HANDLER
 		task<void> on_connect(basic_socket_stream& socket);
 #endif
@@ -71,6 +77,6 @@ namespace cobra {
 			return 60;
 		}
 	};
-}
+} // namespace cobra
 
 #endif

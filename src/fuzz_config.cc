@@ -1,14 +1,15 @@
-#include <cstdint>
-#include <memory>
-#include <string>
-#include <sstream>
 #include "cobra/config.hh"
 #include "cobra/http/server.hh"
+
 #include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <sstream>
+#include <string>
 
 #ifdef COBRA_FUZZ_CONFIG
 
-extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
 	std::stringstream stream(std::string(reinterpret_cast<const char*>(data), size));
 	using namespace cobra;
 
@@ -29,8 +30,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
 		(void)server::convert(servers, &exec, &loop);
 
-	} catch (const config::error& err) {
-	}
+	} catch (const config::error& err) {}
 	return 0;
 }
 #endif

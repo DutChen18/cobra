@@ -24,6 +24,6 @@ namespace cobra {
 	task<std::uint16_t> read_u16_le(istream_reference is);
 	task<std::uint32_t> read_u32_le(istream_reference is);
 	task<std::uint64_t> read_u64_le(istream_reference is);
-}
+} // namespace cobra
 
 #endif

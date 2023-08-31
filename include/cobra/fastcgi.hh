@@ -1,8 +1,8 @@
 #ifndef COBRA_FASTCGI_HH
 #define COBRA_FASTCGI_HH
 
-#include "cobra/asyncio/stream.hh"
 #include "cobra/asyncio/mutex.hh"
+#include "cobra/asyncio/stream.hh"
 #include "cobra/net/stream.hh"
 
 #include <cstdint>
@@ -93,7 +93,11 @@ namespace cobra {
 		task<bool> poll();
 	};
 
-	class fastcgi_client : public fastcgi_ostream<fastcgi_record_type::fcgi_params>, public fastcgi_ostream<fastcgi_record_type::fcgi_stdin>, public fastcgi_istream<fastcgi_record_type::fcgi_stdout>, public fastcgi_istream<fastcgi_record_type::fcgi_stderr>, public fastcgi_ostream<fastcgi_record_type::fcgi_data> {
+	class fastcgi_client : public fastcgi_ostream<fastcgi_record_type::fcgi_params>,
+						   public fastcgi_ostream<fastcgi_record_type::fcgi_stdin>,
+						   public fastcgi_istream<fastcgi_record_type::fcgi_stdout>,
+						   public fastcgi_istream<fastcgi_record_type::fcgi_stderr>,
+						   public fastcgi_ostream<fastcgi_record_type::fcgi_data> {
 		std::uint16_t _request_id;
 		fastcgi_client_connection* _connection;
 		std::optional<fastcgi_error> _error;
@@ -153,7 +157,8 @@ namespace cobra {
 	}
 
 	template <fastcgi_record_type Type>
-	task<std::size_t> fastcgi_ostream<Type>::write(const typename fastcgi_ostream<Type>::char_type* data, std::size_t size) {
+	task<std::size_t> fastcgi_ostream<Type>::write(const typename fastcgi_ostream<Type>::char_type* data,
+												   std::size_t size) {
 		fastcgi_client* client = static_cast<fastcgi_client*>(this);
 		return client->connection()->write(client, Type, data, size);
 	}
@@ -169,6 +174,6 @@ namespace cobra {
 		fastcgi_client* client = static_cast<fastcgi_client*>(this);
 		return client->connection()->close(client, Type);
 	}
-}
+} // namespace cobra
 
 #endif

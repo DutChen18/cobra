@@ -10,7 +10,7 @@ namespace cobra {
 		using typename buffered_ostream_impl<basic_null_ostream<CharT, Traits>>::char_type;
 
 		task<std::size_t> write(const char_type* data, std::size_t size) {
-			(void) data;
+			(void)data;
 			co_return size;
 		}
 
@@ -20,6 +20,6 @@ namespace cobra {
 	};
 
 	using null_ostream = basic_null_ostream<char>;
-}
+} // namespace cobra
 
 #endif

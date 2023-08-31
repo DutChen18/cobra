@@ -1,8 +1,8 @@
 #ifndef COBRA_ASYNCIO_MUTEX_HH
 #define COBRA_ASYNCIO_MUTEX_HH
 
-#include "cobra/asyncio/task.hh"
 #include "cobra/asyncio/executor.hh"
+#include "cobra/asyncio/task.hh"
 
 namespace cobra {
 	class async_mutex {
@@ -49,7 +49,7 @@ namespace cobra {
 
 		struct wait_event {
 			async_condition_variable* _condition_variable;
-			async_lock *_lock;
+			async_lock* _lock;
 
 			void operator()(event_handle<void>& handle);
 		};
@@ -62,6 +62,6 @@ namespace cobra {
 
 		event<void, wait_event> wait(async_lock& lock);
 	};
-}
+} // namespace cobra
 
 #endif

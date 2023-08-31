@@ -1,12 +1,15 @@
 #include "cobra/http/handler.hh"
-#include "cobra/http/parse.hh"
-#include "cobra/asyncio/std_stream.hh"
+
 #include "cobra/asyncio/generator_stream.hh"
-#include "cobra/net/stream.hh"
-#include "cobra/process.hh"
-#include "cobra/print.hh"
+#include "cobra/asyncio/std_stream.hh"
 #include "cobra/fastcgi.hh"
+#include "cobra/http/parse.hh"
+#include "cobra/net/stream.hh"
+#include "cobra/print.hh"
+#include "cobra/process.hh"
 #include "cobra/serde.hh"
+
+#include <bits/chrono.h>
 
 #include <chrono>
 #include <cstdlib>
@@ -21,29 +24,29 @@
 namespace cobra {
 	// ODOT: sanitize header keys and values
 	static generator<std::pair<std::string, std::string>> get_cgi_params(const handle_context<cgi_config>& context) {
-		co_yield { "REQUEST_METHOD", context.request().method() };
-		co_yield { "SCRIPT_FILENAME", context.root() + context.file() };
+		co_yield {"REQUEST_METHOD", context.request().method()};
+		co_yield {"SCRIPT_FILENAME", context.root() + context.file()};
 		// co_yield { "SCRIPT_NAME", context.file() };
-		co_yield { "REDIRECT_STATUS", "200" };
+		co_yield {"REDIRECT_STATUS", "200"};
 
 		std::string path_info = context.request().uri().get<uri_origin>()->path().string();
 
 		if (path_info == context.file() || path_info.ends_with("/")) {
-			co_yield { "PATH_INFO", path_info };
+			co_yield {"PATH_INFO", path_info};
 		} else {
-			co_yield { "PATH_INFO", path_info + "/" };
+			co_yield {"PATH_INFO", path_info + "/"};
 		}
 
 		if (auto query = context.request().uri().get<uri_origin>()->query()) {
-			co_yield { "QUERY_STRING", *query };
+			co_yield {"QUERY_STRING", *query};
 		}
 
 		if (context.request().has_header("Content-Length")) {
-			co_yield { "CONTENT_LENGTH", context.request().header("Content-Length") };
+			co_yield {"CONTENT_LENGTH", context.request().header("Content-Length")};
 		}
 
 		if (context.request().has_header("Content-Type")) {
-			co_yield { "CONTENT_TYPE", context.request().header("Content-Type") };
+			co_yield {"CONTENT_TYPE", context.request().header("Content-Type")};
 		}
 
 		for (const auto& [http_key, http_value] : context.request().header_map()) {
@@ -53,17 +56,16 @@ namespace cobra {
 				key.push_back(ch == '-' ? '_' : std::toupper(ch));
 			}
 
-			co_yield { key, http_value };
+			co_yield {key, http_value};
 		}
 	}
 
 	// ODOT: handle all the stuffs
 	// ODOT: properly handle parse_http_response errors and stuff
 	/*
-	static task<std::pair<http_response, std::vector<char>>> get_response(basic_socket_stream& socket, const http_request& request) {
-		istream_buffer socket_istream(make_istream_ref(socket), COBRA_BUFFER_SIZE);
-		ostream_buffer socket_ostream(make_ostream_ref(socket), COBRA_BUFFER_SIZE);
-		co_await write_http_request(socket_ostream, request);
+	static task<std::pair<http_response, std::vector<char>>> get_response(basic_socket_stream& socket, const
+	http_request& request) { istream_buffer socket_istream(make_istream_ref(socket), COBRA_BUFFER_SIZE); ostream_buffer
+	socket_ostream(make_ostream_ref(socket), COBRA_BUFFER_SIZE); co_await write_http_request(socket_ostream, request);
 		co_await socket.shutdown(shutdown_how::write);
 		http_response response = co_await parse_http_response(socket_istream);
 		std::vector<char> data;
@@ -82,14 +84,14 @@ namespace cobra {
 		co_return { response, data };
 	}
 
-	static task<std::pair<http_response, std::vector<char>>> send_http_request(event_loop* loop, const http_request& request, std::string node, std::string service = "80") {
-		socket_stream socket = co_await open_connection(loop, node.c_str(), service.c_str());
-		co_return co_await get_response(socket, request);
+	static task<std::pair<http_response, std::vector<char>>> send_http_request(event_loop* loop, const http_request&
+	request, std::string node, std::string service = "80") { socket_stream socket = co_await open_connection(loop,
+	node.c_str(), service.c_str()); co_return co_await get_response(socket, request);
 	}
 
-	static task<std::pair<http_response, std::vector<char>>> send_https_request(executor* exec, event_loop* loop, const http_request& request, std::string node, std::string service = "443") {
-		ssl_socket_stream socket = co_await open_ssl_connection(exec, loop, node.c_str(), service.c_str());
-		co_return co_await get_response(socket, request);
+	static task<std::pair<http_response, std::vector<char>>> send_https_request(executor* exec, event_loop* loop, const
+	http_request& request, std::string node, std::string service = "443") { ssl_socket_stream socket = co_await
+	open_ssl_connection(exec, loop, node.c_str(), service.c_str()); co_return co_await get_response(socket, request);
 	}
 	*/
 
@@ -122,7 +124,7 @@ namespace cobra {
 					co_yield "<td>unknown</td>";
 					co_yield "<td>unknown</td>";
 				} else {
-					//co_yield std::format("<td><a href=\"{}\"i>{}</a></td>", filename, filename);
+					// co_yield std::format("<td><a href=\"{}\"i>{}</a></td>", filename, filename);
 					co_yield "<td><a href=\"";
 					co_yield filename;
 					co_yield "\"i>";
@@ -131,7 +133,6 @@ namespace cobra {
 					co_yield std::format("{}", entry.file_size());
 					co_yield "</td>";
 				}
-
 			}
 
 			auto last_modified = entry.last_write_time(ec);
@@ -140,14 +141,18 @@ namespace cobra {
 				co_yield "<td>unknown</td>";
 			} else {
 				char str[1024];
-				auto sys_time = std::chrono::file_clock::to_sys(last_modified);
+
+				auto duration = last_modified.time_since_epoch();
+				auto sys_duration = std::chrono::duration_cast<std::chrono::system_clock::duration>(duration);
+				auto sys_time = std::chrono::system_clock::time_point(sys_duration);
 				auto time = std::chrono::system_clock::to_time_t(sys_time);
 				auto len = std::strftime(str, sizeof str, "%F %T", std::gmtime(&time));
+
 				co_yield "<td>";
 				co_yield std::string(str, str + len);
 				co_yield "</td>";
-				//co_yield "<td>never</td>";
-				//co_yield std::format("<td>{}</td>", last_modified);
+				// co_yield "<td>never</td>";
+				// co_yield std::format("<td>{}</td>", last_modified);
 			}
 			co_yield "</tr>";
 		}
@@ -177,7 +182,7 @@ namespace cobra {
 
 		try {
 			std::size_t size = std::filesystem::file_size(path);
-			//istream_buffer file_istream(file_istream(path.c_str()), COBRA_BUFFER_SIZE); doesn't work on g++
+			// istream_buffer file_istream(file_istream(path.c_str()), COBRA_BUFFER_SIZE); doesn't work on g++
 			istream_buffer fis(file_istream(path.c_str()), COBRA_BUFFER_SIZE);
 
 			if (!fis.inner()) {
@@ -215,7 +220,7 @@ namespace cobra {
 				throw HTTP_BAD_GATEWAY;
 			code = *tmp;
 
-			//code = std::stoi(val.substr(0, 3));
+			// code = std::stoi(val.substr(0, 3));
 			if (val[3] != ' ') {
 				throw HTTP_BAD_GATEWAY;
 			}
@@ -254,7 +259,7 @@ namespace cobra {
 
 	task<void> handle_cgi(http_response_writer writer, const handle_context<cgi_config>& context) {
 		if (const auto* config = context.config().cmd()) {
-			command cmd({ config->cmd(), context.root() + context.file() });
+			command cmd({config->cmd(), context.root() + context.file()});
 
 			cmd.in(command_stream_mode::pipe);
 			cmd.out(command_stream_mode::pipe);
@@ -286,7 +291,8 @@ namespace cobra {
 			co_await try_await(ptr, coro);
 			try_throw(ptr);
 		} else if (const auto* config = context.config().addr()) {
-			socket_stream fcgi = co_await open_connection(context.loop(), config->node().c_str(), config->service().c_str());
+			socket_stream fcgi =
+				co_await open_connection(context.loop(), config->node().c_str(), config->service().c_str());
 			istream_buffer fcgi_connection_istream(make_istream_ref(fcgi), COBRA_BUFFER_SIZE);
 			ostream_buffer fcgi_connection_ostream(make_ostream_ref(fcgi), COBRA_BUFFER_SIZE);
 			fastcgi_client_connection fcgi_connection(fcgi_connection_istream, fcgi_connection_ostream);
@@ -305,9 +311,9 @@ namespace cobra {
 				// php requires headers not be split across tcp blocks, this is non-standard
 				co_await fcgi_pstream.flush();
 			}
-			
+
 			co_await fcgi_pstream.inner().ptr()->close();
-		
+
 			/*
 			auto fcgi_logger = context.exec()->schedule([](auto& fcgi) -> task<void> {
 				std_ostream_reference std_err(std::cerr);
@@ -315,30 +321,32 @@ namespace cobra {
 			}(fcgi_estream));
 			*/
 
-			auto fcgi_writer = context.exec()->schedule([](auto sock, auto& fcgi, auto& connection, auto& client, auto& socket) -> task<void> {
-				std::exception_ptr ptr;
-				auto coro = pipe(sock, ostream_reference(fcgi));
-				co_await try_await(ptr, coro);
+			auto fcgi_writer = context.exec()->schedule(
+				[](auto sock, auto& fcgi, auto& connection, auto& client, auto& socket) -> task<void> {
+					std::exception_ptr ptr;
+					auto coro = pipe(sock, ostream_reference(fcgi));
+					co_await try_await(ptr, coro);
 
-				if (ptr) {
-					co_await connection.abort(&client);
+					if (ptr) {
+						co_await connection.abort(&client);
 
-					// php-fpm does not care that we aborted the request
-					// it will maintain the connection anyways, so we must shut
-					// it down forcefully.
-					co_await socket.shutdown(shutdown_how::both);
-				} else {
-					co_await fcgi.inner().ptr()->close();
-				}
+						// php-fpm does not care that we aborted the request
+						// it will maintain the connection anyways, so we must shut
+						// it down forcefully.
+						co_await socket.shutdown(shutdown_how::both);
+					} else {
+						co_await fcgi.inner().ptr()->close();
+					}
 
-				try_throw(ptr);
-			}(context.istream(), fcgi_ostream, fcgi_connection, *fcgi_client, fcgi));
+					try_throw(ptr);
+				}(context.istream(), fcgi_ostream, fcgi_connection, *fcgi_client, fcgi));
 
 			auto sock_writer = context.exec()->schedule([](auto& fcgi, auto writer) -> task<void> {
 				co_await handle_cgi_response(fcgi, std::move(writer));
 			}(fcgi_istream, std::move(writer)));
 
-			while (co_await fcgi_connection.poll());
+			while (co_await fcgi_connection.poll())
+				;
 
 			std::exception_ptr ptr;
 			co_await try_await(ptr, fcgi_writer);
@@ -378,7 +386,8 @@ namespace cobra {
 
 	task<void> handle_proxy(http_response_writer writer, const handle_context<proxy_config>& context) {
 		try {
-			socket_stream gate = co_await open_connection(context.loop(), context.config().node().c_str(), context.config().service().c_str());
+			socket_stream gate = co_await open_connection(context.loop(), context.config().node().c_str(),
+														  context.config().service().c_str());
 			istream_buffer gate_istream(make_istream_ref(gate), COBRA_BUFFER_SIZE);
 			ostream_buffer gate_ostream(make_ostream_ref(gate), COBRA_BUFFER_SIZE);
 			http_request gate_request(context.request().method(), context.request().uri());
@@ -396,7 +405,8 @@ namespace cobra {
 				http_response response(gate_response.code(), gate_response.reason());
 				forward_headers(response, gate_response);
 				http_ostream sock = co_await std::move(writer).send(response);
-				http_istream_variant<buffered_istream_reference> gate_stream = get_istream(buffered_istream_reference(gate), gate_response);
+				http_istream_variant<buffered_istream_reference> gate_stream =
+					get_istream(buffered_istream_reference(gate), gate_response);
 				co_await pipe(buffered_istream_reference(gate_stream), ostream_reference(sock));
 			}(gate_istream, std::move(writer)));
 
@@ -414,6 +424,6 @@ namespace cobra {
 		} catch (compress_error) {
 			eprintln("compress_error");
 			throw HTTP_BAD_GATEWAY;
-		} 
+		}
 	}
-}
+} // namespace cobra

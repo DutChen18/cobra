@@ -1,6 +1,7 @@
 #include "cobra/http/writer.hh"
-#include "cobra/print.hh"
+
 #include "cobra/compress/deflate.hh"
+#include "cobra/print.hh"
 
 namespace cobra {
 	bool has_header_value(const http_message& message, const std::string& key, std::string_view target) {
@@ -10,7 +11,8 @@ namespace cobra {
 
 			while (pos != std::string_view::npos) {
 				std::string_view::size_type end = value.find(",", pos);
-				std::string_view part = value.substr(pos, end == std::string_view::npos ? std::string_view::npos : end - pos);
+				std::string_view part =
+					value.substr(pos, end == std::string_view::npos ? std::string_view::npos : end - pos);
 				std::size_t begin = part.find_first_not_of(" \t");
 
 				if (begin == std::string::npos) {
@@ -20,7 +22,9 @@ namespace cobra {
 					part = part.substr(begin, end - begin);
 				}
 
-				if (std::equal(part.begin(), part.end(), target.begin(), target.end(), [](char a, char b) { return tolower(a) == tolower(b); })) {
+				if (std::equal(part.begin(), part.end(), target.begin(), target.end(), [](char a, char b) {
+						return tolower(a) == tolower(b);
+					})) {
 					return true;
 				}
 
@@ -92,7 +96,7 @@ namespace cobra {
 	void http_server_logger::set_socket(const basic_socket_stream& socket) {
 		_socket = &socket;
 	}
-	
+
 	void http_server_logger::log(const http_request* request, const http_response& response) {
 		term::control ctrl;
 		std::stringstream ss;
@@ -127,8 +131,7 @@ namespace cobra {
 		println("{}", ss.str());
 	}
 
-	http_ostream_wrapper::http_ostream_wrapper(buffered_ostream_reference stream) : _stream(std::move(stream)) {
-	}
+	http_ostream_wrapper::http_ostream_wrapper(buffered_ostream_reference stream) : _stream(std::move(stream)) {}
 
 	buffered_ostream_reference http_ostream_wrapper::inner() {
 		return std::get<buffered_ostream_reference>(_stream.variant());
@@ -166,7 +169,11 @@ namespace cobra {
 	task<void> http_ostream_wrapper::end() {
 		assert(_sent);
 		_sent = false;
-		_stream = co_await std::visit([](auto& stream) { return end_stream(stream); }, _stream.variant());
+		_stream = co_await std::visit(
+			[](auto& stream) {
+				return end_stream(stream);
+			},
+			_stream.variant());
 	}
 
 	void http_ostream_wrapper::set_close() {
@@ -182,27 +189,27 @@ namespace cobra {
 		return _keep_alive;
 	}
 
-	http_request_writer::http_request_writer(http_ostream_wrapper* stream) : _stream(stream) {
-	}
+	http_request_writer::http_request_writer(http_ostream_wrapper* stream) : _stream(stream) {}
 
-	task<http_ostream> http_request_writer::send(http_request request)&& {
+	task<http_ostream> http_request_writer::send(http_request request) && {
 		_stream->set_sent();
 		co_await write_http_request(_stream->inner(), request);
 		co_return to_stream(_stream, request);
 	}
 
-	http_response_writer::http_response_writer(const http_request* request, http_ostream_wrapper* stream, http_server_logger* logger) : _request(request), _stream(stream), _logger(logger) {
-	}
+	http_response_writer::http_response_writer(const http_request* request, http_ostream_wrapper* stream,
+											   http_server_logger* logger)
+		: _request(request), _stream(stream), _logger(logger) {}
 
 	void http_response_writer::set_header(std::string key, std::string value) {
-		_headers.push_back({ std::move(key), std::move(value) });
+		_headers.push_back({std::move(key), std::move(value)});
 	}
 
 	bool http_response_writer::can_compress() const {
 		return _request && has_header_value(*_request, "Accept-Encoding", "deflate");
 	}
 
-	task<http_ostream> http_response_writer::send(http_response response)&& {
+	task<http_ostream> http_response_writer::send(http_response response) && {
 		for (const auto& [key, value] : _headers) {
 			response.set_header(key, value);
 		}
@@ -217,7 +224,9 @@ namespace cobra {
 			}
 
 			if (!response.has_header("Connection")) {
-				if (_request && has_header_value(*_request, "Connection", "keep-alive") && (response.has_header("Content-Length") || has_header_value(response, "Transfer-Encoding", "chunked"))) {
+				if (_request && has_header_value(*_request, "Connection", "keep-alive") &&
+					(response.has_header("Content-Length") ||
+					 has_header_value(response, "Transfer-Encoding", "chunked"))) {
 					response.set_header("Connection", "keep-alive");
 				} else {
 					response.set_header("Connection", "close");
@@ -246,16 +255,18 @@ namespace cobra {
 
 		co_await print(stream, "\r\n");
 	}
-	
+
 	task<void> write_http_request(ostream_reference stream, const http_request& request) {
-		co_await print(stream, "{} {} HTTP/{}.{}\r\n", request.method(), request.uri().string(), request.version().major(), request.version().minor());
+		co_await print(stream, "{} {} HTTP/{}.{}\r\n", request.method(), request.uri().string(),
+					   request.version().major(), request.version().minor());
 		co_await write_http_header_map(stream, request);
 		co_await stream.flush();
 	}
 
 	task<void> write_http_response(ostream_reference stream, const http_response& response) {
-		co_await print(stream, "HTTP/{}.{} {} {}\r\n", response.version().major(), response.version().minor(), response.code(), response.reason());
+		co_await print(stream, "HTTP/{}.{} {} {}\r\n", response.version().major(), response.version().minor(),
+					   response.code(), response.reason());
 		co_await write_http_header_map(stream, response);
 		co_await stream.flush();
 	}
-}
+} // namespace cobra

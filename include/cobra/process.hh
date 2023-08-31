@@ -33,7 +33,9 @@ namespace cobra {
 		task<void> flush();
 	};
 
-	class process : public process_ostream<process_stream_type::in>, public process_istream<process_stream_type::out>, public process_istream<process_stream_type::err> {
+	class process : public process_ostream<process_stream_type::in>,
+					public process_istream<process_stream_type::out>,
+					public process_istream<process_stream_type::err> {
 		int _pid;
 		event_loop* _loop;
 
@@ -78,7 +80,8 @@ namespace cobra {
 	}
 
 	template <process_stream_type Type>
-	task<std::size_t> process_ostream<Type>::write(const typename process_ostream<Type>::char_type* data, std::size_t size) {
+	task<std::size_t> process_ostream<Type>::write(const typename process_ostream<Type>::char_type* data,
+												   std::size_t size) {
 		co_await static_cast<process*>(this)->loop()->wait_write(*this);
 		co_return check_return(::write(fd(), data, size));
 	}
@@ -87,6 +90,6 @@ namespace cobra {
 	task<void> process_ostream<Type>::flush() {
 		co_return;
 	}
-}
+} // namespace cobra
 
 #endif

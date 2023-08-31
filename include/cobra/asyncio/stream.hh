@@ -3,11 +3,11 @@
 
 #include "cobra/asyncio/task.hh"
 
+#include <concepts>
 #include <optional>
 #include <string>
 #include <type_traits>
 #include <variant>
-#include <concepts>
 
 namespace cobra {
 	template <class T>
@@ -53,7 +53,8 @@ namespace cobra {
 	concept AsyncBufferedInputStream = AsyncInputStream<T> && AsyncBufferedInput<T, typename T::char_type, std::size_t>;
 
 	template <class T>
-	concept AsyncBufferedOutputStream = AsyncOutputStream<T> && AsyncBufferedOutput<T, typename T::char_type, std::size_t>;
+	concept AsyncBufferedOutputStream =
+		AsyncOutputStream<T> && AsyncBufferedOutput<T, typename T::char_type, std::size_t>;
 
 	template <class CharT, class Traits>
 	class basic_istream_tag;
@@ -63,7 +64,7 @@ namespace cobra {
 	class basic_buffered_istream_tag;
 	template <class CharT, class Traits>
 	class basic_buffered_ostream_tag;
-	
+
 	template <class Stream, class Tag>
 	class istream_tag_impl;
 	template <class Stream, class Tag>
@@ -149,11 +150,9 @@ namespace cobra {
 
 		virtual ~basic_ostream_tag() {}
 
-		virtual task<std::size_t> write(stream_type* stream, const char_type* data,
-													  std::size_t size) const = 0;
+		virtual task<std::size_t> write(stream_type* stream, const char_type* data, std::size_t size) const = 0;
 		virtual task<void> flush(stream_type* stream) const = 0;
-		virtual task<std::size_t> write_all(stream_type* stream, const char_type* data,
-														  std::size_t size) const = 0;
+		virtual task<std::size_t> write_all(stream_type* stream, const char_type* data, std::size_t size) const = 0;
 	};
 
 	template <class CharT, class Traits>
@@ -201,8 +200,7 @@ namespace cobra {
 		using typename tag_type::char_type;
 		using typename tag_type::stream_type;
 
-		task<std::size_t> write(stream_type* stream, const char_type* data,
-											  std::size_t size) const override {
+		task<std::size_t> write(stream_type* stream, const char_type* data, std::size_t size) const override {
 			return static_cast<Stream*>(stream)->write(data, size);
 		}
 
@@ -210,8 +208,7 @@ namespace cobra {
 			return static_cast<Stream*>(stream)->flush();
 		}
 
-		task<std::size_t> write_all(stream_type* stream, const char_type* data,
-												  std::size_t size) const override {
+		task<std::size_t> write_all(stream_type* stream, const char_type* data, std::size_t size) const override {
 			return static_cast<Stream*>(stream)->write_all(data, size);
 		}
 	};
@@ -244,7 +241,8 @@ namespace cobra {
 		using typename tag_type::stream_type;
 	};
 
-	template <class Stream, class CharT, class Traits = std::char_traits<CharT>, class Base = basic_istream<CharT, Traits>>
+	template <class Stream, class CharT, class Traits = std::char_traits<CharT>,
+			  class Base = basic_istream<CharT, Traits>>
 	class basic_istream_impl : public Base {
 	public:
 		using typename Base::char_type;
@@ -263,7 +261,7 @@ namespace cobra {
 		task<std::size_t> read_all(char_type* data, std::size_t size) {
 			Stream* self = static_cast<Stream*>(this);
 			std::size_t index = 0;
-			
+
 			while (index < size) {
 				std::size_t ret = co_await self->read(data + index, size - index);
 				index += ret;
@@ -277,7 +275,8 @@ namespace cobra {
 		}
 	};
 
-	template <class Stream, class CharT, class Traits = std::char_traits<CharT>, class Base = basic_ostream<CharT, Traits>>
+	template <class Stream, class CharT, class Traits = std::char_traits<CharT>,
+			  class Base = basic_ostream<CharT, Traits>>
 	class basic_ostream_impl : public Base {
 	public:
 		using typename Base::char_type;
@@ -421,7 +420,7 @@ namespace cobra {
 
 		template <class T>
 		constexpr bool is_stream_reference_v = is_stream_reference<T>::value;
-	}
+	} // namespace detail
 
 	template <class Base, std::derived_from<Base> Stream>
 	class stream_ref : public stream_wrapper<stream_ref<Base, Stream>, Base> {
@@ -436,7 +435,6 @@ namespace cobra {
 		stream_ref(const stream_ref<Base2, Stream>& other) {
 			_stream = other.ptr();
 		}
-
 
 		stream_ref copy() const {
 			return *this;
@@ -458,7 +456,9 @@ namespace cobra {
 
 	public:
 		template <std::derived_from<Base> Stream>
-		stream_reference(Stream& stream) requires (!detail::is_stream_reference_v<Stream>) {
+		stream_reference(Stream& stream)
+			requires(!detail::is_stream_reference_v<Stream>)
+		{
 			_ptr = &stream;
 			_tag = detail::tag<Base, Stream>();
 		}
@@ -494,11 +494,9 @@ namespace cobra {
 
 	public:
 		template <std::derived_from<Base> Stream>
-		stream_variant(Stream&& stream) : _stream(std::move(stream)) {
-		}
+		stream_variant(Stream&& stream) : _stream(std::move(stream)) {}
 
-		stream_variant(stream_variant&& other) : _stream(std::move(other._stream)) {
-		}
+		stream_variant(stream_variant&& other) : _stream(std::move(other._stream)) {}
 
 		stream_variant& operator=(stream_variant other) {
 			std::swap(_stream, other._stream);
@@ -514,11 +512,19 @@ namespace cobra {
 		}
 
 		Base* ptr() const {
-			return std::visit([](auto& stream) { return static_cast<Base*>(&stream); }, _stream);
+			return std::visit(
+				[](auto& stream) {
+					return static_cast<Base*>(&stream);
+				},
+				_stream);
 		}
 
 		const typename Base::tag_type* tag() const {
-			return std::visit([](auto& stream) { return detail::tag<Base, std::remove_cvref_t<decltype(stream)>>(); }, _stream);
+			return std::visit(
+				[](auto& stream) {
+					return detail::tag<Base, std::remove_cvref_t<decltype(stream)>>();
+				},
+				_stream);
 		}
 	};
 
@@ -527,13 +533,13 @@ namespace cobra {
 	using buffered_istream = basic_buffered_istream<char>;
 	using buffered_ostream = basic_buffered_ostream<char>;
 
-	template<class Stream>
+	template <class Stream>
 	using istream_impl = basic_istream_impl<Stream, char>;
-	template<class Stream>
+	template <class Stream>
 	using ostream_impl = basic_ostream_impl<Stream, char>;
-	template<class Stream>
+	template <class Stream>
 	using buffered_istream_impl = basic_buffered_istream_impl<Stream, char>;
-	template<class Stream>
+	template <class Stream>
 	using buffered_ostream_impl = basic_buffered_ostream_impl<Stream, char>;
 
 	template <class Stream, class CharT, class Traits = std::char_traits<CharT>>
@@ -607,7 +613,8 @@ namespace cobra {
 	}
 
 	template <class CharT, class Traits = std::char_traits<CharT>>
-	task<void> pipe(basic_buffered_istream_reference<CharT, Traits> istream, basic_ostream_reference<CharT, Traits> ostream) {
+	task<void> pipe(basic_buffered_istream_reference<CharT, Traits> istream,
+					basic_ostream_reference<CharT, Traits> ostream) {
 		while (true) {
 			auto [buffer, buffer_size] = co_await istream.fill_buf();
 

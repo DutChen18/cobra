@@ -1,9 +1,9 @@
 #ifndef COBRA_HTTP_UTIL_HH
 #define COBRA_HTTP_UTIL_HH
 
-#include <string>
 #include <format>
 #include <optional>
+#include <string>
 
 namespace cobra {
 	std::string hexify(int i);
@@ -36,6 +36,6 @@ namespace cobra {
 	bool is_http_uri(char ch);
 	bool is_http_reason(char ch);
 	bool is_cgi_value(char ch);
-}
+} // namespace cobra
 
 #endif

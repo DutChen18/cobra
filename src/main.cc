@@ -1,27 +1,26 @@
+#include "cobra/args.hh"
 #include "cobra/asyncio/event_loop.hh"
 #include "cobra/asyncio/executor.hh"
 #include "cobra/asyncio/future_task.hh"
+#include "cobra/asyncio/std_stream.hh"
 #include "cobra/asyncio/stream.hh"
 #include "cobra/asyncio/stream_buffer.hh"
-#include "cobra/asyncio/std_stream.hh"
 #include "cobra/compress/lz.hh"
-#include "cobra/http/writer.hh"
+#include "cobra/config.hh"
 #include "cobra/http/parse.hh"
 #include "cobra/http/server.hh"
+#include "cobra/http/writer.hh"
 #include "cobra/net/stream.hh"
-#include "cobra/process.hh"
 #include "cobra/print.hh"
-#include "cobra/config.hh"
-#include "cobra/args.hh"
-
-#include <cstdlib>
-#include <iomanip>
-#include <iostream>
-#include <fstream>
-#include <limits>
-#include <memory>
+#include "cobra/process.hh"
 
 #include <cassert>
+#include <cstdlib>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <limits>
+#include <memory>
 #include <optional>
 #include <sstream>
 
@@ -65,7 +64,7 @@ struct args_type {
 };
 
 #ifndef COBRA_FUZZ
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
 	using namespace cobra;
 	std::unique_ptr<executor> exec;
 	std::fstream file;
@@ -82,14 +81,14 @@ int main(int argc, char **argv) {
 	std::string verbose_help = COBRA_TEXT("show verbose output");
 
 	auto parser = argument_parser<args_type>()
-		.add_program_name(&args_type::program_name)
-		.add_positional(&args_type::config_file, false, "file", file_help.c_str())
-		.add_argument(&args_type::num_threads, "T", "num-threads", num_threads_help.c_str())
-		.add_flag(&args_type::json, true, "j", "json", json_help.c_str())
-		.add_flag(&args_type::check, true, "c", "check", check_help.c_str())
-		.add_flag(&args_type::help, true, "h", "help", help_help.c_str())
-		.add_flag(&args_type::threads, true, "t", "threads", threads_help.c_str())
-		.add_flag(&args_type::verbose, true, "v", "verbose", verbose_help.c_str());
+					  .add_program_name(&args_type::program_name)
+					  .add_positional(&args_type::config_file, false, "file", file_help.c_str())
+					  .add_argument(&args_type::num_threads, "T", "num-threads", num_threads_help.c_str())
+					  .add_flag(&args_type::json, true, "j", "json", json_help.c_str())
+					  .add_flag(&args_type::check, true, "c", "check", check_help.c_str())
+					  .add_flag(&args_type::help, true, "h", "help", help_help.c_str())
+					  .add_flag(&args_type::threads, true, "t", "threads", threads_help.c_str())
+					  .add_flag(&args_type::verbose, true, "v", "verbose", verbose_help.c_str());
 	auto args = parser.parse(argv, argv + argc);
 
 	if (args.help) {
@@ -104,7 +103,7 @@ int main(int argc, char **argv) {
 	} else {
 		exec = std::make_unique<sequential_executor>();
 	}
-	
+
 	platform_event_loop loop(*exec);
 
 	/*
@@ -244,7 +243,7 @@ int main(int argc, char **argv) {
 			session.report(err.diag());
 		}
 	}
-	
+
 	return EXIT_SUCCESS;
 }
 #endif

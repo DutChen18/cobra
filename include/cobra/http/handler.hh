@@ -4,6 +4,7 @@
 #include "cobra/asyncio/event_loop.hh"
 #include "cobra/asyncio/stream.hh"
 #include "cobra/http/writer.hh"
+
 #include <optional>
 
 namespace cobra {
@@ -13,7 +14,9 @@ namespace cobra {
 	public:
 		static_config(bool list_dir) : _list_dir(list_dir) {}
 
-		inline bool list_dir() const { return _list_dir; }
+		inline bool list_dir() const {
+			return _list_dir;
+		}
 	};
 
 	class cgi_command {
@@ -82,7 +85,8 @@ namespace cobra {
 		std::string _service;
 
 	public:
-		inline proxy_config(std::string node, std::string service) : _node(std::move(node)), _service(std::move(service)) {}
+		inline proxy_config(std::string node, std::string service)
+			: _node(std::move(node)), _service(std::move(service)) {}
 
 		inline const std::string& node() const {
 			return _node;
@@ -104,9 +108,10 @@ namespace cobra {
 		buffered_istream_reference _istream;
 
 	public:
-		handle_context(event_loop* loop, executor* exec, std::string root, std::string file, const T& config, const http_request& request,
-					   buffered_istream_reference istream)
-			: _loop(loop), _exec(exec), _root(std::move(root)), _file(std::move(file)), _config(config), _request(request), _istream(istream) {}
+		handle_context(event_loop* loop, executor* exec, std::string root, std::string file, const T& config,
+					   const http_request& request, buffered_istream_reference istream)
+			: _loop(loop), _exec(exec), _root(std::move(root)), _file(std::move(file)), _config(config),
+			  _request(request), _istream(istream) {}
 
 		event_loop* loop() const {
 			return _loop;
@@ -142,6 +147,6 @@ namespace cobra {
 	task<void> handle_cgi(http_response_writer writer, const handle_context<cgi_config>& context);
 	task<void> handle_redirect(http_response_writer writer, const handle_context<redirect_config>& context);
 	task<void> handle_proxy(http_response_writer writer, const handle_context<proxy_config>& context);
-}
+} // namespace cobra
 
 #endif

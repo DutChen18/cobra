@@ -218,7 +218,7 @@ namespace cobra {
 					// error = code;
 				} catch (int err) {
 					error = std::make_pair(err, nullptr);
-					//Parse error, cannot keep connection alive
+					// Parse error, cannot keep connection alive
 					wrapper.set_close();
 				}
 

@@ -1,9 +1,9 @@
 #include "cobra/http/message.hh"
+
 #include "cobra/print.hh"
 
 namespace cobra {
-	http_version::http_version(http_version_type major, http_version_type minor) : _major(major), _minor(minor) {
-	}
+	http_version::http_version(http_version_type major, http_version_type minor) : _major(major), _minor(minor) {}
 
 	http_version_type http_version::major() const {
 		return _major;
@@ -32,8 +32,9 @@ namespace cobra {
 	const http_header_value& http_header_map::at(const http_header_key& key) const {
 		return _map.find(key_case(key))->second;
 	}
-	
-	std::pair<http_header_map::const_iterator, http_header_map::const_iterator> http_header_map::equal_range(const http_header_key& key) const {
+
+	std::pair<http_header_map::const_iterator, http_header_map::const_iterator>
+	http_header_map::equal_range(const http_header_key& key) const {
 		return _map.equal_range(key_case(key));
 	}
 
@@ -81,8 +82,7 @@ namespace cobra {
 		return _map.end();
 	}
 
-	http_message::http_message(http_version version) : _version(std::move(version)) {
-	}
+	http_message::http_message(http_version version) : _version(std::move(version)) {}
 
 	const http_version& http_message::version() const {
 		return _version;
@@ -103,7 +103,7 @@ namespace cobra {
 	const http_header_value& http_message::header(const http_header_key& key) const {
 		return _header_map.at(key);
 	}
-	
+
 	bool http_message::has_header(const http_header_key& key) const {
 		return _header_map.contains(key);
 	}
@@ -132,11 +132,11 @@ namespace cobra {
 		}
 	}
 
-	http_request::http_request(http_version version, http_request_method method, http_request_uri uri) : http_message(std::move(version)), _method(std::move(method)), _uri(std::move(uri)) {
-	}
+	http_request::http_request(http_version version, http_request_method method, http_request_uri uri)
+		: http_message(std::move(version)), _method(std::move(method)), _uri(std::move(uri)) {}
 
-	http_request::http_request(http_request_method method, http_request_uri uri) : http_request({ 1, 1 }, std::move(method), std::move(uri)) {
-	}
+	http_request::http_request(http_request_method method, http_request_uri uri)
+		: http_request({1, 1}, std::move(method), std::move(uri)) {}
 
 	const http_request_method& http_request::method() const {
 		return _method;
@@ -154,11 +154,11 @@ namespace cobra {
 		_uri = std::move(uri);
 	}
 
-	http_response::http_response(http_version version, http_response_code code, http_response_reason reason) : http_message(std::move(version)), _code(std::move(code)), _reason(std::move(reason)) {
-	}
+	http_response::http_response(http_version version, http_response_code code, http_response_reason reason)
+		: http_message(std::move(version)), _code(std::move(code)), _reason(std::move(reason)) {}
 
-	http_response::http_response(http_response_code code, http_response_reason reason) : http_response({ 1, 1 }, code, std::move(reason)) {
-	}
+	http_response::http_response(http_response_code code, http_response_reason reason)
+		: http_response({1, 1}, code, std::move(reason)) {}
 
 	static http_response_reason get_response_reason(http_response_code code) {
 		switch (code) {
@@ -251,8 +251,7 @@ namespace cobra {
 		}
 	}
 
-	http_response::http_response(http_response_code code) : http_response(code, get_response_reason(code)) {
-	}
+	http_response::http_response(http_response_code code) : http_response(code, get_response_reason(code)) {}
 
 	const http_response_code& http_response::code() const {
 		return _code;
@@ -269,4 +268,4 @@ namespace cobra {
 	void http_response::set_reason(http_response_reason reason) {
 		_reason = std::move(reason);
 	}
-}
+} // namespace cobra

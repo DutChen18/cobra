@@ -1,8 +1,8 @@
 #ifndef COBRA_HTTP_MESSAGE_HH
 #define COBRA_HTTP_MESSAGE_HH
 
-#include "cobra/http/uri.hh"
 #include "cobra/asyncio/generator.hh"
+#include "cobra/http/uri.hh"
 
 #include <string>
 #include <unordered_map>
@@ -140,6 +140,6 @@ namespace cobra {
 		const http_response_reason& reason() const;
 		void set_reason(http_response_reason reason);
 	};
-}
+} // namespace cobra
 
 #endif

@@ -1,10 +1,11 @@
 #include "cobra/fastcgi.hh"
-#include "cobra/serde.hh"
+
 #include "cobra/print.hh"
+#include "cobra/serde.hh"
 
 namespace cobra {
-	fastcgi_client_connection::fastcgi_client_connection(istream_reference istream, ostream_reference ostream) : _istream(istream), _ostream(ostream) {
-	}
+	fastcgi_client_connection::fastcgi_client_connection(istream_reference istream, ostream_reference ostream)
+		: _istream(istream), _ostream(ostream) {}
 
 	async_mutex& fastcgi_client_connection::mutex() {
 		return _mutex;
@@ -13,13 +14,14 @@ namespace cobra {
 	async_condition_variable& fastcgi_client_connection::condition_variable() {
 		return _condition_variable;
 	}
-	
+
 	task<std::shared_ptr<fastcgi_client>> fastcgi_client_connection::get_client(std::uint16_t request_id) {
 		async_lock lock = co_await async_lock::lock(_mutex);
 		co_return _clients.at(request_id);
 	}
-	
-	task<void> fastcgi_client_connection::write_header(fastcgi_record_type type, std::uint16_t request_id, std::uint16_t content_length) {
+
+	task<void> fastcgi_client_connection::write_header(fastcgi_record_type type, std::uint16_t request_id,
+													   std::uint16_t content_length) {
 		co_await write_u8(_ostream, FCGI_VERSION_1);
 		co_await write_u8(_ostream, static_cast<std::uint8_t>(type));
 		co_await write_u16_be(_ostream, request_id);
@@ -28,7 +30,8 @@ namespace cobra {
 		co_await write_u8(_ostream, 0);
 	}
 
-	task<std::size_t> fastcgi_client_connection::write(fastcgi_client* client, fastcgi_record_type type, const char* data, std::size_t size) {
+	task<std::size_t> fastcgi_client_connection::write(fastcgi_client* client, fastcgi_record_type type,
+													   const char* data, std::size_t size) {
 		size = std::min(size, std::size_t(65535));
 
 		if (size > 0) {
@@ -46,8 +49,8 @@ namespace cobra {
 	task<void> fastcgi_client_connection::flush(fastcgi_client* client, fastcgi_record_type type) {
 		async_lock lock = co_await async_lock::lock(_mutex);
 		co_await _ostream.flush();
-		(void) client;
-		(void) type;
+		(void)client;
+		(void)type;
 	}
 
 	task<void> fastcgi_client_connection::close(fastcgi_client* client, fastcgi_record_type type) {
@@ -67,7 +70,7 @@ namespace cobra {
 			co_await _ostream.flush();
 		}
 	}
-	
+
 	task<std::shared_ptr<fastcgi_client>> fastcgi_client_connection::begin() {
 		async_lock lock = co_await async_lock::lock(_mutex);
 		std::uint16_t request_id = 1;
@@ -150,8 +153,8 @@ namespace cobra {
 		co_return !_clients.empty();
 	}
 
-	fastcgi_client::fastcgi_client(std::uint16_t request_id, fastcgi_client_connection& connection) : _request_id(request_id), _connection(&connection) {
-	}
+	fastcgi_client::fastcgi_client(std::uint16_t request_id, fastcgi_client_connection& connection)
+		: _request_id(request_id), _connection(&connection) {}
 
 	std::uint16_t fastcgi_client::request_id() const {
 		return _request_id;
@@ -192,4 +195,4 @@ namespace cobra {
 	fastcgi_ostream<fastcgi_record_type::fcgi_data>& fastcgi_client::fcgi_data() {
 		return *this;
 	}
-}
+} // namespace cobra

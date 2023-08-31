@@ -25,9 +25,9 @@ extern "C" {
 
 #ifdef COBRA_MACOS
 extern "C" {
+#include <sys/event.h>
+#include <sys/time.h>
 #include <sys/types.h>
-     #include <sys/event.h>
-     #include <sys/time.h>
 }
 #endif
 
@@ -115,7 +115,6 @@ namespace cobra {
 		void poll() override;
 		bool has_events() const override;
 
-
 	private:
 		void schedule_event(event_pair event, std::optional<std::chrono::milliseconds> timeout,
 							event_type::handle_type& handle) override;
@@ -148,14 +147,14 @@ namespace cobra {
 
 #ifdef COBRA_MACOS
 	class kqueue_event_loop : public event_loop {
-        public:
+	public:
 		using clock = std::chrono::steady_clock;
 		using future_type = event_handle<void>;
 		using time_point = clock::time_point;
 		using event_pair = std::pair<int, poll_type>;
 
-        private:
-                file _kqueue_fd;
+	private:
+		file _kqueue_fd;
 		mutable std::mutex _mutex;
 		std::reference_wrapper<executor> _exec;
 
@@ -166,20 +165,22 @@ namespace cobra {
 
 		std::unordered_map<int, timed_future> _write_events;
 		std::unordered_map<int, timed_future> _read_events;
+
 	public:
 		kqueue_event_loop(executor& exec);
 
 		void poll() override;
 
-                bool has_events() const override;
+		bool has_events() const override;
 
 	private:
 		inline std::unordered_map<int, timed_future>& get_map(poll_type type) {
 			return type == poll_type::read ? _read_events : _write_events;
 		}
 
-                std::optional<std::reference_wrapper<kqueue_event_loop::future_type>> remove_event(event_pair event);
-		void schedule_event(event_pair event, std::optional<std::chrono::milliseconds> timeout, event_type::handle_type& handle) override;
+		std::optional<std::reference_wrapper<kqueue_event_loop::future_type>> remove_event(event_pair event);
+		void schedule_event(event_pair event, std::optional<std::chrono::milliseconds> timeout,
+							event_type::handle_type& handle) override;
 	};
 #endif
 

@@ -7,25 +7,26 @@
 #define FORCE_INLINE
 #endif
 
-#include "cobra/asyncio/task.hh"
 #include "cobra/asyncio/stream.hh"
+#include "cobra/asyncio/task.hh"
 #include "cobra/ringbuffer.hh"
 
+#include <algorithm>
 #include <cstdint>
 #include <deque>
 #include <iterator>
 #include <limits>
 #include <stdexcept>
-#include <utility>
 #include <unordered_map>
-#include <algorithm>
+#include <utility>
 
 #ifdef COBRA_DEBUG
+#include "cobra/compress/stream_ringbuffer.hh"
+#include "cobra/print.hh"
+
 #include <iostream>
 #include <set>
 #include <vector>
-#include "cobra/print.hh"
-#include "cobra/compress/stream_ringbuffer.hh"
 #endif
 
 namespace cobra {
@@ -50,10 +51,18 @@ namespace cobra {
 			return length() == other.length() && dist() == other.dist();
 		}
 
-		inline constexpr bool is_literal() const noexcept { return _length == 1; }
-		inline constexpr uint16_t length() const noexcept { return _length; }
-		inline constexpr uint16_t dist() const noexcept { return _distance; }
-		inline constexpr uint8_t ch() const noexcept { return _character; }
+		inline constexpr bool is_literal() const noexcept {
+			return _length == 1;
+		}
+		inline constexpr uint16_t length() const noexcept {
+			return _length;
+		}
+		inline constexpr uint16_t dist() const noexcept {
+			return _distance;
+		}
+		inline constexpr uint8_t ch() const noexcept {
+			return _character;
+		}
 	};
 
 	class zchain {
@@ -122,12 +131,12 @@ namespace cobra {
 
 		using iterator = zchain_iterator;
 		using const_iterator = const zchain_iterator;
-	
+
 	private:
 		uint32_t _hash;
 		zchain* _next = nullptr;
 		buffer_iterator _pos;
-	
+
 	public:
 		constexpr zchain(uint32_t hash, buffer_iterator pos) noexcept : _hash(hash), _pos(pos) {}
 		constexpr zchain(zchain&& other) noexcept
@@ -138,12 +147,20 @@ namespace cobra {
 			_next = nullptr;
 			_pos = buffer_iterator();
 		}
-		//constexpr zchain(const zchain& other) noexcept = default;
+		// constexpr zchain(const zchain& other) noexcept = default;
 
-		inline constexpr iterator begin() noexcept { return iterator(this); }
-		inline constexpr iterator end() noexcept { return iterator(); }
-		inline constexpr iterator next() noexcept { return iterator(_next); }
-		inline constexpr const_iterator next() const noexcept { return iterator(_next); }
+		inline constexpr iterator begin() noexcept {
+			return iterator(this);
+		}
+		inline constexpr iterator end() noexcept {
+			return iterator();
+		}
+		inline constexpr iterator next() noexcept {
+			return iterator(_next);
+		}
+		inline constexpr const_iterator next() const noexcept {
+			return iterator(_next);
+		}
 
 		inline constexpr zchain& operator=(zchain&& other) noexcept {
 			if (this != &other) {
@@ -198,7 +215,7 @@ namespace cobra {
 
 		task<void> write(const lz_command& command) {
 			if (command.is_literal()) {
-				println("{}({})", (char) command.ch(), command.ch());
+				println("{}({})", (char)command.ch(), command.ch());
 			} else {
 				println("({},{})", command.dist(), command.length());
 			}
@@ -274,8 +291,7 @@ namespace cobra {
 
 	public:
 		lz_ostream(Stream&& stream, std::size_t window_size)
-			: _stream(std::move(stream)), _buffer(window_size), _window(window_size),
-			  _chain(window_size), _table() {}
+			: _stream(std::move(stream)), _buffer(window_size), _window(window_size), _chain(window_size), _table() {}
 
 		lz_ostream(lz_ostream&& other)
 			: _stream(std::move(other._stream)), _buffer(std::move(other._buffer)), _window(std::move(other._window)),
@@ -346,7 +362,6 @@ namespace cobra {
 					}
 				}
 			}
-
 		}
 
 		void assert_chain_correct() {
@@ -374,7 +389,7 @@ namespace cobra {
 			assert_correct();
 			assert(!_buffer.empty());
 			if (_buffer.size() < _min_backref_length) {
-				//Not enough buffered to produce a backreference or to store a hash
+				// Not enough buffered to produce a backreference or to store a hash
 				co_await write_literal_command_from_buffer();
 				co_return;
 			}
@@ -383,20 +398,20 @@ namespace cobra {
 			const auto it = _table.find(hash);
 
 			if (it == _table.end()) {
-				//Did not find anything in the window that starts with the same characters
+				// Did not find anything in the window that starts with the same characters
 				co_await write_literal_command_chained_from_buffer(hash);
 				co_return;
 			}
 
-			//Found backreference
+			// Found backreference
 			auto [first, _] = it->second;
-			
+
 			std::size_t best_length = _min_backref_length;
 			zchain* best_link = &*first;
 
 			assert_correct();
 			for (auto& link : *first) {
-				auto [win_it, buf_it] = std::mismatch(link.pos(), _window.end(), _buffer.begin(), _buffer.end()); 
+				auto [win_it, buf_it] = std::mismatch(link.pos(), _window.end(), _buffer.begin(), _buffer.end());
 				std::size_t length = buf_it - _buffer.begin();
 
 				if (win_it == _window.end()) {
@@ -435,7 +450,7 @@ namespace cobra {
 				assert(head == tail);
 
 			if (head == tail) {
-				//Was the last link
+				// Was the last link
 				_table.erase(link_hash);
 			} else {
 				_table[link_hash] = {it->next(), tail};
@@ -521,12 +536,12 @@ namespace cobra {
 		}
 
 		uint32_t calc_hash(uint8_t l, uint8_t c, uint8_t r) {
-			return static_cast<uint32_t>(l) << 16 | static_cast<uint32_t>(c) << 8 |  r;
+			return static_cast<uint32_t>(l) << 16 | static_cast<uint32_t>(c) << 8 | r;
 		}
 
 		uint32_t peek_hash() {
 			return calc_hash(_buffer[2], _buffer[1], _buffer[0]);
-			//return static_cast<uint32_t>(_buffer[2]) << 16 | static_cast<uint32_t>(_buffer[1]) << 8 |  _buffer[0];
+			// return static_cast<uint32_t>(_buffer[2]) << 16 | static_cast<uint32_t>(_buffer[1]) << 8 |  _buffer[0];
 		}
 
 		task<void> produce_atleast(size_t at_least) {
@@ -537,5 +552,5 @@ namespace cobra {
 			}
 		}
 	};
-}
+} // namespace cobra
 #endif

@@ -13,23 +13,21 @@ namespace cobra {
 	public:
 		using typename buffered_istream_impl<gluttonous_stream<Stream>>::char_type;
 
-		gluttonous_stream(Stream&& stream) : _stream(std::move(stream)) {
-		}
-		
-		gluttonous_stream(Stream&& stream, std::size_t limit) : _stream(std::move(stream)), _limit(limit) {
-		}
+		gluttonous_stream(Stream&& stream) : _stream(std::move(stream)) {}
 
-		gluttonous_stream(Stream&& stream, std::optional<std::size_t> limit) : _stream(std::move(stream)), _limit(limit) {
-		}
+		gluttonous_stream(Stream&& stream, std::size_t limit) : _stream(std::move(stream)), _limit(limit) {}
+
+		gluttonous_stream(Stream&& stream, std::optional<std::size_t> limit)
+			: _stream(std::move(stream)), _limit(limit) {}
 
 		task<std::pair<const char_type*, std::size_t>> fill_buf() {
 			auto [data, size] = co_await _stream.fill_buf();
-			
+
 			if (_limit && size > *_limit) {
 				throw HTTP_CONTENT_TOO_LARGE;
 			}
 
-			co_return { data, size };
+			co_return {data, size};
 		}
 
 		void consume(std::size_t size) {
@@ -40,6 +38,6 @@ namespace cobra {
 			_stream.consume(size);
 		}
 	};
-}
+} // namespace cobra
 
 #endif

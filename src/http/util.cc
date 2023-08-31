@@ -17,7 +17,7 @@ namespace cobra {
 			return std::nullopt;
 		}
 	}
-	
+
 	std::optional<int> unhexify(std::optional<char> ch) {
 		if (ch.has_value()) {
 			return unhexify(*ch);
@@ -39,7 +39,8 @@ namespace cobra {
 	}
 
 	bool is_uri_segment(char ch) {
-		return is_unreserved(ch) || is_delim(ch) || ch == '@' || ch == ',' || ch == '(' || ch == ')' || ch == ':' || ch == ';' || ch == '=';
+		return is_unreserved(ch) || is_delim(ch) || ch == '@' || ch == ',' || ch == '(' || ch == ')' || ch == ':' ||
+			   ch == ';' || ch == '=';
 	}
 
 	bool is_uri_query(char ch) {
@@ -70,4 +71,4 @@ namespace cobra {
 		unsigned char ch = c;
 		return (!is_http_ctl(ch) && ch <= 127) || ch == '\t';
 	}
-}
+} // namespace cobra

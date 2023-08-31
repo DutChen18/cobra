@@ -64,12 +64,12 @@ namespace cobra {
 		}
 	};
 
-	template<class Awaitable>
+	template <class Awaitable>
 	auto make_future_task(Awaitable awaitable) -> future_task<decltype(awaitable.await_resume())> {
 		co_return co_await awaitable;
 	}
 
-	template<class Awaitable>
+	template <class Awaitable>
 	auto block_task(Awaitable awaitable) -> decltype(awaitable.await_resume()) {
 		return make_future_task(std::move(awaitable)).get_future().get();
 	}

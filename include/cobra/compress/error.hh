@@ -15,6 +15,6 @@ namespace cobra {
 		tree_too_stupid,
 		unsupported,
 	};
-}
+} // namespace cobra
 
 #endif

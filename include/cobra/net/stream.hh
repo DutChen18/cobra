@@ -5,12 +5,12 @@
 #include "cobra/asyncio/stream.hh"
 #include "cobra/net/address.hh"
 
+#include <cstring>
 #include <filesystem>
 #include <functional>
-#include <stdexcept>
 #include <mutex>
+#include <stdexcept>
 #include <unordered_map>
-#include <cstring>
 
 #ifndef COBRA_NO_SSL
 extern "C" {
@@ -41,12 +41,12 @@ namespace cobra {
 		virtual std::optional<std::string_view> server_name() const = 0;
 	};
 
-
 	class socket_stream : public basic_socket_stream {
 		event_loop* _loop;
 		file _file;
 
 		friend class ssl_socket_stream;
+
 	public:
 		socket_stream(socket_stream&& other);
 		socket_stream(event_loop* loop, file&& f);
@@ -58,7 +58,9 @@ namespace cobra {
 		task<void> shutdown(shutdown_how how) override;
 		address peername() const override;
 		std::optional<std::string_view> server_name() const override;
-		inline file leak() && { return std::move(_file); }
+		inline file leak() && {
+			return std::move(_file);
+		}
 	};
 
 #ifndef COBRA_NO_SSL
@@ -69,6 +71,7 @@ namespace cobra {
 
 		ssl_error() = delete;
 		ssl_error(const std::string& what, std::vector<error_type> errors);
+
 	public:
 		ssl_error(const std::string& what);
 
@@ -77,7 +80,7 @@ namespace cobra {
 	};
 
 	class ssl_ctx {
-		SSL_CTX *_ctx;
+		SSL_CTX* _ctx;
 
 		class tlsext_ctx {
 			std::mutex _mtx;
@@ -90,13 +93,18 @@ namespace cobra {
 
 			tlsext_ctx& operator=(tlsext_ctx&& other);
 
-			inline auto& mtx() { return _mtx; }
-			inline const auto& server_names() const { return _server_names; }
+			inline auto& mtx() {
+				return _mtx;
+			}
+			inline const auto& server_names() const {
+				return _server_names;
+			}
 		};
 
 		std::shared_ptr<tlsext_ctx> _ext;
 
 		ssl_ctx(const SSL_METHOD* method);
+
 	public:
 		ssl_ctx() = delete;
 		ssl_ctx(const ssl_ctx& other);
@@ -113,24 +121,28 @@ namespace cobra {
 	private:
 		static ssl_ctx server();
 		static int ssl_servername_callback(SSL* s, int*, void* arg);
-		static void ref_up(SSL_CTX *ctx);
-		static void ref_down(SSL_CTX *ctx);
+		static void ref_up(SSL_CTX* ctx);
+		static void ref_down(SSL_CTX* ctx);
 	};
 
 	class ssl {
 		SSL* _ssl;
-		ssl_ctx _ctx;//maybe not needed since openssl internally increase the reference count for the context
+		ssl_ctx _ctx; // maybe not needed since openssl internally increase the reference count for the context
 
 	public:
 		ssl() = delete;
 		ssl(const ssl& other) = delete;
 		ssl(ssl&& other) noexcept;
-		//ssl(const ssl& other);
+		// ssl(const ssl& other);
 		ssl(ssl_ctx ctx);
 		~ssl();
 
-		inline SSL* ptr() { return _ssl; }
-		inline const SSL* ptr() const { return _ssl; }
+		inline SSL* ptr() {
+			return _ssl;
+		}
+		inline const SSL* ptr() const {
+			return _ssl;
+		}
 
 		void set_file(const file& f);
 		task<void> shutdown(event_loop* _loop, file&& f);
@@ -151,6 +163,7 @@ namespace cobra {
 		ssl_socket_stream(const ssl_socket_stream& other) = delete;
 		ssl_socket_stream(event_loop* loop, file&& f, ssl&& _ssl);
 		ssl_socket_stream(executor* exec, event_loop* loop, file&& f, ssl&& _ssl);
+
 	public:
 		ssl_socket_stream(ssl_socket_stream&& other);
 		~ssl_socket_stream();
@@ -168,9 +181,15 @@ namespace cobra {
 
 	private:
 		void set_bad();
-		inline bool bad() const { return _bad; }
-		inline bool can_read() const { return !bad() && !_read_shutdown; }
-		inline bool can_write() const { return !bad() && !_write_shutdown; }
+		inline bool bad() const {
+			return _bad;
+		}
+		inline bool can_read() const {
+			return !bad() && !_read_shutdown;
+		}
+		inline bool can_write() const {
+			return !bad() && !_write_shutdown;
+		}
 		void shutdown_read();
 		task<bool> rw_check(int rc);
 		task<void> shutdown_write();
@@ -178,7 +197,6 @@ namespace cobra {
 #else
 
 	struct ssl_ctx {
-
 		inline static ssl_ctx server(const std::filesystem::path&, const std::filesystem::path&) {
 			return {};
 		}
@@ -191,13 +209,13 @@ namespace cobra {
 							std::function<task<void>(socket_stream)> cb);
 
 #ifndef COBRA_NO_SSL
-	task<ssl_socket_stream> open_ssl_connection(executor* exec, event_loop* loop, const char* node, const char* service);
-	//ODOT implement sessions? https://wiki.openssl.org/index.php/SSL_and_TLS_Protocols#Session_Resumption
+	task<ssl_socket_stream> open_ssl_connection(executor* exec, event_loop* loop, const char* node,
+												const char* service);
+	// ODOT implement sessions? https://wiki.openssl.org/index.php/SSL_and_TLS_Protocols#Session_Resumption
 	task<void> start_ssl_server(ssl_ctx ctx, executor* exec, event_loop* loop, const char* node, const char* service,
-							std::function<task<void>(ssl_socket_stream)> cb);
-	task<void> start_ssl_server(std::unordered_map<std::string, ssl_ctx> server_names, executor* exec,
-								event_loop* loop, const char* node, const char* service,
 								std::function<task<void>(ssl_socket_stream)> cb);
+	task<void> start_ssl_server(std::unordered_map<std::string, ssl_ctx> server_names, executor* exec, event_loop* loop,
+								const char* node, const char* service, std::function<task<void>(ssl_socket_stream)> cb);
 #endif
 } // namespace cobra
 

@@ -1,9 +1,10 @@
 #include "cobra/net/stream.hh"
 
 #include "cobra/exception.hh"
-#include "cobra/print.hh"
 #include "cobra/net/address.hh"
+#include "cobra/print.hh"
 
+#include <cassert> // ODOT: remove
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -12,8 +13,6 @@
 #include <string_view>
 #include <unordered_map>
 #include <utility>
-
-#include <cassert> // ODOT: remove
 
 extern "C" {
 #include <fcntl.h>
@@ -58,10 +57,10 @@ namespace cobra {
 	task<void> socket_stream::shutdown(shutdown_how how) {
 		int h = 0;
 		switch (how) {
-		case shutdown_how::read: 
+		case shutdown_how::read:
 			h = SHUT_RD;
 			break;
-		case shutdown_how::write: 
+		case shutdown_how::write:
 			h = SHUT_WR;
 			break;
 		case shutdown_how::both:
@@ -70,7 +69,7 @@ namespace cobra {
 		check_return(::shutdown(_file.fd(), h));
 		co_return;
 	}
-	
+
 	address socket_stream::peername() const {
 		sockaddr_storage addr;
 		socklen_t len = sizeof addr;
@@ -111,7 +110,7 @@ namespace cobra {
 	}
 
 	ssl::~ssl() {
-		if (_ssl){
+		if (_ssl) {
 			SSL_free(_ssl);
 		}
 	}
@@ -123,7 +122,7 @@ namespace cobra {
 	task<void> ssl::shutdown(event_loop* loop, const file& f) {
 		while (true) {
 			int rc = SSL_shutdown(ptr());
-			
+
 			if (rc == 1 || rc == 0) {
 				break;
 			} else if (rc < 0) {
@@ -186,7 +185,7 @@ namespace cobra {
 	}
 
 	ssl_ctx ssl_ctx::server() {
-		const SSL_METHOD *method = TLS_server_method();
+		const SSL_METHOD* method = TLS_server_method();
 		if (method == nullptr) {
 			throw std::runtime_error("TLS_server_method failed");
 		}
@@ -250,11 +249,11 @@ namespace cobra {
 
 		if (SSL_CTX_use_certificate_file(ctx._ctx, cert.c_str(), SSL_FILETYPE_PEM) <= 0) {
 			throw ssl_error("ssl_ctx_use_cert_file failed");
-			//throw std::runtime_error("ssl_ctx_use_cert_file failed");
+			// throw std::runtime_error("ssl_ctx_use_cert_file failed");
 		}
 		if (SSL_CTX_use_PrivateKey_file(ctx._ctx, key.c_str(), SSL_FILETYPE_PEM) <= 0) {
 			throw ssl_error("SSL_CTX_use_PrivateKey_file failed");
-			//throw std::runtime_error("ssl_ctx_use_privkey_file failed");
+			// throw std::runtime_error("ssl_ctx_use_privkey_file failed");
 		}
 		return ctx;
 	}
@@ -286,8 +285,7 @@ namespace cobra {
 	ssl_socket_stream::ssl_socket_stream(ssl_socket_stream&& other)
 		: _exec(other._exec), _loop(other._loop), _file(std::move(other._file)), _ssl(std::move(other._ssl)),
 		  _write_shutdown(std::exchange(other._write_shutdown, true)),
-		  _read_shutdown(std::exchange(other._read_shutdown, false)),
-		  _bad(std::exchange(other._bad, false)) {}
+		  _read_shutdown(std::exchange(other._read_shutdown, false)), _bad(std::exchange(other._bad, false)) {}
 
 	static task<void> destruct_ssl(ssl s, file f, event_loop* loop) {
 		co_await s.shutdown(loop, std::move(f));
@@ -323,7 +321,7 @@ namespace cobra {
 			} else {
 				const int error = SSL_get_error(ssl.ptr(), rc);
 
-				if (error ==  SSL_ERROR_WANT_READ) {
+				if (error == SSL_ERROR_WANT_READ) {
 					co_await loop->wait_read(socket._file);
 				} else if (error == SSL_ERROR_WANT_WRITE) {
 					co_await loop->wait_write(socket._file);
@@ -405,10 +403,10 @@ namespace cobra {
 
 	task<void> ssl_socket_stream::shutdown(shutdown_how how) {
 		switch (how) {
-		case shutdown_how::read: 
+		case shutdown_how::read:
 			shutdown_read();
 			break;
-		case shutdown_how::write: 
+		case shutdown_how::write:
 			co_await shutdown_write();
 			break;
 		case shutdown_how::both:
@@ -459,7 +457,8 @@ namespace cobra {
 		co_return true;
 	}
 
-	task<ssl_socket_stream> open_ssl_connection(executor* exec, event_loop* loop, const char* node, const char* service) {
+	task<ssl_socket_stream> open_ssl_connection(executor* exec, event_loop* loop, const char* node,
+												const char* service) {
 		socket_stream socket = co_await open_connection(loop, node, service);
 		ssl_ctx client_ctx = ssl_ctx::client();
 		ssl client(client_ctx);
@@ -481,8 +480,8 @@ namespace cobra {
 			});
 	}
 
-	task<void> start_ssl_server(std::unordered_map<std::string, ssl_ctx> server_names, executor* exec,
-								event_loop* loop, const char* node, const char* service,
+	task<void> start_ssl_server(std::unordered_map<std::string, ssl_ctx> server_names, executor* exec, event_loop* loop,
+								const char* node, const char* service,
 								std::function<task<void>(ssl_socket_stream)> cb) {
 		ssl_ctx ctx = ssl_ctx::server(std::move(server_names));
 		co_await start_server(

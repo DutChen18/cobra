@@ -152,8 +152,8 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc Makefile
 	@mkdir -p $(@D)
 	$(CXX) -o $@ $< $(CXXFLAGS) -c -MMD
 
-#fmt:
-#	docker run -v $(PWD):/src xianpengshen/clang-tools:16 clang-format -i $(SRC_FILES) $(shell find include/ -type f -name '*.hh')
+fmt:
+	clang-format -i $(SRC_FILES) $(shell find include/ -type f -name '*.hh')
 
 clean:
 	rm -rf $(OBJ_DIR)

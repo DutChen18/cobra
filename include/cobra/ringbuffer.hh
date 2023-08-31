@@ -1,10 +1,10 @@
 #ifndef COBRA_RINGBUFFER_HH
 #define COBRA_RINGBUFFER_HH
 
+#include <cassert>
 #include <cstddef>
 #include <iterator>
 #include <limits>
-#include <cassert>
 #include <memory>
 #include <ratio>
 #include <utility>
@@ -41,14 +41,18 @@ namespace cobra {
 
 		constexpr bool operator!=(const ringbuffer_iterator& other) const noexcept = default;
 
-		constexpr reference operator*() const noexcept { return _buffer->data()[_index % _buffer->actual_capacity()]; }
-		constexpr pointer operator->() const noexcept { return &(this->operator*()); }
+		constexpr reference operator*() const noexcept {
+			return _buffer->data()[_index % _buffer->actual_capacity()];
+		}
+		constexpr pointer operator->() const noexcept {
+			return &(this->operator*());
+		}
 
 		constexpr ringbuffer_iterator& operator++() noexcept {
 			++_index;
 			return *this;
 		}
-		
+
 		constexpr ringbuffer_iterator operator++(int) noexcept {
 			ringbuffer_iterator tmp(*this);
 			++_index;
@@ -162,7 +166,7 @@ namespace cobra {
 		value_type* _buffer;
 
 	public:
-		//ODOT exception safety
+		// ODOT exception safety
 		constexpr ringbuffer(std::size_t buffer_capacity)
 			: _buffer_capacity(buffer_capacity), _allocator(), _buffer(_allocator.allocate(_buffer_capacity + 1)) {
 			if (_buffer_capacity == std::numeric_limits<size_type>::max())
@@ -172,7 +176,7 @@ namespace cobra {
 		constexpr ringbuffer(const ringbuffer& other)
 			: _buffer_capacity(other._buffer_capacity), _buffer_begin(other._buffer_begin),
 			  _buffer_size(other._buffer_size), _allocator(), _buffer(_allocator.allocate(_buffer_capacity + 1)) {
-			//ODOT exception safety
+			// ODOT exception safety
 			std::uninitialized_copy(other._buffer, other._buffer + _buffer_size, _buffer);
 		}
 
@@ -220,16 +224,36 @@ namespace cobra {
 			return const_reverse_iterator(begin());
 		}
 
-		constexpr size_type buffer_begin() const noexcept { return _buffer_begin; }
-		constexpr size_type size() const noexcept { return _buffer_size; }
-		constexpr size_type capacity() const noexcept { return _buffer_capacity; }
-		constexpr size_type actual_capacity() const noexcept { return capacity() + 1; }
-		constexpr bool empty() const noexcept { return size() == 0; }
-		constexpr size_type remaining() const noexcept { return capacity() - size(); }
-		constexpr bool full() const noexcept { return remaining() == 0; }
-		constexpr pointer data() noexcept { return _buffer; }
-		constexpr const_pointer data() const noexcept { return _buffer; }
-		constexpr size_type max_size() const noexcept { return std::numeric_limits<size_type>::max() + 1; }
+		constexpr size_type buffer_begin() const noexcept {
+			return _buffer_begin;
+		}
+		constexpr size_type size() const noexcept {
+			return _buffer_size;
+		}
+		constexpr size_type capacity() const noexcept {
+			return _buffer_capacity;
+		}
+		constexpr size_type actual_capacity() const noexcept {
+			return capacity() + 1;
+		}
+		constexpr bool empty() const noexcept {
+			return size() == 0;
+		}
+		constexpr size_type remaining() const noexcept {
+			return capacity() - size();
+		}
+		constexpr bool full() const noexcept {
+			return remaining() == 0;
+		}
+		constexpr pointer data() noexcept {
+			return _buffer;
+		}
+		constexpr const_pointer data() const noexcept {
+			return _buffer;
+		}
+		constexpr size_type max_size() const noexcept {
+			return std::numeric_limits<size_type>::max() + 1;
+		}
 
 		constexpr const_reference operator[](size_t n) const noexcept {
 			return _buffer[(_buffer_begin + n) % actual_capacity()];
@@ -297,7 +321,7 @@ namespace cobra {
 			assert(!empty() && "pop_front on empty ringbuffer");
 
 			value_type result = std::move(front());
-			//value_type result = back();
+			// value_type result = back();
 
 			_buffer_begin = (_buffer_begin + 1) % actual_capacity();
 			--_buffer_size;
@@ -305,14 +329,14 @@ namespace cobra {
 			return std::move(result);
 		}
 
-		//ODOT exception safety
+		// ODOT exception safety
 		template <class InputIt>
 		constexpr iterator insert(InputIt first, InputIt last) noexcept {
 			iterator res = begin();
 			bool inserted = false;
 
 			for (; first != last; ++first) {
-				//ODOT optimize
+				// ODOT optimize
 				iterator it = push_back(*first);
 				if (!inserted) {
 					res = it;
@@ -325,7 +349,7 @@ namespace cobra {
 		constexpr void erase_front(size_type count) noexcept {
 			assert(count <= size() && "tried to erase more than available");
 
-			//ODOT optimize
+			// ODOT optimize
 			while (count--) {
 				pop_front();
 			}
@@ -336,5 +360,5 @@ namespace cobra {
 	inline constexpr void swap(ringbuffer<T, Alloc>& lhs, ringbuffer<T, Alloc>& rhs) noexcept {
 		lhs.swap(rhs);
 	}
-}
+} // namespace cobra
 #endif

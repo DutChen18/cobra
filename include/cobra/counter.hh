@@ -18,8 +18,10 @@ namespace cobra {
 			_atomic.fetch_sub(static_cast<T>(1));
 		}
 
-		inline const T prev_val() const { return _prev_val; }
+		inline const T prev_val() const {
+			return _prev_val;
+		}
 	};
-}
+} // namespace cobra
 
 #endif

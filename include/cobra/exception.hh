@@ -12,7 +12,9 @@ namespace cobra {
 		errno_exception();
 		errno_exception(int errc);
 
-		inline int errc() const { return _errc; }
+		inline int errc() const {
+			return _errc;
+		}
 	};
 
 	class timeout_exception : public std::runtime_error {

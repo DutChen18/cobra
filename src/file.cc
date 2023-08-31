@@ -1,4 +1,5 @@
 #include "cobra/file.hh"
+
 #include "cobra/exception.hh"
 
 #include <cerrno>
@@ -28,7 +29,7 @@ namespace cobra {
 	void file::close() {
 		*this = file(-1);
 	}
-	
+
 	ssize_t check_return(ssize_t ret) {
 		if (ret < 0 && errno != EINPROGRESS) {
 			throw errno_exception();

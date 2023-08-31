@@ -3,10 +3,10 @@
 
 #include "cobra/asyncio/stream.hh"
 
-#include <format>
-#include <iostream>
 #include <cstdint>
+#include <format>
 #include <iomanip>
+#include <iostream>
 #include <sstream>
 
 namespace cobra {
@@ -25,7 +25,7 @@ namespace cobra {
 	std::ostream& println(std::ostream& os, std::format_string<Args...> fmt, Args&&... args) {
 		return os << std::format(fmt, std::forward<Args>(args)...) << std::endl;
 	}
-	
+
 	template <class... Args>
 	std::ostream& print(std::format_string<Args...> fmt, Args&&... args) {
 		return print(std::cout, fmt, std::forward<Args>(args)...);
@@ -35,7 +35,7 @@ namespace cobra {
 	std::ostream& println(std::format_string<Args...> fmt, Args&&... args) {
 		return println(std::cout, fmt, std::forward<Args>(args)...);
 	}
-	
+
 	template <class... Args>
 	std::ostream& eprint(std::format_string<Args...> fmt, Args&&... args) {
 		return print(std::cerr, fmt, std::forward<Args>(args)...);
@@ -89,17 +89,14 @@ namespace cobra {
 			channel_t _val[3];
 
 		public:
-			constexpr color() : color(color_mode::keep) {
-			}
+			constexpr color() : color(color_mode::keep) {}
 
-			constexpr color(color_mode mode) : _mode(mode), _val { 0, 0, 0 } {
-			}
+			constexpr color(color_mode mode) : _mode(mode), _val{0, 0, 0} {}
 
-			constexpr color(color_mode mode, channel_t val) : _mode(mode), _val { val, val, val } {
-			}
+			constexpr color(color_mode mode, channel_t val) : _mode(mode), _val{val, val, val} {}
 
-			constexpr color(color_mode mode, channel_t red, channel_t green, channel_t blue) : _mode(mode), _val { red, green, blue } {
-			}
+			constexpr color(color_mode mode, channel_t red, channel_t green, channel_t blue)
+				: _mode(mode), _val{red, green, blue} {}
 
 			constexpr color& operator|=(const color& other) {
 				return *this = other._mode == color_mode::keep ? *this : other;
@@ -137,14 +134,11 @@ namespace cobra {
 			color _bg;
 
 		public:
-			constexpr control() : control(0, 0) {
-			}
+			constexpr control() : control(0, 0) {}
 
-			constexpr control(attr_t attr_set, attr_t attr_clear) : _attr_set(attr_set), _attr_clear(attr_clear) {
-			}
+			constexpr control(attr_t attr_set, attr_t attr_clear) : _attr_set(attr_set), _attr_clear(attr_clear) {}
 
-			constexpr control(color fg, color bg) : _attr_set(0), _attr_clear(0), _fg(fg), _bg(bg) {
-			}
+			constexpr control(color fg, color bg) : _attr_set(0), _attr_clear(0), _fg(fg), _bg(bg) {}
 
 			constexpr control& operator|=(const control& other) {
 				if (other._attr_set & attr_reset) {
@@ -222,7 +216,7 @@ namespace cobra {
 		constexpr control clear(attr_t attr) {
 			return control(0, attr);
 		}
-		
+
 		constexpr control clear_bold() {
 			return control(0, attr_bold);
 		}
@@ -375,7 +369,8 @@ namespace cobra {
 			return fg_8(fg_val) | bg_8(bg_val);
 		}
 
-		constexpr control col_24(channel_t fg_red, channel_t fg_green, channel_t fg_blue, channel_t bg_red, channel_t bg_green, channel_t bg_blue) {
+		constexpr control col_24(channel_t fg_red, channel_t fg_green, channel_t fg_blue, channel_t bg_red,
+								 channel_t bg_green, channel_t bg_blue) {
 			return fg_24(fg_red, fg_green, fg_blue) | bg_24(bg_red, bg_green, bg_blue);
 		}
 
@@ -386,8 +381,8 @@ namespace cobra {
 		constexpr control col_reset() {
 			return fg_reset() | bg_reset();
 		}
-	}
-}
+	} // namespace term
+} // namespace cobra
 
 template <>
 class std::formatter<cobra::term::control> {
@@ -399,7 +394,8 @@ class std::formatter<cobra::term::control> {
 	}
 
 	template <class FormatContext>
-	static bool format_attr(FormatContext& fc, bool w, cobra::term::control ctrl, cobra::term::attr_t attr, int t, int f) {
+	static bool format_attr(FormatContext& fc, bool w, cobra::term::control ctrl, cobra::term::attr_t attr, int t,
+							int f) {
 		if (ctrl.attr_set() & attr) {
 			return format(fc, w, "{}", t);
 		} else if (ctrl.attr_clear() & attr) {

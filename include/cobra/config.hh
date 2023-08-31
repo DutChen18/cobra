@@ -1,25 +1,25 @@
 #ifndef COBRA_CONFIG_HH
 #define COBRA_CONFIG_HH
 
+#include "cobra/http/handler.hh"
 #include "cobra/http/message.hh"
 #include "cobra/http/uri.hh"
-#include "cobra/http/handler.hh"
 #include "cobra/print.hh"
 #include "cobra/text.hh"
 
+#include <algorithm>
 #include <compare>
+#include <deque>
 #include <exception>
-#include <variant>
+#include <map>
+#include <memory>
+#include <set>
 #include <string>
-#include <vector>
-#include <utility>
 #include <unordered_map>
 #include <unordered_set>
-#include <set>
-#include <map>
-#include <algorithm>
-#include <memory>
-#include <deque>
+#include <utility>
+#include <variant>
+#include <vector>
 
 extern "C" {
 #include <sys/stat.h>
@@ -58,11 +58,10 @@ namespace cobra {
 		template <class T>
 		struct define;
 	}
-}
+} // namespace cobra
 
 template <class T>
 struct std::hash<cobra::config::define<T>> : public std::hash<T> {
-
 	hash() : std::hash<T>() {}
 	hash(const hash& other) : std::hash<T>(other) {}
 	~hash() {}
@@ -80,8 +79,10 @@ namespace cobra {
 
 		std::size_t levenshtein_dist(const std::string& a, const std::string& b);
 		template <typename Container>
-		const std::string get_suggestion(const Container& c, const std::string &str) {
-			return *std::min_element(c.begin(), c.end(), [str](auto a, auto b) { return levenshtein_dist(a, str) < levenshtein_dist(b, str); });
+		const std::string get_suggestion(const Container& c, const std::string& str) {
+			return *std::min_element(c.begin(), c.end(), [str](auto a, auto b) {
+				return levenshtein_dist(a, str) < levenshtein_dist(b, str);
+			});
 		}
 
 		struct buf_pos {
@@ -105,7 +106,9 @@ namespace cobra {
 			file_part(std::size_t line, std::size_t col);
 			file_part(std::size_t line, std::size_t col, std::size_t length);
 
-			inline bool is_multiline() const { return start.line != end.line; }
+			inline bool is_multiline() const {
+				return start.line != end.line;
+			}
 
 			auto operator<=>(const file_part& other) const {
 				if (file != other.file)
@@ -125,7 +128,7 @@ namespace cobra {
 			bool operator<=(const file_part& other) const = default;
 		};
 
-		//replaces tabs with single space in formatter
+		// replaces tabs with single space in formatter
 		struct config_line {
 			std::string_view data;
 		};
@@ -173,8 +176,12 @@ namespace cobra {
 				return newline();
 			}
 
-			inline std::size_t max_value() const { return _max_value; }
-			inline std::ostream& stream() const { return _stream; }
+			inline std::size_t max_value() const {
+				return _max_value;
+			}
+			inline std::ostream& stream() const {
+				return _stream;
+			}
 
 		private:
 			line_printer& newline();
@@ -185,9 +192,11 @@ namespace cobra {
 			term::control _style;
 
 			multiline_printer(term::control style, std::span<const std::string> lines);
+
 		public:
 			multiline_printer(const line_printer& printer, term::control style, std::span<const std::string> lines);
-			multiline_printer(std::ostream& stream, std::size_t max_line, term::control style, std::span<const std::string> lines);
+			multiline_printer(std::ostream& stream, std::size_t max_line, term::control style,
+							  std::span<const std::string> lines);
 
 			multiline_printer& print() override;
 			multiline_printer& print(std::size_t line_num) override;
@@ -196,7 +205,9 @@ namespace cobra {
 				return config_line{view.substr(_leading_spaces)};
 			}
 
-			inline line_printer& inner() { return *this; }
+			inline line_printer& inner() {
+				return *this;
+			}
 		};
 
 		struct diagnostic {
@@ -219,6 +230,7 @@ namespace cobra {
 					   std::string secondary_label);
 
 			std::ostream& print(std::ostream& out, const std::vector<std::string>& lines) const;
+
 		private:
 			std::ostream& print_single(std::ostream& out, const std::vector<std::string>& lines) const;
 			void print_single_diag(line_printer& printer, std::size_t offset = 0) const;
@@ -227,7 +239,6 @@ namespace cobra {
 										  std::deque<std::reference_wrapper<const diagnostic>>()) const;
 
 		public:
-
 			inline static diagnostic error(file_part part, std::string message,
 										   std::string primary_label = std::string(),
 										   std::string secondary_label = std::string()) {
@@ -290,13 +301,14 @@ namespace cobra {
 			const std::from_chars_result result = std::from_chars(first, last, value);
 
 			if (result.ec == std::errc::invalid_argument)
-				throw error(diagnostic::error(file_part(0, 1), COBRA_TEXT("not a number"), COBRA_TEXT("a number must only contain digits")));
+				throw error(diagnostic::error(file_part(0, 1), COBRA_TEXT("not a number"),
+											  COBRA_TEXT("a number must only contain digits")));
 			if (result.ec == std::errc::result_out_of_range || value > max_value)
 				throw error(diagnostic::error(file_part(0, last - first), COBRA_TEXT("number too large"),
 											  COBRA_TEXT("maximum accepted value is {}", max_value)));
 			if (result.ptr == first)
-				throw error(
-					diagnostic::error(file_part(0, 1), COBRA_TEXT("not a number"), COBRA_TEXT("a number must contain at least one digit")));
+				throw error(diagnostic::error(file_part(0, 1), COBRA_TEXT("not a number"),
+											  COBRA_TEXT("a number must contain at least one digit")));
 			if (strend)
 				*strend = result.ptr;
 
@@ -355,15 +367,26 @@ namespace cobra {
 			std::string _str;
 
 			word(file_part part, std::string str);
+
 		public:
 			friend class parse_session;
 
-			inline const file_part& part() const { return _part; }
-			inline const std::string& str() const { return _str; }
-			inline constexpr operator std::string() const & { return _str; }
-			inline constexpr operator std::string() const && noexcept { return std::move(_str); }
+			inline const file_part& part() const {
+				return _part;
+			}
+			inline const std::string& str() const {
+				return _str;
+			}
+			inline constexpr operator std::string() const& {
+				return _str;
+			}
+			inline constexpr operator std::string() const&& noexcept {
+				return std::move(_str);
+			}
 
-			inline constexpr std::string inner() && noexcept { return std::move(_str); }
+			inline constexpr std::string inner() && noexcept {
+				return std::move(_str);
+			}
 
 			bool operator==(const word& other) const = default;
 		};
@@ -418,7 +441,9 @@ namespace cobra {
 				_reporter->report_inlay_hint(pos, std::move(hint), *this);
 			}
 
-			inline bool eof() const { return _stream.eof(); }
+			inline bool eof() const {
+				return _stream.eof();
+			}
 
 			inline diagnostic make_error(std::size_t line, std::size_t col, std::size_t length, std::string message,
 										 std::string primary_label = std::string(),
@@ -567,7 +592,9 @@ namespace cobra {
 				return &def;
 			}
 
-			inline bool operator==(const define& other) const requires std::equality_comparable<T> {
+			inline bool operator==(const define& other) const
+				requires std::equality_comparable<T>
+			{
 				return def == other.def;
 			}
 
@@ -596,7 +623,9 @@ namespace cobra {
 		public:
 			static config_file parse(parse_session& session);
 
-			inline const fs::path& file() const { return _file; }
+			inline const fs::path& file() const {
+				return _file;
+			}
 
 			inline operator fs::path() noexcept {
 				return _file;
@@ -607,7 +636,7 @@ namespace cobra {
 					return _file < other._file ? std::strong_ordering::less : std::strong_ordering::greater;
 				return std::strong_ordering::equal;
 			}
-			
+
 			bool operator==(const config_file& other) const = default;
 			bool operator!=(const config_file& other) const = default;
 			bool operator>(const config_file& other) const = default;
@@ -618,6 +647,7 @@ namespace cobra {
 
 		class config_exec : public config_file {
 			config_exec(fs::path file);
+
 		public:
 			static config_exec parse(parse_session& session);
 		};
@@ -626,10 +656,13 @@ namespace cobra {
 			fs::path _dir;
 
 			config_dir(fs::path dir);
+
 		public:
 			static config_dir parse(parse_session& session);
 
-			inline const fs::path& dir() const { return _dir; }
+			inline const fs::path& dir() const {
+				return _dir;
+			}
 
 			inline operator fs::path() noexcept {
 				return _dir;
@@ -640,7 +673,7 @@ namespace cobra {
 					return _dir < other._dir ? std::strong_ordering::less : std::strong_ordering::greater;
 				return std::strong_ordering::equal;
 			}
-			
+
 			bool operator==(const config_dir& other) const = default;
 			bool operator!=(const config_dir& other) const = default;
 			bool operator>(const config_dir& other) const = default;
@@ -651,7 +684,7 @@ namespace cobra {
 
 		struct static_file_config {
 			bool list_dir;
-			
+
 			inline static static_file_config parse(parse_session& session) {
 				auto w = session.get_word_simple("string", "list directory");
 				if (w.str() == "true") {
@@ -691,7 +724,7 @@ namespace cobra {
 					return location < other.location ? std::strong_ordering::less : std::strong_ordering::greater;
 				return std::strong_ordering::equal;
 			}
-			
+
 			bool operator==(const redirect_config& other) const = default;
 			bool operator!=(const redirect_config& other) const = default;
 			bool operator>(const redirect_config& other) const = default;
@@ -704,7 +737,7 @@ namespace cobra {
 			std::string ext;
 
 			inline static extension parse(parse_session& session) {
-				return { session.get_word_simple("string", "extension") };
+				return {session.get_word_simple("string", "extension")};
 			}
 
 			auto operator<=>(const extension& other) const {
@@ -726,11 +759,16 @@ namespace cobra {
 			http_header_value _value;
 
 			header_pair(http_header_key key, http_header_value value);
+
 		public:
 			static header_pair parse(parse_session& session);
 
-			inline const http_header_key& key() const { return _key; }
-			inline const http_header_value& value() const { return _value; }
+			inline const http_header_key& key() const {
+				return _key;
+			}
+			inline const http_header_value& value() const {
+				return _value;
+			}
 
 			auto operator<=>(const header_pair& other) const {
 				if (_key != other._key)
@@ -761,7 +799,7 @@ namespace cobra {
 					return file < other.file ? std::strong_ordering::less : std::strong_ordering::greater;
 				return std::strong_ordering::equal;
 			}
-			
+
 			bool operator==(const error_page& other) const = default;
 			bool operator!=(const error_page& other) const = default;
 			bool operator>(const error_page& other) const = default;
@@ -802,7 +840,7 @@ namespace cobra {
 					return name < other.name ? std::strong_ordering::less : std::strong_ordering::greater;
 				return std::strong_ordering::equal;
 			}
-			
+
 			bool operator==(const server_name& other) const = default;
 			bool operator!=(const server_name& other) const = default;
 			bool operator>(const server_name& other) const = default;
@@ -819,7 +857,7 @@ namespace cobra {
 					return path < other.path ? std::strong_ordering::less : std::strong_ordering::greater;
 				return std::strong_ordering::equal;
 			}
-			
+
 			bool operator==(const location_filter& other) const = default;
 			bool operator!=(const location_filter& other) const = default;
 			bool operator>(const location_filter& other) const = default;
@@ -842,7 +880,7 @@ namespace cobra {
 					return methods < other.methods ? std::strong_ordering::less : std::strong_ordering::greater;
 				return std::strong_ordering::equal;
 			}
-			
+
 			bool operator==(const method_filter& other) const = default;
 			bool operator!=(const method_filter& other) const = default;
 			bool operator>(const method_filter& other) const = default;
@@ -862,8 +900,12 @@ namespace cobra {
 		public:
 			static ssl_config parse(parse_session& session);
 
-			inline const fs::path& cert() const { return _cert.file(); }
-			inline const fs::path& key() const { return _key.file(); }
+			inline const fs::path& cert() const {
+				return _cert.file();
+			}
+			inline const fs::path& key() const {
+				return _key.file();
+			}
 
 			auto operator<=>(const ssl_config& other) const = default;
 		};
@@ -913,7 +955,7 @@ namespace cobra {
 			void parse_comment(parse_session& session);
 
 			template <class Container>
-			static void throw_undefined_directive(const Container& c, const word &w) {
+			static void throw_undefined_directive(const Container& c, const word& w) {
 				throw error(diagnostic::error(w.part(), COBRA_TEXT("unknown directive `{}`", w.str()),
 											  COBRA_TEXT("did you mean `{}`?", get_suggestion(c, w.str()))));
 			}
@@ -942,8 +984,10 @@ namespace cobra {
 			bool operator==(const server_config& other) const = default;
 
 			static void lint_configs(const std::vector<define<server_config>>& configs, const parse_session& session);
+
 		private:
-			static void empty_filters_lint(const std::vector<define<server_config>>& configs, const parse_session& session);
+			static void empty_filters_lint(const std::vector<define<server_config>>& configs,
+										   const parse_session& session);
 			static void empty_filters_lint(const define<block_config>& config, const parse_session& session);
 			static void ssl_lint(const std::vector<define<server_config>>& configs);
 			static void server_name_lint(const std::vector<define<server_config>>& configs);
@@ -958,7 +1002,8 @@ namespace cobra {
 				if (config->_root)
 					return;
 
-				if (config->_handler && !std::holds_alternative<proxy_config>(config->_handler->def) && !config->_root) {
+				if (config->_handler && !std::holds_alternative<proxy_config>(config->_handler->def) &&
+					!config->_root) {
 					diagnostic diag = diagnostic::error(config->_handler->part, COBRA_TEXT("unrooted handler"),
 														COBRA_TEXT("consider rooting it using: `root`"));
 					throw error(diag);

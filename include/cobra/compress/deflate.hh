@@ -2,9 +2,9 @@
 #define COBRA_COMPRESS_DEFLATE_HH
 
 #include "cobra/compress/bit_stream.hh"
+#include "cobra/compress/lz.hh"
 #include "cobra/compress/stream_ringbuffer.hh"
 #include "cobra/compress/tree.hh"
-#include "cobra/compress/lz.hh"
 
 #include <bit>
 
@@ -20,29 +20,19 @@ namespace cobra {
 	using deflate_dtree = deflate_tree<std::uint16_t, 32, 15>;
 	using deflate_ctree = deflate_tree<std::uint8_t, 19, 7>;
 
-	constexpr std::array<std::size_t, 19> frobnication_table {
+	constexpr std::array<std::size_t, 19> frobnication_table{
 		16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15,
 	};
 
-	constexpr std::array<std::size_t, 288> fixed_tree {
-		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-		9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
-		9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
-		9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
-		9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
-		9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
-		9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
-		9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
-		7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-		7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8,
+	constexpr std::array<std::size_t, 288> fixed_tree{
+		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+		9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+		9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+		9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+		9, 9, 9, 9, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8,
 	};
 
 	enum class deflate_mode {
@@ -118,8 +108,8 @@ namespace cobra {
 		}
 
 	public:
-		inflate_istream(Stream&& stream, deflate_mode mode = deflate_mode::raw) : base(32768), _state(state_init { bit_istream(std::move(stream)) }), _mode(mode) {
-		}
+		inflate_istream(Stream&& stream, deflate_mode mode = deflate_mode::raw)
+			: base(32768), _state(state_init{bit_istream(std::move(stream))}), _mode(mode) {}
 
 		task<void> fill_ringbuf() {
 			while (!base::full()) {
@@ -127,7 +117,7 @@ namespace cobra {
 					if (_final) {
 						co_return;
 					}
-					
+
 					if (!_read_header) {
 						if (_mode == deflate_mode::zlib) {
 							throw compress_error::unsupported;
@@ -148,11 +138,11 @@ namespace cobra {
 							throw compress_error::bad_len_check;
 						}
 
-						_state = state_write { std::move(stream), len };
+						_state = state_write{std::move(stream), len};
 					} else if (type == COBRA_DEFLATE_FIXED) {
 						inflate_ltree lt(fixed_tree.data(), fixed_tree.size());
 
-						_state = state_read { std::move(state->stream), lt, std::nullopt, 0, 0 };
+						_state = state_read{std::move(state->stream), lt, std::nullopt, 0, 0};
 					} else if (type == COBRA_DEFLATE_DYNAMIC) {
 						std::size_t hl = co_await state->stream.read_bits(5) + 257;
 						std::size_t hd = co_await state->stream.read_bits(5) + 1;
@@ -193,7 +183,7 @@ namespace cobra {
 						inflate_ltree lt(l.data(), hl);
 						inflate_dtree dt(l.data() + hl, hd);
 
-						_state = state_read { std::move(state->stream), lt, dt, 0, 0 };
+						_state = state_read{std::move(state->stream), lt, dt, 0, 0};
 					} else {
 						throw compress_error::bad_block_type;
 					}
@@ -201,7 +191,7 @@ namespace cobra {
 					state->limit -= co_await base::write(state->stream, state->limit);
 
 					if (state->limit == 0) {
-						_state = state_init { bit_istream(std::move(state->stream)) };
+						_state = state_init{bit_istream(std::move(state->stream))};
 					}
 				} else if (auto* state = std::get_if<state_read>(&_state)) {
 					if (state->size > 0) {
@@ -213,10 +203,11 @@ namespace cobra {
 							char c = std::char_traits<char>::to_char_type(code);
 							base::write(&c, 1);
 						} else if (code == 256) {
-							_state = state_init { std::move(state->stream) };
+							_state = state_init{std::move(state->stream)};
 						} else {
 							state->size = co_await decode_size(state->stream, code);
-							code = state->dt ? co_await state->dt->read(state->stream) : reverse(co_await state->stream.read_bits(5), 5);
+							code = state->dt ? co_await state->dt->read(state->stream)
+											 : reverse(co_await state->stream.read_bits(5), 5);
 							state->dist = co_await decode_dist(state->stream, code);
 						}
 					}
@@ -224,7 +215,7 @@ namespace cobra {
 			}
 		}
 
-		Stream end()&& {
+		Stream end() && {
 			if (_final) {
 				if (auto* state = std::get_if<state_init>(&_state)) {
 					return std::move(state->stream).end();
@@ -255,7 +246,7 @@ namespace cobra {
 			std::uint16_t block_offset = (stride << extra_bits) - stride;
 			std::uint16_t start_offset = (value - block_offset) >> extra_bits;
 			value -= block_offset + (start_offset << extra_bits);
-			return { static_cast<std::uint16_t>(extra_bits * stride + start_offset + code), extra_bits, value };
+			return {static_cast<std::uint16_t>(extra_bits * stride + start_offset + code), extra_bits, value};
 		}
 
 		static token encode_code(std::uint16_t code, std::size_t* value, std::size_t max) {
@@ -263,21 +254,21 @@ namespace cobra {
 			*value -= count;
 
 			if (code == 16) {
-				return { code, 2, static_cast<std::uint16_t>(count - 3) };
+				return {code, 2, static_cast<std::uint16_t>(count - 3)};
 			} else if (code == 17) {
-				return { code, 3, static_cast<std::uint16_t>(count - 3) };
+				return {code, 3, static_cast<std::uint16_t>(count - 3)};
 			} else if (code == 18) {
-				return { code, 7, static_cast<std::uint16_t>(count - 11) };
+				return {code, 7, static_cast<std::uint16_t>(count - 11)};
 			} else {
-				return { code, 0, 0 };
+				return {code, 0, 0};
 			}
 		}
 
 		static token encode_size(std::uint16_t size) {
 			if (size == 258) {
-				return { 285, 0, 0 };
+				return {285, 0, 0};
 			} else if (size < 7) {
-				return { static_cast<std::uint16_t>(size + 257 - 3), 0, 0 };
+				return {static_cast<std::uint16_t>(size + 257 - 3), 0, 0};
 			} else {
 				return encode(261, 4, size - 7);
 			}
@@ -285,7 +276,7 @@ namespace cobra {
 
 		static token encode_dist(std::uint16_t dist) {
 			if (dist < 3) {
-				return { static_cast<std::uint16_t>(dist - 1), 0, 0 };
+				return {static_cast<std::uint16_t>(dist - 1), 0, 0};
 			} else {
 				return encode(2, 2, dist - 3);
 			}
@@ -347,7 +338,8 @@ namespace cobra {
 				std::size_t hd = dt.get_size(l.data() + hl, nullptr);
 
 				for (std::size_t i = 0, n, m; i < hl + hd; i += m) {
-					for (n = 1; i + n < hl + hd && l[i] == l[i + n]; n++);
+					for (n = 1; i + n < hl + hd && l[i] == l[i + n]; n++)
+						;
 
 					m = n;
 
@@ -361,7 +353,7 @@ namespace cobra {
 						}
 					} else {
 						code_code[code_size++] = encode_code(l[i], &n, 1);
-						
+
 						while (n >= 3) {
 							code_code[code_size++] = encode_code(16, &n, 6);
 						}
@@ -460,7 +452,7 @@ namespace cobra {
 			co_await _stream.flush();
 		}
 
-		task<Stream> end()&& {
+		task<Stream> end() && {
 			co_await flush_block(true);
 			co_return co_await std::move(_stream).end();
 		}
@@ -481,8 +473,8 @@ namespace cobra {
 	public:
 		using typename base::char_type;
 
-		deflate_ostream(Stream&& stream, deflate_mode mode = deflate_mode::raw) : _inner(deflate_ostream_impl(std::move(stream), mode), window_size), _mode(mode) {
-		}
+		deflate_ostream(Stream&& stream, deflate_mode mode = deflate_mode::raw)
+			: _inner(deflate_ostream_impl(std::move(stream), mode), window_size), _mode(mode) {}
 
 		task<std::size_t> write(const char_type* data, std::size_t size) {
 			for (std::size_t i = 0; i < size; i++) {
@@ -497,7 +489,7 @@ namespace cobra {
 			return _inner.flush();
 		}
 
-		task<Stream> end()&& {
+		task<Stream> end() && {
 			auto tmp2 = co_await std::move(_inner).end();
 			Stream tmp = co_await std::move(tmp2).end();
 
@@ -508,6 +500,6 @@ namespace cobra {
 			co_return std::move(tmp);
 		}
 	};
-}
+} // namespace cobra
 
 #endif

@@ -4,8 +4,8 @@
 #include "cobra/asyncio/stream.hh"
 #include "cobra/serde.hh"
 
-#include <cstdint>
 #include <cassert>
+#include <cstdint>
 
 namespace cobra {
 	template <AsyncInputStream Stream>
@@ -15,8 +15,7 @@ namespace cobra {
 		std::uint8_t _data;
 
 	public:
-		bit_istream(Stream&& stream) : _stream(std::move(stream)) {
-		}
+		bit_istream(Stream&& stream) : _stream(std::move(stream)) {}
 
 		task<std::uintmax_t> read_bits(std::size_t size) {
 			std::uintmax_t value = 0;
@@ -38,7 +37,7 @@ namespace cobra {
 			co_return value;
 		}
 
-		Stream end()&& {
+		Stream end() && {
 			return std::move(_stream);
 		}
 	};
@@ -50,11 +49,10 @@ namespace cobra {
 		std::uint8_t _data = 0;
 
 	public:
-		bit_ostream(Stream&& stream) : _stream(std::move(stream)) {
-		}
+		bit_ostream(Stream&& stream) : _stream(std::move(stream)) {}
 
-		bit_ostream(bit_ostream&& other) : _stream(std::move(other._stream)), _count(std::exchange(other._count, 0)), _data(other._data) {
-		}
+		bit_ostream(bit_ostream&& other)
+			: _stream(std::move(other._stream)), _count(std::exchange(other._count, 0)), _data(other._data) {}
 
 		~bit_ostream() {
 			assert(_count % 8 == 0);
@@ -89,7 +87,7 @@ namespace cobra {
 			return _stream.flush();
 		}
 
-		task<Stream> end()&& {
+		task<Stream> end() && {
 			if (_count % 8 != 0) {
 				co_await write_u8(_stream, _data);
 				_count = 0;
@@ -98,6 +96,6 @@ namespace cobra {
 			co_return std::move(_stream);
 		}
 	};
-}
+} // namespace cobra
 
 #endif

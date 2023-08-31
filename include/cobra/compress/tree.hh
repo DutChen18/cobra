@@ -6,10 +6,10 @@
 #include "cobra/compress/error.hh"
 #include "cobra/print.hh"
 
+#include <algorithm>
 #include <array>
 #include <numeric>
 #include <vector>
-#include <algorithm>
 
 namespace cobra {
 	template <std::size_t Bits>
@@ -101,10 +101,11 @@ namespace cobra {
 			std::size_t size;
 		};
 
-		static void plant_find_size(const std::array<list, Bits + 1>& lists, std::array<std::size_t, Size>& size, std::size_t i, std::size_t j) {
+		static void plant_find_size(const std::array<list, Bits + 1>& lists, std::array<std::size_t, Size>& size,
+									std::size_t i, std::size_t j) {
 			if (lists[i].nodes[j].index < Size) {
-				plant_find_size(lists, size, i - 1, (std::size_t) lists[i].nodes[j].index * 2);
-				plant_find_size(lists, size, i - 1, (std::size_t) lists[i].nodes[j].index * 2 + 1);
+				plant_find_size(lists, size, i - 1, (std::size_t)lists[i].nodes[j].index * 2);
+				plant_find_size(lists, size, i - 1, (std::size_t)lists[i].nodes[j].index * 2 + 1);
 			}
 
 			if (lists[i].nodes[j].code < Size) {
@@ -201,7 +202,8 @@ namespace cobra {
 					}
 
 					if (pair_index < lists[i - 1].size / 2) {
-						pair_weight = lists[i - 1].nodes[pair_index * 2].weight + lists[i - 1].nodes[pair_index * 2 + 1].weight;
+						pair_weight =
+							lists[i - 1].nodes[pair_index * 2].weight + lists[i - 1].nodes[pair_index * 2 + 1].weight;
 					}
 
 					if (leaf_weight < pair_weight) {
@@ -237,6 +239,6 @@ namespace cobra {
 			return deflate_tree(size.data(), n);
 		}
 	};
-}
+} // namespace cobra
 
 #endif

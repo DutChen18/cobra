@@ -2,8 +2,8 @@
 
 #include <cerrno>
 #include <cstring>
-#include <stdexcept>
 #include <format>
+#include <stdexcept>
 
 namespace cobra {
 	// ODOT use std::make_error_code with std::system_error?

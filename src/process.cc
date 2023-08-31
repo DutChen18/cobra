@@ -8,11 +8,16 @@ extern "C" {
 }
 
 namespace cobra {
-	process::process(event_loop* loop, int pid, file&& in, file&& out, file&& err) : process_ostream<process_stream_type::in> { {}, std::move(in) }, process_istream<process_stream_type::out> { {}, std::move(out) }, process_istream<process_stream_type::err> { {}, std::move(err) }, _pid(pid), _loop(loop) {
-	}
+	process::process(event_loop* loop, int pid, file&& in, file&& out, file&& err)
+		: process_ostream<process_stream_type::in>{{}, std::move(in)},
+		  process_istream<process_stream_type::out>{{}, std::move(out)},
+		  process_istream<process_stream_type::err>{{}, std::move(err)}, _pid(pid), _loop(loop) {}
 
-	process::process(process&& other) : process_ostream<process_stream_type::in>(std::move<process_ostream<process_stream_type::in>&>(other)), process_istream<process_stream_type::out>(std::move<process_istream<process_stream_type::out>&>(other)), process_istream<process_stream_type::err>(std::move<process_istream<process_stream_type::err>&>(other)), _pid(std::exchange(other._pid, -1)), _loop(other._loop) {
-	}
+	process::process(process&& other)
+		: process_ostream<process_stream_type::in>(std::move<process_ostream<process_stream_type::in>&>(other)),
+		  process_istream<process_stream_type::out>(std::move<process_istream<process_stream_type::out>&>(other)),
+		  process_istream<process_stream_type::err>(std::move<process_istream<process_stream_type::err>&>(other)),
+		  _pid(std::exchange(other._pid, -1)), _loop(other._loop) {}
 
 	process::~process() {
 		if (_pid != -1) {
@@ -44,13 +49,12 @@ namespace cobra {
 	process_istream<process_stream_type::err>& process::err() {
 		return *this;
 	}
-	
+
 	task<int> process::wait() {
 		co_return co_await _loop->wait_pid(std::exchange(_pid, -1));
 	}
-	
-	command::command(std::initializer_list<std::string> args) : _args(args) {
-	}
+
+	command::command(std::initializer_list<std::string> args) : _args(args) {}
 
 	command& command::in(command_stream_mode mode) {
 		_in_mode = mode;
@@ -75,7 +79,7 @@ namespace cobra {
 	static std::pair<file, file> pipe() {
 		int fds[2];
 		check_return(::pipe(fds));
-		return { fds[0], fds[1] };
+		return {fds[0], fds[1]};
 	}
 
 	process command::spawn(event_loop* loop) const {
@@ -121,4 +125,4 @@ namespace cobra {
 
 		return process(loop, pid, std::move(in.second), std::move(out.first), std::move(err.first));
 	}
-}
+} // namespace cobra

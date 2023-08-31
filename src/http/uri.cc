@@ -1,12 +1,11 @@
 #include "cobra/http/uri.hh"
-#include "cobra/http/util.hh"
 
+#include "cobra/http/util.hh"
 #include "cobra/print.hh"
 
 namespace cobra {
-	uri_abs_path::uri_abs_path(std::vector<uri_segment> segments)
-		: std::vector<uri_segment>(std::move(segments)) {}
-	//ODOT only allow this constructor for absolute paths?
+	uri_abs_path::uri_abs_path(std::vector<uri_segment> segments) : std::vector<uri_segment>(std::move(segments)) {}
+	// ODOT only allow this constructor for absolute paths?
 	uri_abs_path::uri_abs_path(const std::filesystem::path& path) {
 		bool first = true;
 
@@ -62,8 +61,8 @@ namespace cobra {
 		}
 	};
 
-	uri_origin::uri_origin(uri_abs_path path, std::optional<uri_query> query) : _path(std::move(path)), _query(std::move(query)) {
-	}
+	uri_origin::uri_origin(uri_abs_path path, std::optional<uri_query> query)
+		: _path(std::move(path)), _query(std::move(query)) {}
 
 	const uri_abs_path& uri_origin::path() const {
 		return _path;
@@ -81,15 +80,13 @@ namespace cobra {
 		}
 	}
 
-	uri_absolute::uri_absolute(std::string string) : _string(std::move(string)) {
-	}
+	uri_absolute::uri_absolute(std::string string) : _string(std::move(string)) {}
 
 	std::string uri_absolute::string() const {
 		return _string;
 	}
 
-	uri_authority::uri_authority(std::string string) : _string(std::move(string)) {
-	}
+	uri_authority::uri_authority(std::string string) : _string(std::move(string)) {}
 
 	std::string uri_authority::string() const {
 		return _string;
@@ -100,6 +97,10 @@ namespace cobra {
 	}
 
 	std::string uri::string() const {
-		return std::visit([](auto value) { return value.string(); }, _variant);
+		return std::visit(
+			[](auto value) {
+				return value.string();
+			},
+			_variant);
 	}
-}
+} // namespace cobra

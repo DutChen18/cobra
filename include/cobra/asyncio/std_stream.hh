@@ -8,7 +8,8 @@
 
 namespace cobra {
 	template <class Stream>
-	class std_istream : public basic_istream_impl<std_istream<Stream>, typename Stream::char_type, typename Stream::traits_type> {
+	class std_istream
+		: public basic_istream_impl<std_istream<Stream>, typename Stream::char_type, typename Stream::traits_type> {
 		using base = basic_istream_impl<std_istream<Stream>, typename Stream::char_type, typename Stream::traits_type>;
 
 		Stream _stream;
@@ -32,7 +33,8 @@ namespace cobra {
 	};
 
 	template <class Stream>
-	class std_ostream : public basic_ostream_impl<std_ostream<Stream>, typename Stream::char_type, typename Stream::traits_type> {
+	class std_ostream
+		: public basic_ostream_impl<std_ostream<Stream>, typename Stream::char_type, typename Stream::traits_type> {
 		using base = basic_ostream_impl<std_ostream<Stream>, typename Stream::char_type, typename Stream::traits_type>;
 
 		Stream _stream;
@@ -61,7 +63,8 @@ namespace cobra {
 	};
 
 	template <class CharT, class Traits = std::char_traits<CharT>>
-	class basic_std_istream_reference : public basic_istream_impl<basic_std_istream_reference<CharT, Traits>, CharT, Traits> {
+	class basic_std_istream_reference
+		: public basic_istream_impl<basic_std_istream_reference<CharT, Traits>, CharT, Traits> {
 		using base = basic_istream_impl<basic_std_istream_reference<CharT, Traits>, CharT, Traits>;
 
 		std::reference_wrapper<std::basic_istream<CharT, Traits>> _stream;
@@ -70,7 +73,8 @@ namespace cobra {
 		using typename base::char_type;
 
 		basic_std_istream_reference(std::basic_istream<CharT, Traits>& stream) : _stream(stream) {
-			_stream.get().exceptions(std::basic_istream<CharT, Traits>::badbit | std::basic_istream<CharT, Traits>::failbit);
+			_stream.get().exceptions(std::basic_istream<CharT, Traits>::badbit |
+									 std::basic_istream<CharT, Traits>::failbit);
 			_stream.get().exceptions(std::basic_istream<CharT, Traits>::badbit);
 		}
 
@@ -85,7 +89,8 @@ namespace cobra {
 	};
 
 	template <class CharT, class Traits = std::char_traits<CharT>>
-	class basic_std_ostream_reference : public basic_ostream_impl<basic_std_ostream_reference<CharT, Traits>, CharT, Traits> {
+	class basic_std_ostream_reference
+		: public basic_ostream_impl<basic_std_ostream_reference<CharT, Traits>, CharT, Traits> {
 		using base = basic_ostream_impl<basic_std_ostream_reference<CharT, Traits>, CharT, Traits>;
 
 		std::reference_wrapper<std::basic_ostream<CharT, Traits>> _stream;
@@ -94,7 +99,8 @@ namespace cobra {
 		using typename base::char_type;
 
 		basic_std_ostream_reference(std::basic_ostream<CharT, Traits>& stream) : _stream(stream) {
-			_stream.get().exceptions(std::basic_ostream<CharT, Traits>::badbit | std::basic_ostream<CharT, Traits>::failbit);
+			_stream.get().exceptions(std::basic_ostream<CharT, Traits>::badbit |
+									 std::basic_ostream<CharT, Traits>::failbit);
 			_stream.get().exceptions(std::basic_ostream<CharT, Traits>::badbit);
 		}
 
@@ -193,6 +199,6 @@ namespace cobra {
 
 	using std_istream_reference = basic_std_istream_reference<char>;
 	using std_ostream_reference = basic_std_ostream_reference<char>;
-}
+} // namespace cobra
 
 #endif

@@ -1,24 +1,25 @@
 #ifndef COBRA_HTTP_URI_HH
 #define COBRA_HTTP_URI_HH
 
-#include <string>
-#include <vector>
 #include <filesystem>
 #include <optional>
+#include <string>
 #include <variant>
+#include <vector>
 
 namespace cobra {
 	using uri_segment = std::string;
 	using uri_query = std::string;
 
 	class uri_abs_path : public std::vector<uri_segment> {
-
 	public:
 		uri_abs_path() = default;
 		uri_abs_path(const std::filesystem::path& path);
 		uri_abs_path(std::vector<uri_segment> segments);
 
-		inline const std::vector<uri_segment>& segments() const { return *this; }
+		inline const std::vector<uri_segment>& segments() const {
+			return *this;
+		}
 		std::optional<std::filesystem::path> path() const;
 		uri_abs_path normalize() const;
 		std::string string() const;
@@ -64,8 +65,7 @@ namespace cobra {
 
 	public:
 		template <class T>
-		uri(T&& value) : _variant(std::forward<T>(value)) {
-		}
+		uri(T&& value) : _variant(std::forward<T>(value)) {}
 
 		std::string string() const;
 
@@ -74,6 +74,6 @@ namespace cobra {
 			return std::get_if<T>(&_variant);
 		}
 	};
-};
+}; // namespace cobra
 
 #endif

@@ -2,10 +2,10 @@
 
 #include "cobra/exception.hh"
 #include "cobra/http/handler.hh"
+#include "cobra/http/util.hh"
 #include "cobra/net/address.hh"
 #include "cobra/print.hh"
 #include "cobra/text.hh"
-#include "cobra/http/util.hh"
 
 #include <cassert>
 #include <exception>
@@ -61,36 +61,36 @@ namespace cobra {
 
 		static bool is_http_error_code(http_response_code code) {
 			switch (code) {
-				case HTTP_BAD_REQUEST:
-				case HTTP_UNAUTHORIZED:
-				case HTTP_PAYMENT_REQUIRED:
-				case HTTP_FORBIDDEN:
-				case HTTP_NOT_FOUND:
-				case HTTP_METHOD_NOT_ALLOWED:
-				case HTTP_NOT_ACCEPTABLE:
-				case HTTP_PROXY_AUTHENTICATION_REQUIRED:
-				case HTTP_REQUEST_TIMED_OUT:
-				case HTTP_CONFLICT:
-				case HTTP_GONE:
-				case HTTP_LENGTH_REQUIRED:
-				case HTTP_PRECONDITION_FAILED:
-				case HTTP_CONTENT_TOO_LARGE:
-				case HTTP_URI_TOO_LONG:
-				case HTTP_UNSUPPORTED_MEDIA_TYPE:
-				case HTTP_RANGE_NOT_SATISFIABLE:
-				case HTTP_EXPECTATION_FAILED:
-				case HTTP_MISDIRECTED_REQUEST:
-				case HTTP_UNPROCESSABLE_CONTENT:
-				case HTTP_UPGRADE_REQUIRED:
-				case HTTP_INTERNAL_SERVER_ERROR:
-				case HTTP_NOT_IMPLEMENTED:
-				case HTTP_BAD_GATEWAY:
-				case HTTP_SERVICE_UNAVAILABLE:
-				case HTTP_GATEWAY_TIMEOUT:
-				case HTTP_HTTP_VERSION_NOT_SUPORTED:
-					return true;
-				default:
-					return false;
+			case HTTP_BAD_REQUEST:
+			case HTTP_UNAUTHORIZED:
+			case HTTP_PAYMENT_REQUIRED:
+			case HTTP_FORBIDDEN:
+			case HTTP_NOT_FOUND:
+			case HTTP_METHOD_NOT_ALLOWED:
+			case HTTP_NOT_ACCEPTABLE:
+			case HTTP_PROXY_AUTHENTICATION_REQUIRED:
+			case HTTP_REQUEST_TIMED_OUT:
+			case HTTP_CONFLICT:
+			case HTTP_GONE:
+			case HTTP_LENGTH_REQUIRED:
+			case HTTP_PRECONDITION_FAILED:
+			case HTTP_CONTENT_TOO_LARGE:
+			case HTTP_URI_TOO_LONG:
+			case HTTP_UNSUPPORTED_MEDIA_TYPE:
+			case HTTP_RANGE_NOT_SATISFIABLE:
+			case HTTP_EXPECTATION_FAILED:
+			case HTTP_MISDIRECTED_REQUEST:
+			case HTTP_UNPROCESSABLE_CONTENT:
+			case HTTP_UPGRADE_REQUIRED:
+			case HTTP_INTERNAL_SERVER_ERROR:
+			case HTTP_NOT_IMPLEMENTED:
+			case HTTP_BAD_GATEWAY:
+			case HTTP_SERVICE_UNAVAILABLE:
+			case HTTP_GATEWAY_TIMEOUT:
+			case HTTP_HTTP_VERSION_NOT_SUPORTED:
+				return true;
+			default:
+				return false;
 			}
 		}
 
@@ -289,7 +289,7 @@ namespace cobra {
 				}
 			}
 
-			//ODOT secondary labels
+			// ODOT secondary labels
 			if (primary_label.empty()) {
 				if (end_col <= leading_spaces.back()) {
 					auto line = diag_lines.back().substr(min_leading);
@@ -417,8 +417,8 @@ namespace cobra {
 			const auto got = get();
 
 			if (!got) {
-				throw error(
-					make_error(line(), col, COBRA_TEXT("unexpected EOF"), COBRA_TEXT("expected `{}`", static_cast<char>(ch))));
+				throw error(make_error(line(), col, COBRA_TEXT("unexpected EOF"),
+									   COBRA_TEXT("expected `{}`", static_cast<char>(ch))));
 			} else if (got != ch) {
 				throw error(make_error(line(), col, COBRA_TEXT("unexpected `{}`", static_cast<char>(*got)),
 									   COBRA_TEXT("expected `{}`", static_cast<char>(ch))));
@@ -432,7 +432,8 @@ namespace cobra {
 			const std::string word = get_word_simple();
 
 			if (word != str) {
-				throw error(make_error(line_num, col_num, COBRA_TEXT("unexpected word"), COBRA_TEXT("expected `{}`", str),
+				throw error(make_error(line_num, col_num, COBRA_TEXT("unexpected word"),
+									   COBRA_TEXT("expected `{}`", str),
 									   COBRA_TEXT("consider replacing `{}` with `{}`", word, str)));
 			}
 		}
@@ -492,7 +493,8 @@ namespace cobra {
 			}
 
 			if (res.empty())
-				throw error(make_error(start_line, start_col, 2, COBRA_TEXT("invalid word"), COBRA_TEXT("expected at least one character")));
+				throw error(make_error(start_line, start_col, 2, COBRA_TEXT("invalid word"),
+									   COBRA_TEXT("expected at least one character")));
 			return word(file_part(file(), buf_pos(start_line, start_col), buf_pos(end_line, end_col)), std::move(res));
 		}
 
@@ -508,7 +510,8 @@ namespace cobra {
 			}
 
 			if (res.empty())
-				throw error(make_error(COBRA_TEXT("invalid word"), COBRA_TEXT("expected at least one graphical character")));
+				throw error(
+					make_error(COBRA_TEXT("invalid word"), COBRA_TEXT("expected at least one graphical character")));
 			consume(res.length());
 			std::size_t len = res.length();
 			return word(file_part(file(), start_line, start_col, len), std::move(res));
@@ -658,7 +661,8 @@ namespace cobra {
 					fs::file_status stat = fs::status(p);
 
 					if (stat.type() == fs::file_type::directory) {
-						session.report(diagnostic::warn(w.part(), COBRA_TEXT("not a normal file"), COBRA_TEXT("is a directory")));
+						session.report(
+							diagnostic::warn(w.part(), COBRA_TEXT("not a normal file"), COBRA_TEXT("is a directory")));
 					}
 				} catch (const fs::filesystem_error& ex) {
 					report_fs_error(w.part(), session, ex);
@@ -680,7 +684,8 @@ namespace cobra {
 					fs::perms perms = stat.permissions();
 
 					if (stat.type() == fs::file_type::directory) {
-						session.report(diagnostic::warn(w.part(), COBRA_TEXT("not a normal file"), COBRA_TEXT("is a directory")));
+						session.report(
+							diagnostic::warn(w.part(), COBRA_TEXT("not a normal file"), COBRA_TEXT("is a directory")));
 					}
 
 					if ((perms & fs::perms::owner_exec) == fs::perms::none &&
@@ -745,7 +750,8 @@ namespace cobra {
 				code = parse_unsigned<http_response_code>(w->str(), 399);
 
 				if (code < 300) {
-					diagnostic diag = diagnostic::error(w->part(), COBRA_TEXT("invalid redirect code"), "value may not be smaller than 300");
+					diagnostic diag = diagnostic::error(w->part(), COBRA_TEXT("invalid redirect code"),
+														"value may not be smaller than 300");
 					throw error(diag);
 				}
 			} catch (error& err) {
@@ -762,10 +768,10 @@ namespace cobra {
 			case HTTP_SEE_OTHER:
 				break;
 			default:
-				diagnostic diag =
-					diagnostic::warn(w->part(), COBRA_TEXT("suspicious redirect code"),
-									  COBRA_TEXT("did you mean one of: {}, {}, {}, {}?", HTTP_MOVED_PERMANENTLY, HTTP_FOUND,
-												 HTTP_TEMPORARY_REDIRECT, HTTP_PERMANENT_REDIRECT, HTTP_SEE_OTHER));
+				diagnostic diag = diagnostic::warn(
+					w->part(), COBRA_TEXT("suspicious redirect code"),
+					COBRA_TEXT("did you mean one of: {}, {}, {}, {}?", HTTP_MOVED_PERMANENTLY, HTTP_FOUND,
+							   HTTP_TEMPORARY_REDIRECT, HTTP_PERMANENT_REDIRECT, HTTP_SEE_OTHER));
 				session.report(diag);
 			}
 
@@ -880,8 +886,9 @@ namespace cobra {
 
 		void server_config::empty_filters_lint(const define<block_config>& config, const parse_session& session) {
 			if (!config->_handler && config->_filters.empty()) {
-				diagnostic diag = diagnostic::warn(config.part, COBRA_TEXT("empty filter"),
-												   COBRA_TEXT("consider specifying a handler using: `static`, `cgi`, etc..."));
+				diagnostic diag =
+					diagnostic::warn(config.part, COBRA_TEXT("empty filter"),
+									 COBRA_TEXT("consider specifying a handler using: `static`, `cgi`, etc..."));
 				session.report(diag);
 			} else {
 				for (auto& [_, block_cfg] : config->_filters) {
@@ -900,9 +907,10 @@ namespace cobra {
 					for (auto& address : config._addresses) {
 						const auto it = plain_ports.find(address);
 						if (it != plain_ports.end()) {
-							diagnostic diag = diagnostic::error(config._ssl->part,
-																COBRA_TEXT("a address cannot be listened to with and without ssl at the same time"),
-																COBRA_TEXT("consider listening to another address"));
+							diagnostic diag = diagnostic::error(
+								config._ssl->part,
+								COBRA_TEXT("a address cannot be listened to with and without ssl at the same time"),
+								COBRA_TEXT("consider listening to another address"));
 							diag.sub_diags.push_back(
 								diagnostic::note(it->second, COBRA_TEXT("previously listened to here without ssl")));
 							throw error(diag);
@@ -913,9 +921,10 @@ namespace cobra {
 					for (auto& address : config._addresses) {
 						const auto it = ssl_ports.find(address);
 						if (it != ssl_ports.end()) {
-							diagnostic diag =
-								diagnostic::error(address.part, COBRA_TEXT("a address cannot be listened to with and without ssl at the same time"),
-												  COBRA_TEXT("consider listening to another address"));
+							diagnostic diag = diagnostic::error(
+								address.part,
+								COBRA_TEXT("a address cannot be listened to with and without ssl at the same time"),
+								COBRA_TEXT("consider listening to another address"));
 							diag.sub_diags.push_back(
 								diagnostic::note(it->second, COBRA_TEXT("previously listened to here with ssl")));
 							throw error(diag);
@@ -982,7 +991,8 @@ namespace cobra {
 							diagnostic diag = diagnostic::error(
 								part, COBRA_TEXT("ambiguous server"),
 								COBRA_TEXT("another server listening to the same address has the same `server_name`"));
-							diag.sub_diags.push_back(diagnostic::note(it->second, COBRA_TEXT("previously specified here")));
+							diag.sub_diags.push_back(
+								diagnostic::note(it->second, COBRA_TEXT("previously specified here")));
 							throw error(diag);
 						}
 					}
@@ -1130,8 +1140,10 @@ namespace cobra {
 				const std::size_t limit = parse_unsigned<std::size_t>(word);
 
 				if (_max_body_size) {
-					diagnostic diag = session.make_warn(line, define_start, len, COBRA_TEXT("redefinition of max_body_size"));
-					diag.sub_diags.push_back(diagnostic::note(_max_body_size->part, COBRA_TEXT("previously defined here")));
+					diagnostic diag =
+						session.make_warn(line, define_start, len, COBRA_TEXT("redefinition of max_body_size"));
+					diag.sub_diags.push_back(
+						diagnostic::note(_max_body_size->part, COBRA_TEXT("previously defined here")));
 					session.report(diag);
 				}
 
@@ -1188,7 +1200,8 @@ namespace cobra {
 			assign_warn_reassign(var, define<T>::parse(session, name), name, session);
 		}
 
-		static void warn_duplicate(file_part cur, file_part prev, const std::string& name, const parse_session& session) {
+		static void warn_duplicate(file_part cur, file_part prev, const std::string& name,
+								   const parse_session& session) {
 			diagnostic diag = diagnostic::warn(cur, COBRA_TEXT("duplicate {}", name));
 			diag.sub_diags.push_back(diagnostic::note(prev, COBRA_TEXT("previously defined here")));
 			session.report(diag);
@@ -1208,17 +1221,18 @@ namespace cobra {
 		}
 
 		void block_config::parse_cgi(parse_session& session) {
-			assign_warn_reassign(_handler, parse_define<cgi_config>(session, "cgi"), COBRA_TEXT("request handler"), session);
+			assign_warn_reassign(_handler, parse_define<cgi_config>(session, "cgi"), COBRA_TEXT("request handler"),
+								 session);
 		}
 
 		void block_config::parse_fast_cgi(parse_session& session) {
-			assign_warn_reassign(_handler, parse_define<fast_cgi_config>(session, "fast_cgi"), COBRA_TEXT("request handler"),
-								 session);
+			assign_warn_reassign(_handler, parse_define<fast_cgi_config>(session, "fast_cgi"),
+								 COBRA_TEXT("request handler"), session);
 		}
 
 		void block_config::parse_static(parse_session& session) {
-			assign_warn_reassign(_handler, parse_define<static_file_config>(session, "static"), COBRA_TEXT("request handler"),
-								 session);
+			assign_warn_reassign(_handler, parse_define<static_file_config>(session, "static"),
+								 COBRA_TEXT("request handler"), session);
 		}
 
 		void block_config::parse_proxy(parse_session& session) {
@@ -1227,9 +1241,10 @@ namespace cobra {
 		}
 
 		void block_config::parse_redirect(parse_session& session) {
-			assign_warn_reassign(_handler, parse_define<redirect_config>(session, "redirect"), COBRA_TEXT("request handler"), session);
+			assign_warn_reassign(_handler, parse_define<redirect_config>(session, "redirect"),
+								 COBRA_TEXT("request handler"), session);
 		}
-		
+
 		void block_config::parse_extension(parse_session& session) {
 			auto def = parse_define<extension>(session, "extension");
 
@@ -1265,7 +1280,8 @@ namespace cobra {
 			}
 		}
 
-		header_pair::header_pair(http_header_key key, http_header_value value) : _key(std::move(key)), _value(std::move(value)) {}
+		header_pair::header_pair(http_header_key key, http_header_value value)
+			: _key(std::move(key)), _value(std::move(value)) {}
 
 		header_pair header_pair::parse(parse_session& session) {
 			word key = session.get_word("string", "key");
@@ -1302,7 +1318,8 @@ namespace cobra {
 				diagnostic diag =
 					diagnostic::warn(def.part, COBRA_TEXT("redefinition of `set_header`"),
 									 COBRA_TEXT("a previous definition with the same key will be overridden"));
-				diag.sub_diags.push_back(diagnostic::note(it->second.part, "previously defined here", "", "consider removing this definition"));
+				diag.sub_diags.push_back(diagnostic::note(it->second.part, "previously defined here", "",
+														  "consider removing this definition"));
 				session.report(diag);
 				_headers.erase(it);
 			}
@@ -1320,8 +1337,7 @@ namespace cobra {
 			_ssl = parse_define<ssl_config>(session, "ssl");
 		}
 
-		config::config(config* parent, const block_config& cfg)
-			: parent(parent), max_body_size(cfg._max_body_size) {
+		config::config(config* parent, const block_config& cfg) : parent(parent), max_body_size(cfg._max_body_size) {
 			if (cfg._index)
 				index = cfg._index->def.file();
 			if (cfg._root)
@@ -1444,7 +1460,6 @@ namespace cobra {
 			} else {
 				println(stream, "none");
 			}
-
 
 			for (auto sub_cfg : sub_configs) {
 				println(stream, "{}-----", spacing);
