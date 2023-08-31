@@ -15,7 +15,7 @@ ifndef nerror
 endif
 
 ifndef config 
-	config := debug
+	config := distr
 endif
 
 ifndef platform
