@@ -2,24 +2,23 @@
 
 #include "cobra/asyncio/stream_buffer.hh"
 #include "cobra/config.hh"
+#include "cobra/counter.hh"
+#include "cobra/http/gluttonous_stream.hh"
 #include "cobra/http/handler.hh"
 #include "cobra/http/parse.hh"
-#include "cobra/http/gluttonous_stream.hh"
-#include "cobra/counter.hh"
 
+#include <cassert>
 #include <exception>
 #include <iterator>
 #include <map>
 #include <memory>
 #include <optional>
 #include <queue>
-#include <cassert>
 #include <ranges>
 #include <stdexcept>
 #include <unordered_map>
 #include <utility>
 #include <variant>
-#include <cassert>
 
 namespace cobra {
 
@@ -33,7 +32,7 @@ namespace cobra {
 	http_filter::http_filter(std::shared_ptr<const config::config> config) : http_filter(config, 0) {}
 
 	http_filter::http_filter(std::shared_ptr<const config::config> config, std::vector<http_filter> filters)
-		: _config(config), _sub_filters(std::move(filters)) , _match_count(0) {}
+		: _config(config), _sub_filters(std::move(filters)), _match_count(0) {}
 
 	generator<std::pair<http_filter*, uri_abs_path>>
 	http_filter::match(const basic_socket_stream& socket, const http_request& request, const uri_abs_path& normalized) {
@@ -43,8 +42,8 @@ namespace cobra {
 					co_yield result;
 				}
 			}
-			
-			co_yield { this, normalized };
+
+			co_yield {this, normalized};
 
 			if (config().index.has_value()) {
 				uri_abs_path normalized_clone = normalized;
@@ -56,12 +55,13 @@ namespace cobra {
 					}
 				}
 
-				co_yield { this, normalized_clone };
+				co_yield {this, normalized_clone};
 			}
 		}
 	}
 
-	bool http_filter::eval(const basic_socket_stream& socket, const http_request& request, const uri_abs_path& normalized) const {
+	bool http_filter::eval(const basic_socket_stream& socket, const http_request& request,
+						   const uri_abs_path& normalized) const {
 		if (!config().server_names.empty()) {
 			if (socket.server_name()) {
 				if (!config().server_names.contains(std::string(*socket.server_name()))) {
@@ -84,11 +84,11 @@ namespace cobra {
 			auto it = normalized.begin() + already_matched;
 
 			for (auto& part : config().location) {
-					if (it == normalized.end()) {
-						return false;
-					} else if (*it != part) {
-						return false;
-					}
+				if (it == normalized.end()) {
+					return false;
+				} else if (*it != part) {
+					return false;
+				}
 				++it;
 			}
 		}
@@ -129,7 +129,7 @@ namespace cobra {
 	task<void> server::match_and_handle(basic_socket_stream& socket, const http_request& request,
 										buffered_istream_reference in, http_ostream_wrapper& out,
 										http_server_logger* logger, std::optional<http_response_code> code) {
-		//std::optional<std::pair<int, const config::config*>> error;
+		// std::optional<std::pair<int, const config::config*>> error;
 		const uri_origin* org = request.uri().get<uri_origin>();
 
 		if (!org) {
@@ -137,7 +137,7 @@ namespace cobra {
 			throw HTTP_BAD_REQUEST;
 		}
 
-		const config::config* last_config = nullptr;//ODOT give other name
+		const config::config* last_config = nullptr; // ODOT give other name
 
 		const uri_abs_path normalized = org->path().normalize();
 		for (auto [filter, normalized] : match(socket, request, normalized)) {
@@ -155,7 +155,8 @@ namespace cobra {
 				if (last_config == nullptr)
 					last_config = &filter->config();
 
-				// co_await (*handler)(std::move(writer), std::move(request), buffered_istream_reference(socket_istream));
+				// co_await (*handler)(std::move(writer), std::move(request),
+				// buffered_istream_reference(socket_istream));
 				http_response_writer writer(&request, &out, logger);
 				co_await handle_request(*filter, request, normalized, in, std::move(writer), code);
 				co_return;
@@ -167,7 +168,7 @@ namespace cobra {
 			} catch (const std::exception& ex) {
 				eprintln("An internal server error has ocurred: {}", ex.what());
 				throw std::make_pair(HTTP_INTERNAL_SERVER_ERROR, &filter->config());
-				//error = std::make_pair(HTTP_INTERNAL_SERVER_ERROR, &config());
+				// error = std::make_pair(HTTP_INTERNAL_SERVER_ERROR, &config());
 			} catch (...) {
 				eprintln("An exception was thrown that does not inherit from std::exception");
 				throw std::make_pair(HTTP_INTERNAL_SERVER_ERROR, &filter->config());
@@ -184,9 +185,9 @@ namespace cobra {
 		logger.set_socket(socket);
 
 #ifdef COBRA_FUZZ_HANDLER
-                http_server_logger* logger_ptr = nullptr;
+		http_server_logger* logger_ptr = nullptr;
 #else
-                http_server_logger* logger_ptr = &logger;
+		http_server_logger* logger_ptr = &logger;
 #endif
 
 		counter c(_num_connections);
@@ -214,10 +215,12 @@ namespace cobra {
 					co_await match_and_handle(socket, request, socket_istream, wrapper, logger_ptr);
 				} catch (std::pair<int, const config::config*> err) {
 					error = err;
-					//error = code;
+					// error = code;
 				} catch (int err) {
-                                        error = std::make_pair(err, nullptr);
-                                }
+					error = std::make_pair(err, nullptr);
+					//Parse error, cannot keep connection alive
+					wrapper.set_close();
+				}
 
 				if (!wrapper.sent() && error.has_value() && error->second &&
 					error->second->error_pages.contains(error->first)) {
@@ -239,7 +242,8 @@ namespace cobra {
 
 					bool errored_again = false;
 					try {
-						co_await match_and_handle(socket, error_request, socket_istream, wrapper, logger_ptr, error->first);
+						co_await match_and_handle(socket, error_request, socket_istream, wrapper, logger_ptr,
+												  error->first);
 					} catch (...) {
 						errored_again = true;
 					}
@@ -248,7 +252,8 @@ namespace cobra {
 						co_await http_response_writer(&request, &wrapper, logger_ptr).send(HTTP_NOT_FOUND);
 					}
 				} else if (!wrapper.sent() && error.has_value()) {
-					// eprintln("no error_page ({}) {}", error->first, error->second->error_pages.contains(error->first));
+					// eprintln("no error_page ({}) {}", error->first,
+					// error->second->error_pages.contains(error->first));
 					co_await http_response_writer(&request, &wrapper, logger_ptr).send(error->first);
 				} else if (error.has_value()) {
 					eprintln("http error {}", error->first);
@@ -259,8 +264,9 @@ namespace cobra {
 		}
 	}
 
-	task<void> server::handle_request(const http_filter& filt, const http_request& request, const uri_abs_path& normalized,
-									  buffered_istream_reference in, http_response_writer writer, std::optional<http_response_code> code) {
+	task<void> server::handle_request(const http_filter& filt, const http_request& request,
+									  const uri_abs_path& normalized, buffered_istream_reference in,
+									  http_response_writer writer, std::optional<http_response_code> code) {
 		for (auto& [key, value] : filt.config().headers) {
 			writer.set_header(key, value);
 		}
@@ -279,12 +285,12 @@ namespace cobra {
 			throw HTTP_BAD_REQUEST;
 
 		gluttonous_stream limited_stream(istream_limit(std::move(in), *content_length), filt.config().max_body_size);
-		
+
 		if (!has_header_value(request, "Connection", "Upgrade") || !has_header_value(request, "Upgrade", "websocket")) {
 			in = limited_stream;
 		}
 
-		//ODOT do without allocations
+		// ODOT do without allocations
 		auto root = filt.config().root.value_or("").string();
 		auto index = std::vector<std::string>(1, filt.config().index.value_or("").string());
 
@@ -309,28 +315,28 @@ namespace cobra {
 											[this](socket_stream socket) -> task<void> {
 												co_return co_await on_connect(socket);
 											});
-		} 
+		}
 #ifndef COBRA_NO_SSL
 		else if (_contexts.size() == 1 && _contexts.begin()->first.empty()) {
-			//No SNI
+			// No SNI
 			eprintln("ssl {}:{}", _address.node(), service);
 			co_return co_await start_ssl_server(_contexts.begin()->second, exec, loop, _address.node().data(),
 												service.c_str(), [this](ssl_socket_stream socket) -> task<void> {
 													co_return co_await on_connect(socket);
 												});
 		} else {
-			//With SNI
+			// With SNI
 			eprintln("ssl {}:{} SNI", _address.node(), service);
-			co_return co_await start_ssl_server(_contexts, exec, loop, _address.node().data(),
-												service.c_str(), [this](ssl_socket_stream socket) -> task<void> {
+			co_return co_await start_ssl_server(_contexts, exec, loop, _address.node().data(), service.c_str(),
+												[this](ssl_socket_stream socket) -> task<void> {
 													co_return co_await on_connect(socket);
 												});
 		}
 #endif
 	}
 
-	std::vector<server> server::convert(const std::vector<std::shared_ptr<config::server>>& configs,
-										executor* exec, event_loop* loop) {
+	std::vector<server> server::convert(const std::vector<std::shared_ptr<config::server>>& configs, executor* exec,
+										event_loop* loop) {
 		std::map<config::listen_address, std::unordered_map<std::string, ssl_ctx>> contexts;
 		std::map<config::listen_address, std::vector<http_filter>> filters;
 
@@ -339,16 +345,16 @@ namespace cobra {
 				filters[address].push_back(http_filter(config));
 				if (config->ssl) {
 					if (config->server_names.empty()) {
-						//Only one server
+						// Only one server
 						contexts[address].insert({"", ssl_ctx::server(config->ssl->cert(), config->ssl->key())});
 					} else {
 						for (const auto& server_name : config->server_names) {
-							contexts[address].insert({server_name, ssl_ctx::server(config->ssl->cert(), config->ssl->key())});
+							contexts[address].insert(
+								{server_name, ssl_ctx::server(config->ssl->cert(), config->ssl->key())});
 						}
 					}
 				}
 			}
-
 		}
 
 		std::vector<server> result;

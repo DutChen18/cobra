@@ -18,31 +18,32 @@ namespace cobra {
 #ifdef COBRA_FUZZ_HANDLER
 	class address {
 		sockaddr* _addr = nullptr;
-                std::string _name;
+		std::string _name;
+
 	public:
 		address(std::string name) : _name(std::move(name)) {}
 		address(const sockaddr*, std::size_t) {
-                        assert(0);
-                }
-		//address(const address& other) = default;
-		//address(address&& other) = default;
+			assert(0);
+		}
+		// address(const address& other) = default;
+		// address(address&& other) = default;
 		//~address() {}
 
-		//address& operator=(address other) = default;
+		// address& operator=(address other) = default;
 
 		inline const sockaddr* addr() const {
-                        assert(0);
-                        return _addr;
+			assert(0);
+			return _addr;
 		}
 
 		inline std::size_t len() const {
-                        assert(0);
-                        return 0;
+			assert(0);
+			return 0;
 		}
 
 		inline std::string string() const {
-                        return _name;
-                }
+			return _name;
+		}
 	};
 #else
 	class address {

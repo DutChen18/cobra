@@ -1,10 +1,11 @@
 #include "cobra/net/address.hh"
+
 #include "cobra/file.hh"
 #include "cobra/net/stream.hh"
 
 #include <cstring>
-#include <utility>
 #include <format>
+#include <utility>
 
 namespace cobra {
 #ifndef COBRA_FUZZ_HANDLER
@@ -37,7 +38,8 @@ namespace cobra {
 		char service[1024];
 		std::memset(host, 0, sizeof host);
 		std::memset(service, 0, sizeof service);
-		check_return(getnameinfo(_addr, _len, host, sizeof host, service, sizeof service, NI_NUMERICHOST | NI_NUMERICSERV));
+		check_return(
+			getnameinfo(_addr, _len, host, sizeof host, service, sizeof service, NI_NUMERICHOST | NI_NUMERICSERV));
 		return std::format("{}:{}", host, service);
 	}
 #endif
