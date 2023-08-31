@@ -8,6 +8,9 @@
 #include "cobra/fastcgi.hh"
 #include "cobra/serde.hh"
 
+#include <chrono>
+#include <cstdlib>
+#include <ctime>
 #include <exception>
 #include <filesystem>
 #include <format>
@@ -116,8 +119,8 @@ namespace cobra {
 				co_yield "</a></td><td></td>";
 			} else {
 				if (ec) {
-					co_yield "<td>error</td>";
-					co_yield "<td>error</td>";
+					co_yield "<td>unknown</td>";
+					co_yield "<td>unknown</td>";
 				} else {
 					//co_yield std::format("<td><a href=\"{}\"i>{}</a></td>", filename, filename);
 					co_yield "<td><a href=\"";
@@ -134,9 +137,16 @@ namespace cobra {
 			auto last_modified = entry.last_write_time(ec);
 
 			if (ec) {
-				co_yield "<td>error</td>";
+				co_yield "<td>unknown</td>";
 			} else {
-				co_yield "<td>never</td>";
+				char str[1024];
+				auto sys_time = std::chrono::file_clock::to_sys(last_modified);
+				auto time = std::chrono::system_clock::to_time_t(sys_time);
+				auto len = std::strftime(str, sizeof str, "%F %T", std::gmtime(&time));
+				co_yield "<td>";
+				co_yield std::string(str, str + len);
+				co_yield "</td>";
+				//co_yield "<td>never</td>";
 				//co_yield std::format("<td>{}</td>", last_modified);
 			}
 			co_yield "</tr>";
