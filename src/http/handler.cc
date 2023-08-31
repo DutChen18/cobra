@@ -9,8 +9,6 @@
 #include "cobra/process.hh"
 #include "cobra/serde.hh"
 
-#include <bits/chrono.h>
-
 #include <chrono>
 #include <cstdlib>
 #include <ctime>
