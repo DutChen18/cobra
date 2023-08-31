@@ -37,7 +37,7 @@ $(error "unknown platform $(platform)")
 endif
 
 ifndef cxx_install
-	cxx_install = /home/dmeijer/.capt/root/usr/lib/llvm-15
+	cxx_install = $(HOME)/.capt/root/usr/lib/llvm-15
 endif
 
 ifndef ncodam
