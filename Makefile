@@ -40,7 +40,7 @@ ifndef cxx_install
 	cxx_install = /home/dmeijer/.capt/root/usr/lib/llvm-15
 endif
 
-ifdef codam
+ifndef ncodam
 	CXXFLAGS += -nostdinc++ -isystem "$(cxx_install)/include/c++/v1" -fexperimental-library
 	LDFLAGS += -nostdlib++ -L "$(cxx_install)/lib" -Wl,-rpath,"$(cxx_install)/lib" -l:libc++.a -lc++experimental -fexperimental-library 
 	#LDFLAGS += -nodefaultlibs -L "$(cxx_install)/lib" -Wl,-rpath,"$(cxx_install)/lib" -lc++ -lc++abi -lm -lc -lgc_s -lgcc
