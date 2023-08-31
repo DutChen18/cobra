@@ -256,7 +256,7 @@ namespace cobra {
 					// error->second->error_pages.contains(error->first));
 					co_await http_response_writer(&request, &wrapper, logger_ptr).send(error->first);
 				} else if (error.has_value()) {
-					eprintln("http error {}", error->first);
+					//eprintln("http error {}", error->first);
 				}
 
 				co_await wrapper.end();
