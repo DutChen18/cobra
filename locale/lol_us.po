@@ -1,4 +1,4 @@
-# Scottish Gaelic translations for PACKAGE package.
+# Language lol translations for PACKAGE package.
 # Copyright (C) 2023 THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # Automatically generated, 2023.
@@ -8,329 +8,329 @@ msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2023-08-31 10:23+0200\n"
-"PO-Revision-Date: 2023-08-28 14:49+0200\n"
+"PO-Revision-Date: 2023-08-31 10:23+0200\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
-"Language: gd\n"
+"Language: lol_us\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Type: text/plain; charset=ASCII\n"
 "Content-Transfer-Encoding: 8bit\n"
 
 #: src/main.cc:76
 msgid "path to configuration file"
-msgstr ""
+msgstr "OH NOES! Teh path to teh configuration file iz missin. Halp me find it? Kthxbai."
 
 #: src/main.cc:77
 msgid "number of threads to use (implies -t)"
-msgstr ""
+msgstr "Cheezburgers needed: 42. Implies -t. Moar threads, moar fun!"
 
 #: src/main.cc:78
 msgid "write diagnostics in json format"
-msgstr ""
+msgstr "I can has diagnostics in JSON format? Kthx. XD"
 
 #: src/main.cc:79
 msgid "exit after reading configuration file"
-msgstr ""
+msgstr "Bye-bye! Exiting after reading teh configuration file."
 
 #: src/main.cc:80
 msgid "display this help message"
-msgstr ""
+msgstr "Halp! Teach me how to halp with this message. Kthx!"
 
 #: src/main.cc:81
 msgid "use the thread pool executor"
-msgstr ""
+msgstr "Diving into teh thread pool executor. Splish splash!"
 
 #: src/main.cc:82
 msgid "show verbose output"
-msgstr ""
+msgstr "Oh hai verbosity! Plz show me all teh outputz."
 
 #: src/config.cc:363 include/cobra/config.hh:1034
 msgid "error"
-msgstr ""
+msgstr "OH NOES! Errorz attack! Abort, retry, fail?"
 
 #: src/config.cc:365 include/cobra/config.hh:1036
 msgid "warning"
-msgstr ""
+msgstr "Ohai! Warningz in da house. Pay attention, hooman."
 
 #: src/config.cc:367 include/cobra/config.hh:1038
 msgid "note"
-msgstr ""
+msgstr "Just a lil note to remind you: I can has notez too!"
 
 #: src/config.cc:421
 msgid "unexpected EOF"
-msgstr ""
+msgstr "OOF! Unexpected End of File. Iz this teh end?"
 
 #: src/config.cc:421 src/config.cc:424 src/config.cc:435
 #, c++-format
 msgid "expected `{}`"
-msgstr ""
+msgstr "Expected some {0}. But got none {0}. Sad cat is sad."
 
 #: src/config.cc:423
 #, c++-format
 msgid "unexpected `{}`"
-msgstr ""
+msgstr "LOL! Didn't expect {}. Surprise, surprise!"
 
 #: src/config.cc:435
 msgid "unexpected word"
-msgstr ""
+msgstr "Wat is dis word, hooman? Teach me teh human languagez."
 
 #: src/config.cc:436
 #, c++-format
 msgid "consider replacing `{}` with `{}`"
-msgstr ""
+msgstr "Maybe try replacing dis {} with dis {}? Just sayin'."
 
 #: src/config.cc:490
 msgid "unclosed quote"
-msgstr ""
+msgstr "OH NOES! Unclosed quote. Plz close it before I get lost."
 
 #: src/config.cc:495 src/config.cc:511
 msgid "invalid word"
-msgstr ""
+msgstr "I can haz invalid wordz? No can do, fren."
 
 #: src/config.cc:495
 msgid "expected at least one character"
-msgstr ""
+msgstr "Plz give me at least one character. Kthx."
 
 #: src/config.cc:511
 msgid "expected at least one graphical character"
-msgstr ""
+msgstr "Gimme graphical characterz, not just random stuff!"
 
 #: src/config.cc:626
 msgid "regular file"
-msgstr ""
+msgstr "Ohai! I'm a regular file, not a fancy one."
 
 #: src/config.cc:628
 msgid "directory"
-msgstr ""
+msgstr "Just a regular directory, nothing to see here."
 
 #: src/config.cc:630
 msgid "symlink"
-msgstr ""
+msgstr "I'm a magical symlink, leading nowhere and everywhere."
 
 #: src/config.cc:632
 msgid "block device"
-msgstr ""
+msgstr "I'm a block cat, not a block chain. Meow."
 
 #: src/config.cc:634
 msgid "character device"
-msgstr ""
+msgstr "Call me Kitty Device! I'm a character device, rawr!"
 
 #: src/config.cc:636
 msgid "fifo"
-msgstr ""
+msgstr "FIFO at ur service. Me haz dataz for u."
 
 #: src/config.cc:638
 msgid "socket"
-msgstr ""
+msgstr "Squeaky clean socket, ready for communication!"
 
 #: src/config.cc:640
 msgid "unknown"
-msgstr ""
+msgstr "I'm in ur code, doing unexpected stuffz."
 
 #: src/config.cc:648
 msgid "failed to stat file"
-msgstr ""
+msgstr "OH NOES! Failed to stat file. Iz it hiding from me?"
 
 #: src/config.cc:661 src/config.cc:683
 msgid "not a normal file"
-msgstr ""
+msgstr "Not a normal file, but what is \"normal\" anyway?"
 
 #: src/config.cc:661 src/config.cc:683
 msgid "is a directory"
-msgstr ""
+msgstr "OH NOES! I'm a directory, not a file! Halp, file needed!"
 
 #: src/config.cc:689
 msgid "not an executable file"
-msgstr ""
+msgstr "I'm not executable, unlike my dreams of catching red dot."
 
 #: src/config.cc:704 src/config.cc:714
 msgid "invalid response code"
-msgstr ""
+msgstr "Error: Invalid response code. Did I break teh internetz?"
 
 #: src/config.cc:737 src/config.cc:748 src/config.cc:752
 msgid "invalid redirect code"
-msgstr ""
+msgstr "Oh snap! Invalid redirect code. Who's playing tricks?"
 
 #: src/config.cc:766
 msgid "suspicious redirect code"
-msgstr ""
+msgstr "Suspicious much? Redirect looks fishy to me."
 
 #: src/config.cc:767
 #, c++-format
 msgid "did you mean one of: {}, {}, {}, {}?"
-msgstr ""
+msgstr "Did you mean: {}, {}, {}, {}? Or none of the above? LOL."
 
 #: src/config.cc:787
 msgid "not a directory"
-msgstr ""
+msgstr "Not a directory, not a file. Wat am I even?"
 
 #: src/config.cc:788
 #, c++-format
 msgid "is a {}"
-msgstr ""
+msgstr "Wat even is dis? I'm a {} apparently."
 
 #: src/config.cc:883
 msgid "empty filter"
-msgstr ""
+msgstr "OH NOES! Filter is empty. No can haz empty filter!"
 
 #: src/config.cc:884
 msgid "consider specifying a handler using: `static`, `cgi`, etc..."
-msgstr ""
+msgstr "Add a handler plz. Use: `static`, `cgi`, or somethin'."
 
 #: src/config.cc:904 src/config.cc:917
 msgid "a address cannot be listened to with and without ssl at the same time"
-msgstr ""
+msgstr "OH NOES! I can't listen to dis address with and without SSL. Pick one, hooman!"
 
 #: src/config.cc:905 src/config.cc:918
 msgid "consider listening to another address"
-msgstr ""
+msgstr "Maybe try listening to another address? Just an idea."
 
 #: src/config.cc:907
 msgid "previously listened to here without ssl"
-msgstr ""
+msgstr "SSL and non-SSL clashed here before. Awkward."
 
 #: src/config.cc:920
 msgid "previously listened to here with ssl"
-msgstr ""
+msgstr "SSL vs. non-SSL fight again! Someone's gotta yield."
 
 #: src/config.cc:948 src/config.cc:956 src/config.cc:983
 msgid "ambiguous server"
-msgstr ""
+msgstr "Hooman, you confuse me. Who am I really listening to?"
 
 #: src/config.cc:949
 msgid "consider specifying a `server_name`"
-msgstr ""
+msgstr "Confuzzled cat is confuzzled. Specify a `server_name`, plz?"
 
 #: src/config.cc:957
 #, c++-format
 msgid "another server is also listening to `{}`"
-msgstr ""
+msgstr "Another server be stealin' mah address! HISS!"
 
 #: src/config.cc:963 src/config.cc:971
 msgid "also listened to here"
-msgstr ""
+msgstr "Remember me? I listened here before."
 
 #: src/config.cc:984
 msgid "another server listening to the same address has the same `server_name`"
-msgstr ""
+msgstr "Ohai, another server be eavesdroppin' on teh same address with teh same `server_name`. Wat a coincidence! LOL."
 
 #: src/config.cc:985
 msgid "previously specified here"
-msgstr ""
+msgstr "I said it here first! No take-backsies!"
 
 #: src/config.cc:997
 msgid "server not listening to an address"
-msgstr ""
+msgstr "Server not listenin' to address. Plz use `listen`."
 
 #: src/config.cc:998
 msgid "consider specifying an address using: `listen`"
-msgstr ""
+msgstr "Maybe try telling me where to listen using: listen? Meow."
 
 #: src/config.cc:1037
 msgid "invalid port"
-msgstr ""
+msgstr "Port failz. Invalid number. Make it real, plz."
 
 #: src/config.cc:1124
 msgid "invalid number"
-msgstr ""
+msgstr "OH NOES! Invalid number! Me no understand dis gibberish. Numbers, not chaos, plz."
 
 #: src/config.cc:1133
 msgid "redefinition of max_body_size"
-msgstr ""
+msgstr "Wat u think, redefining max_body_size? Nope."
 
 #: src/config.cc:1134 src/config.cc:1172 src/config.cc:1193
 msgid "previously defined here"
-msgstr ""
+msgstr "I remember dis from b4. U changed ur mind, huh?"
 
 #: src/config.cc:1141
 msgid "invalid max_body_size"
-msgstr ""
+msgstr "Max body size failz. No can do, fren."
 
 #: src/config.cc:1171
 #, c++-format
 msgid "redefinition of {}"
-msgstr ""
+msgstr "OH NOES! Something's {}. Duplicates be cray cray!"
 
 #: src/config.cc:1192
 #, c++-format
 msgid "duplicate {}"
-msgstr ""
+msgstr "Double trouble! U copied {}. That's not nice."
 
 #: src/config.cc:1211 src/config.cc:1215 src/config.cc:1220 src/config.cc:1225
 #: src/config.cc:1230
 msgid "request handler"
-msgstr ""
+msgstr "Look, a wild request handler appeared! Captcha, plz."
 
 #: src/config.cc:1277
 msgid "invalid header key"
-msgstr ""
+msgstr "Header key failz. Invalid character. Plz no."
 
 #: src/config.cc:1278
 #, c++-format
 msgid "because of invalid character `{}`"
-msgstr ""
+msgstr "because of invalid character `{}`"
 
 #: src/config.cc:1285
 msgid "invalid header value"
-msgstr ""
+msgstr "Invalid header value. Control urself, hooman!"
 
 #: src/config.cc:1286
 #, c++-format
 msgid "because of a reserved control character `{}`"
-msgstr ""
+msgstr "Because of a reserved control character `{}`. Me no like dis control."
 
 #: src/config.cc:1303
 msgid "redefinition of `set_header`"
-msgstr ""
+msgstr "Redefined `set_header`. Overriding like a boss."
 
 #: src/config.cc:1304
 msgid "a previous definition with the same key will be overridden"
-msgstr ""
+msgstr "Uh-oh, same key, different value. Who will win?"
 
 #: include/cobra/config.hh:293 include/cobra/config.hh:299
 #: include/cobra/config.hh:312
 msgid "not a number"
-msgstr ""
+msgstr "Oh noez! Not a number! I can haz digits, plz?"
 
 #: include/cobra/config.hh:293 include/cobra/config.hh:313
 msgid "a number must only contain digits"
-msgstr ""
+msgstr "Numbers only, kthx. No alphabet soup, plz."
 
 #: include/cobra/config.hh:295
 msgid "number too large"
-msgstr ""
+msgstr "Numberz too big for my tiny paws. Plz resize."
 
 #: include/cobra/config.hh:296
 #, c++-format
 msgid "maximum accepted value is {}"
-msgstr ""
+msgstr "Ohai! Maximum accepted value is {}. Don't go overboard!"
 
 #: include/cobra/config.hh:299
 msgid "a number must contain at least one digit"
-msgstr ""
+msgstr "At least one digit, hooman. Count to one. Meow."
 
 #: include/cobra/config.hh:662
 msgid "invalid directory listing option"
-msgstr ""
+msgstr "Invalid directory listing option? Is that a thing?"
 
 #: include/cobra/config.hh:663
 msgid "expected either `true` or `false`"
-msgstr ""
+msgstr "True or false, hooman? Pick one and stick with it!"
 
 #: include/cobra/config.hh:917
 #, c++-format
 msgid "unknown directive `{}`"
-msgstr ""
+msgstr "I can haz unknown directive? Did you mean `{}`?"
 
 #: include/cobra/config.hh:918
 #, c++-format
 msgid "did you mean `{}`?"
-msgstr ""
+msgstr "OH NOES! Failed to understand. Did you mean `{}`? Speak cat, plz."
 
 #: include/cobra/config.hh:962
 msgid "unrooted handler"
-msgstr ""
+msgstr "Unrooted handler, lost in the void. Plz root me."
 
 #: include/cobra/config.hh:963
 msgid "consider rooting it using: `root`"
-msgstr ""
+msgstr "I'm growing roots now! Rooted and proud!"

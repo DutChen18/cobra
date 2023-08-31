@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-08-29 10:13+0200\n"
+"POT-Creation-Date: 2023-08-31 10:23+0200\n"
 "PO-Revision-Date: 2023-08-28 14:49+0200\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -18,322 +18,321 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 
-#: src/main.cc:77
+#: src/main.cc:76
 msgid "path to configuration file"
 msgstr "шлях до файлу конфігурації"
 
-#: src/main.cc:78
+#: src/main.cc:77
 msgid "number of threads to use (implies -t)"
 msgstr "скільки потоків використовувати (передбачає -t)"
 
-#: src/main.cc:79
+#: src/main.cc:78
 msgid "write diagnostics in json format"
 msgstr "виводити діагностику в форматі json"
 
-#: src/main.cc:80
+#: src/main.cc:79
 msgid "exit after reading configuration file"
 msgstr "вийти після прочитання файлу конфігурації"
 
-#: src/main.cc:81
+#: src/main.cc:80
 msgid "display this help message"
 msgstr "вивести це повідомлення"
 
-#: src/main.cc:82
+#: src/main.cc:81
 msgid "use the thread pool executor"
 msgstr "використовувати багатопотокового виконавця"
 
-#: src/main.cc:83
+#: src/main.cc:82
 msgid "show verbose output"
 msgstr "показувати розширену інформацію"
 
-#: src/config.cc:361 include/cobra/config.hh:1006
+#: src/config.cc:363 include/cobra/config.hh:1034
 msgid "error"
 msgstr "помилка"
 
-#: src/config.cc:363 include/cobra/config.hh:1008
+#: src/config.cc:365 include/cobra/config.hh:1036
 msgid "warning"
 msgstr "застереження"
 
-#: src/config.cc:365 include/cobra/config.hh:1010
+#: src/config.cc:367 include/cobra/config.hh:1038
 msgid "note"
 msgstr "примітка"
 
-#: src/config.cc:418
+#: src/config.cc:421
 msgid "unexpected EOF"
 msgstr "неочікуваний кінець файлу"
 
-#: src/config.cc:418 src/config.cc:421 src/config.cc:432
+#: src/config.cc:421 src/config.cc:424 src/config.cc:435
 #, c++-format
 msgid "expected `{}`"
 msgstr "очікувано `{}`"
 
-#: src/config.cc:420
+#: src/config.cc:423
 #, c++-format
 msgid "unexpected `{}`"
 msgstr "неочікуваний `{}`"
 
-#: src/config.cc:432
+#: src/config.cc:435
 msgid "unexpected word"
 msgstr "неочікуване слово"
 
-#: src/config.cc:433
+#: src/config.cc:436
 #, c++-format
 msgid "consider replacing `{}` with `{}`"
 msgstr "спробуйте замінити `{}` на `{}`"
 
-#: src/config.cc:487
+#: src/config.cc:490
 msgid "unclosed quote"
 msgstr "незаркиті лапки"
 
-#: src/config.cc:492 src/config.cc:508
+#: src/config.cc:495 src/config.cc:511
 msgid "invalid word"
 msgstr "некопектне слово"
 
-#: src/config.cc:492
+#: src/config.cc:495
 msgid "expected at least one character"
 msgstr "очікувано принаймі 1 символ"
 
-#: src/config.cc:508
+#: src/config.cc:511
 msgid "expected at least one graphical character"
 msgstr "очікувано принаймі 1 графічний символ"
 
-#: src/config.cc:622
+#: src/config.cc:626
 msgid "regular file"
 msgstr "звичайним файлом"
 
-#: src/config.cc:624
+#: src/config.cc:628
 msgid "directory"
 msgstr "папкою"
 
-#: src/config.cc:626
+#: src/config.cc:630
 msgid "symlink"
 msgstr "посиланням"
 
-#: src/config.cc:628
+#: src/config.cc:632
 msgid "block device"
 msgstr "блочним пристроєм"
 
-#: src/config.cc:630
+#: src/config.cc:634
 msgid "character device"
 msgstr "символьним пристроєм"
 
-#: src/config.cc:632
+#: src/config.cc:636
 msgid "fifo"
 msgstr ""
 
-#: src/config.cc:634
+#: src/config.cc:638
 msgid "socket"
 msgstr "сокетом"
 
-#: src/config.cc:636
+#: src/config.cc:640
 msgid "unknown"
 msgstr "невідомо чим"
 
-#: src/config.cc:644
+#: src/config.cc:648
 msgid "failed to stat file"
 msgstr "не вдалося виконати stat"
 
-#: src/config.cc:657 src/config.cc:679
+#: src/config.cc:661 src/config.cc:683
 msgid "not a normal file"
 msgstr "не є звичайним файлом"
 
-#: src/config.cc:657 src/config.cc:679
+#: src/config.cc:661 src/config.cc:683
 msgid "is a directory"
 msgstr "є папкою"
 
-#: src/config.cc:685
+#: src/config.cc:689
 msgid "not an executable file"
 msgstr "не є виконуваним файлом"
 
-#: src/config.cc:700 src/config.cc:710
+#: src/config.cc:704 src/config.cc:714
 msgid "invalid response code"
 msgstr "некоректний код відповіді"
 
-#: src/config.cc:733 src/config.cc:744 src/config.cc:748
+#: src/config.cc:737 src/config.cc:748 src/config.cc:752
 msgid "invalid redirect code"
 msgstr "некоректний код перенаправлення"
 
-#: src/config.cc:762
+#: src/config.cc:766
 msgid "suspicious redirect code"
 msgstr "підозрілий код перенаправлення"
 
-#: src/config.cc:763
+#: src/config.cc:767
 #, c++-format
 msgid "did you mean one of: {}, {}, {}, {}?"
 msgstr "можливо ви мали на увазі один з: {}, {}, {}, {}?"
 
-#: src/config.cc:783
+#: src/config.cc:787
 msgid "not a directory"
 msgstr "не є папкою"
 
-#: src/config.cc:784
+#: src/config.cc:788
 #, c++-format
 msgid "is a {}"
 msgstr "є {}"
 
-#: src/config.cc:879
+#: src/config.cc:883
 msgid "empty filter"
 msgstr "порожній фільтр"
 
-#: src/config.cc:880
+#: src/config.cc:884
 msgid "consider specifying a handler using: `static`, `cgi`, etc..."
-msgstr ""
-"спробуйте вказати обробника запитів використовуючи: `static`, `cgi`, і т.д."
+msgstr "спробуйте вказати обробника запитів використовуючи: `static`, `cgi`, і т.д."
 
-#: src/config.cc:900 src/config.cc:913
+#: src/config.cc:904 src/config.cc:917
 msgid "a address cannot be listened to with and without ssl at the same time"
 msgstr "адреса не може одночасно прослуховуватись з і без ssl"
 
-#: src/config.cc:901 src/config.cc:914
+#: src/config.cc:905 src/config.cc:918
 msgid "consider listening to another address"
 msgstr "спробуйте прослуховувати іншу адресу"
 
-#: src/config.cc:903
+#: src/config.cc:907
 msgid "previously listened to here without ssl"
 msgstr "попередньо ця адреса прослуховувалась без ssl"
 
-#: src/config.cc:916
+#: src/config.cc:920
 msgid "previously listened to here with ssl"
 msgstr "попередньо ця адреса прослуховувалась з ssl"
 
-#: src/config.cc:944 src/config.cc:952 src/config.cc:979
+#: src/config.cc:948 src/config.cc:956 src/config.cc:983
 msgid "ambiguous server"
 msgstr "неоднозначний сервер"
 
-#: src/config.cc:945
+#: src/config.cc:949
 msgid "consider specifying a `server_name`"
 msgstr "спробуйте вказати `server_name`"
 
-#: src/config.cc:953
+#: src/config.cc:957
 #, c++-format
 msgid "another server is also listening to `{}`"
 msgstr "інший сервер також прослуховує `{}`"
 
-#: src/config.cc:959 src/config.cc:967
+#: src/config.cc:963 src/config.cc:971
 msgid "also listened to here"
 msgstr ""
 
-#: src/config.cc:980
+#: src/config.cc:984
 msgid "another server listening to the same address has the same `server_name`"
 msgstr "інший сервер який прослувоє цю адресу має такий самий `server_name`"
 
-#: src/config.cc:981
+#: src/config.cc:985
 msgid "previously specified here"
 msgstr "попередньо вказано тут"
 
-#: src/config.cc:993
+#: src/config.cc:997
 msgid "server not listening to an address"
 msgstr "сервер не прослуховує жодну адресу"
 
-#: src/config.cc:994
+#: src/config.cc:998
 msgid "consider specifying an address using: `listen`"
 msgstr "спробуйте вказати адресу через `listen`"
 
-#: src/config.cc:1033
+#: src/config.cc:1037
 msgid "invalid port"
 msgstr "некоректний порт"
 
-#: src/config.cc:1120
+#: src/config.cc:1124
 msgid "invalid number"
 msgstr "некоректне число"
 
-#: src/config.cc:1129
+#: src/config.cc:1133
 msgid "redefinition of max_body_size"
 msgstr "переозначення max_body_size"
 
-#: src/config.cc:1130 src/config.cc:1168 src/config.cc:1189
+#: src/config.cc:1134 src/config.cc:1172 src/config.cc:1193
 msgid "previously defined here"
 msgstr "попередньо означено тут"
 
-#: src/config.cc:1137
+#: src/config.cc:1141
 msgid "invalid max_body_size"
 msgstr "некоректний max_body_size"
 
-#: src/config.cc:1167
+#: src/config.cc:1171
 #, c++-format
 msgid "redefinition of {}"
 msgstr "переозначення {}"
 
-#: src/config.cc:1188
+#: src/config.cc:1192
 #, c++-format
 msgid "duplicate {}"
 msgstr "подвоєння {}"
 
-#: src/config.cc:1207 src/config.cc:1211 src/config.cc:1216 src/config.cc:1221
-#: src/config.cc:1226
+#: src/config.cc:1211 src/config.cc:1215 src/config.cc:1220 src/config.cc:1225
+#: src/config.cc:1230
 msgid "request handler"
 msgstr "обробник запитів"
 
-#: src/config.cc:1273
+#: src/config.cc:1277
 msgid "invalid header key"
 msgstr "некоректний ключ заголовка"
 
-#: src/config.cc:1274
+#: src/config.cc:1278
 #, c++-format
 msgid "because of invalid character `{}`"
 msgstr "через некоректний символ `{}`"
 
-#: src/config.cc:1281
+#: src/config.cc:1285
 msgid "invalid header value"
 msgstr "некоректне значення заголовка"
 
-#: src/config.cc:1282
+#: src/config.cc:1286
 #, c++-format
 msgid "because of a reserved control character `{}`"
 msgstr "чрез зарезервований службовий символ `{}`"
 
-#: src/config.cc:1299
+#: src/config.cc:1303
 msgid "redefinition of `set_header`"
 msgstr "переозначення `set_header`"
 
-#: src/config.cc:1300
+#: src/config.cc:1304
 msgid "a previous definition with the same key will be overridden"
 msgstr "попереднє означення з таким самим ключем буде замімено"
 
-#: include/cobra/config.hh:283 include/cobra/config.hh:289
-#: include/cobra/config.hh:302
+#: include/cobra/config.hh:293 include/cobra/config.hh:299
+#: include/cobra/config.hh:312
 msgid "not a number"
 msgstr "не є числом"
 
-#: include/cobra/config.hh:283 include/cobra/config.hh:303
+#: include/cobra/config.hh:293 include/cobra/config.hh:313
 msgid "a number must only contain digits"
 msgstr "число май містити тільки цифри"
 
-#: include/cobra/config.hh:285
+#: include/cobra/config.hh:295
 msgid "number too large"
 msgstr "завелике число"
 
-#: include/cobra/config.hh:286
+#: include/cobra/config.hh:296
 #, c++-format
 msgid "maximum accepted value is {}"
 msgstr "найбільше допустиме значення це {}"
 
-#: include/cobra/config.hh:289
+#: include/cobra/config.hh:299
 msgid "a number must contain at least one digit"
 msgstr "число має містити хоча б одну цифру"
 
-#: include/cobra/config.hh:634
+#: include/cobra/config.hh:662
 msgid "invalid directory listing option"
 msgstr ""
 
-#: include/cobra/config.hh:635
+#: include/cobra/config.hh:663
 msgid "expected either `true` or `false`"
 msgstr "очікувано або `true` або `false`"
 
-#: include/cobra/config.hh:889
+#: include/cobra/config.hh:917
 #, c++-format
 msgid "unknown directive `{}`"
 msgstr "невідома директива `{}`"
 
-#: include/cobra/config.hh:890
+#: include/cobra/config.hh:918
 #, c++-format
 msgid "did you mean `{}`?"
 msgstr "можливо ви мали на увазі `{}`?"
 
-#: include/cobra/config.hh:934
+#: include/cobra/config.hh:962
 msgid "unrooted handler"
 msgstr "обробник запитів без кореневого шляху"
 
-#: include/cobra/config.hh:935
+#: include/cobra/config.hh:963
 msgid "consider rooting it using: `root`"
 msgstr "спробуйте вказати кореневий шлях через `root`"

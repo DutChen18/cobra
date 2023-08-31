@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-08-29 10:13+0200\n"
+"POT-Creation-Date: 2023-08-31 10:23+0200\n"
 "PO-Revision-Date: 2023-08-15 14:05+0200\n"
 "Last-Translator:  <dutchen18@gmail.com>\n"
 "Language-Team: Japanese <translation-team-ja@lists.sourceforge.net>\n"
@@ -17,326 +17,326 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: src/main.cc:77
+#: src/main.cc:76
 msgid "path to configuration file"
-msgstr ""
+msgstr "コンフィグのパス"
+
+#: src/main.cc:77
+msgid "number of threads to use (implies -t)"
+msgstr "スレッド数"
 
 #: src/main.cc:78
-msgid "number of threads to use (implies -t)"
-msgstr ""
+msgid "write diagnostics in json format"
+msgstr "診断メッセージをJSON形式で書きます"
 
 #: src/main.cc:79
-msgid "write diagnostics in json format"
-msgstr ""
+msgid "exit after reading configuration file"
+msgstr "コンフィグを読み込んでからすぐ終了します"
 
 #: src/main.cc:80
-msgid "exit after reading configuration file"
-msgstr ""
-
-#: src/main.cc:81
 msgid "display this help message"
 msgstr "このメッセージを表示します"
 
-#: src/main.cc:82
+#: src/main.cc:81
 msgid "use the thread pool executor"
-msgstr ""
+msgstr "スレッドプールを使います"
 
-#: src/main.cc:83
+#: src/main.cc:82
 msgid "show verbose output"
-msgstr ""
+msgstr "詳しいログを表示します"
 
-#: src/config.cc:361 include/cobra/config.hh:1006
+#: src/config.cc:363 include/cobra/config.hh:1034
 msgid "error"
 msgstr "エラー"
 
-#: src/config.cc:363 include/cobra/config.hh:1008
+#: src/config.cc:365 include/cobra/config.hh:1036
 msgid "warning"
 msgstr "警告"
 
-#: src/config.cc:365 include/cobra/config.hh:1010
+#: src/config.cc:367 include/cobra/config.hh:1038
 msgid "note"
-msgstr ""
+msgstr "ノート"
 
-#: src/config.cc:418
+#: src/config.cc:421
 msgid "unexpected EOF"
 msgstr "予想されていないEOFです"
 
-#: src/config.cc:418 src/config.cc:421 src/config.cc:432
+#: src/config.cc:421 src/config.cc:424 src/config.cc:435
 #, c++-format
 msgid "expected `{}`"
 msgstr "`{}`が予想されます"
 
-#: src/config.cc:420
+#: src/config.cc:423
 #, c++-format
 msgid "unexpected `{}`"
 msgstr "予想されていない`{}`"
 
-#: src/config.cc:432
+#: src/config.cc:435
 msgid "unexpected word"
 msgstr "予想されていないワード"
 
-#: src/config.cc:433
+#: src/config.cc:436
 #, c++-format
 msgid "consider replacing `{}` with `{}`"
 msgstr "`{}`を`{}`に変更されてはどうですか？"
 
-#: src/config.cc:487
+#: src/config.cc:490
 msgid "unclosed quote"
 msgstr "終端の\"文字がありません"
 
-#: src/config.cc:492 src/config.cc:508
+#: src/config.cc:495 src/config.cc:511
 msgid "invalid word"
 msgstr "無効なワードです"
 
-#: src/config.cc:492
+#: src/config.cc:495
 msgid "expected at least one character"
 msgstr "少なとも一つの文字が予想されます"
 
-#: src/config.cc:508
+#: src/config.cc:511
 msgid "expected at least one graphical character"
 msgstr "表示できる文字が予想されます"
 
-#: src/config.cc:622
+#: src/config.cc:626
 msgid "regular file"
 msgstr "普通のファイル"
 
-#: src/config.cc:624
+#: src/config.cc:628
 #, fuzzy
 msgid "directory"
 msgstr "ディレクトリ"
 
-#: src/config.cc:626
-msgid "symlink"
-msgstr ""
-
-#: src/config.cc:628
-msgid "block device"
-msgstr ""
-
 #: src/config.cc:630
-msgid "character device"
-msgstr ""
+msgid "symlink"
+msgstr "シンボリックリンク"
 
 #: src/config.cc:632
-msgid "fifo"
-msgstr ""
+msgid "block device"
+msgstr "ブロックデバイス"
 
 #: src/config.cc:634
-msgid "socket"
-msgstr ""
+msgid "character device"
+msgstr "キャラクタデバイス"
 
 #: src/config.cc:636
-msgid "unknown"
-msgstr ""
+msgid "fifo"
+msgstr "ファイフォー"
 
-#: src/config.cc:644
+#: src/config.cc:638
+msgid "socket"
+msgstr "ソケット"
+
+#: src/config.cc:640
+msgid "unknown"
+msgstr "不明"
+
+#: src/config.cc:648
 msgid "failed to stat file"
 msgstr "ファイルをstatできませんでした"
 
-#: src/config.cc:657 src/config.cc:679
+#: src/config.cc:661 src/config.cc:683
 msgid "not a normal file"
 msgstr "普通のファイルではありません"
 
-#: src/config.cc:657 src/config.cc:679
+#: src/config.cc:661 src/config.cc:683
 msgid "is a directory"
 msgstr "ディレクトリです"
 
-#: src/config.cc:685
+#: src/config.cc:689
 msgid "not an executable file"
 msgstr "実行形式的なファールではありません"
 
-#: src/config.cc:700 src/config.cc:710
+#: src/config.cc:704 src/config.cc:714
 msgid "invalid response code"
 msgstr "無効なステータス"
 
-#: src/config.cc:733 src/config.cc:744 src/config.cc:748
+#: src/config.cc:737 src/config.cc:748 src/config.cc:752
 msgid "invalid redirect code"
-msgstr ""
+msgstr "無効なリダイレクトコード"
 
-#: src/config.cc:762
+#: src/config.cc:766
 msgid "suspicious redirect code"
-msgstr ""
+msgstr "怪しいリダイレクトコード"
 
-#: src/config.cc:763
+#: src/config.cc:767
 #, c++-format
 msgid "did you mean one of: {}, {}, {}, {}?"
-msgstr ""
+msgstr "{}, {}, {}, {}を使おうとされましたか？"
 
-#: src/config.cc:783
+#: src/config.cc:787
 msgid "not a directory"
 msgstr "ディレクトリではありません"
 
-#: src/config.cc:784
+#: src/config.cc:788
 #, c++-format
 msgid "is a {}"
 msgstr "{} です"
 
-#: src/config.cc:879
+#: src/config.cc:883
 msgid "empty filter"
 msgstr "フィルターが空っぽです"
 
-#: src/config.cc:880
+#: src/config.cc:884
 #, fuzzy
 msgid "consider specifying a handler using: `static`, `cgi`, etc..."
 msgstr "`static'、 `cgi` というハンドラーをお使いになってはどうですか？"
 
-#: src/config.cc:900 src/config.cc:913
+#: src/config.cc:904 src/config.cc:917
 msgid "a address cannot be listened to with and without ssl at the same time"
 msgstr "一つのアドレスは同時にSSLなしとSSLを使ってリスニングできません"
 
-#: src/config.cc:901 src/config.cc:914
+#: src/config.cc:905 src/config.cc:918
 msgid "consider listening to another address"
 msgstr "他のアドラスをお使いになってはどうですか？"
 
-#: src/config.cc:903
+#: src/config.cc:907
 msgid "previously listened to here without ssl"
 msgstr "すでにここにSSLなし使っています"
 
-#: src/config.cc:916
+#: src/config.cc:920
 msgid "previously listened to here with ssl"
 msgstr "すでにここにSSLを使っています"
 
-#: src/config.cc:944 src/config.cc:952 src/config.cc:979
+#: src/config.cc:948 src/config.cc:956 src/config.cc:983
 #, fuzzy
 msgid "ambiguous server"
 msgstr "定義されたサーバーが曖昧です"
 
-#: src/config.cc:945
+#: src/config.cc:949
 msgid "consider specifying a `server_name`"
 msgstr "`server_name`をお使いになってはどうですか？"
 
-#: src/config.cc:953
+#: src/config.cc:957
 #, c++-format
 msgid "another server is also listening to `{}`"
 msgstr "他のサーバはすでに`{}`にリスニングされています"
 
-#: src/config.cc:959 src/config.cc:967
+#: src/config.cc:963 src/config.cc:971
 msgid "also listened to here"
 msgstr "ここにもリスニングされています"
 
-#: src/config.cc:980
+#: src/config.cc:984
 msgid "another server listening to the same address has the same `server_name`"
 msgstr "すでに同じ`server_name`を使っているサーバーがあります"
 
-#: src/config.cc:981
+#: src/config.cc:985
 msgid "previously specified here"
 msgstr "すでにここに定義されました"
 
-#: src/config.cc:993
+#: src/config.cc:997
 msgid "server not listening to an address"
 msgstr "サーバーはリスニングされていません"
 
-#: src/config.cc:994
+#: src/config.cc:998
 msgid "consider specifying an address using: `listen`"
 msgstr "`listen`を使ってアドラスにリスニングされてはどうですか？"
 
-#: src/config.cc:1033
+#: src/config.cc:1037
 msgid "invalid port"
 msgstr "無効なポートです"
 
-#: src/config.cc:1120
+#: src/config.cc:1124
 msgid "invalid number"
 msgstr "無効な数字です"
 
-#: src/config.cc:1129
+#: src/config.cc:1133
 msgid "redefinition of max_body_size"
 msgstr "max_body_sizeが再定義されました"
 
-#: src/config.cc:1130 src/config.cc:1168 src/config.cc:1189
+#: src/config.cc:1134 src/config.cc:1172 src/config.cc:1193
 msgid "previously defined here"
 msgstr "すでにここで定義された"
 
-#: src/config.cc:1137
+#: src/config.cc:1141
 msgid "invalid max_body_size"
 msgstr "無効なmax_body_size"
 
-#: src/config.cc:1167
+#: src/config.cc:1171
 #, c++-format
 msgid "redefinition of {}"
 msgstr "{}が再定義されました"
 
-#: src/config.cc:1188
+#: src/config.cc:1192
 #, c++-format
 msgid "duplicate {}"
 msgstr "複数の`{}`"
 
-#: src/config.cc:1207 src/config.cc:1211 src/config.cc:1216 src/config.cc:1221
-#: src/config.cc:1226
+#: src/config.cc:1211 src/config.cc:1215 src/config.cc:1220 src/config.cc:1225
+#: src/config.cc:1230
 msgid "request handler"
 msgstr "ハンドラー"
 
-#: src/config.cc:1273
+#: src/config.cc:1277
 #, fuzzy
 msgid "invalid header key"
-msgstr "無効な数字です"
+msgstr "無効なヘッダキー"
 
-#: src/config.cc:1274
+#: src/config.cc:1278
 #, c++-format
 msgid "because of invalid character `{}`"
 msgstr "無効の`{}`字を使っていますから"
 
-#: src/config.cc:1281
+#: src/config.cc:1285
 msgid "invalid header value"
-msgstr ""
+msgstr "無効なヘッダコンテナ"
 
-#: src/config.cc:1282
+#: src/config.cc:1286
 #, c++-format
 msgid "because of a reserved control character `{}`"
-msgstr ""
+msgstr "`{}`という特別な文字を使っていますから"
 
-#: src/config.cc:1299
+#: src/config.cc:1303
 #, fuzzy
 msgid "redefinition of `set_header`"
-msgstr "{}が再定義されました"
+msgstr "`set_header`が再定義されました"
 
-#: src/config.cc:1300
+#: src/config.cc:1304
 msgid "a previous definition with the same key will be overridden"
-msgstr ""
+msgstr "同じキーを使っている定義が上書きされます"
 
-#: include/cobra/config.hh:283 include/cobra/config.hh:289
-#: include/cobra/config.hh:302
+#: include/cobra/config.hh:293 include/cobra/config.hh:299
+#: include/cobra/config.hh:312
 msgid "not a number"
 msgstr "数字ではありません"
 
-#: include/cobra/config.hh:283 include/cobra/config.hh:303
+#: include/cobra/config.hh:293 include/cobra/config.hh:313
 msgid "a number must only contain digits"
 msgstr "数は数字だけでできます"
 
-#: include/cobra/config.hh:285
+#: include/cobra/config.hh:295
 msgid "number too large"
 msgstr "数字が大きすぎます"
 
-#: include/cobra/config.hh:286
+#: include/cobra/config.hh:296
 #, c++-format
 msgid "maximum accepted value is {}"
 msgstr "{}以上は無効です"
 
-#: include/cobra/config.hh:289
+#: include/cobra/config.hh:299
 msgid "a number must contain at least one digit"
 msgstr "数字は少なくとも数字文字の一つで出来ていなくてはなりません"
 
-#: include/cobra/config.hh:634
+#: include/cobra/config.hh:662
 msgid "invalid directory listing option"
-msgstr ""
+msgstr "無効なディレクトリリスティング"
 
-#: include/cobra/config.hh:635
+#: include/cobra/config.hh:663
 msgid "expected either `true` or `false`"
 msgstr "`true`か`false`が予想されます"
 
-#: include/cobra/config.hh:889
+#: include/cobra/config.hh:917
 #, c++-format
 msgid "unknown directive `{}`"
 msgstr "不明な命令`{}`です"
 
-#: include/cobra/config.hh:890
+#: include/cobra/config.hh:918
 #, c++-format
 msgid "did you mean `{}`?"
 msgstr "`{}`を使おうとされましたか？"
 
-#: include/cobra/config.hh:934
+#: include/cobra/config.hh:962
 msgid "unrooted handler"
 msgstr "元のないハンドラー"
 
-#: include/cobra/config.hh:935
+#: include/cobra/config.hh:963
 msgid "consider rooting it using: `root`"
 msgstr "`root`をお使いになってはどうですか？"

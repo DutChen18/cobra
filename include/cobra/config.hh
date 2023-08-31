@@ -7,6 +7,7 @@
 #include "cobra/print.hh"
 #include "cobra/text.hh"
 
+#include <compare>
 #include <exception>
 #include <variant>
 #include <string>
@@ -481,13 +482,34 @@ namespace cobra {
 				return _service;
 			}
 
-			auto operator<=>(const listen_address& other) const = default;
+			auto operator<=>(const listen_address& other) const {
+				if (*this < other) {
+					return std::strong_ordering::less;
+				} else if (*this > other) {
+					return std::strong_ordering::greater;
+				} else {
+					return std::strong_ordering::equal;
+				}
+			}
+
 			bool operator==(const listen_address& other) const = default;
 			bool operator!=(const listen_address& other) const = default;
-			bool operator>(const listen_address& other) const = default;
-			bool operator<(const listen_address& other) const = default;
-			bool operator>=(const listen_address& other) const = default;
-			bool operator<=(const listen_address& other) const = default;
+
+			bool operator<(const listen_address& other) const {
+				return _node < other._node || (!(other._node < _node) && _service < other._service);
+			}
+
+			bool operator>(const listen_address& other) const {
+				return other < *this;
+			}
+
+			bool operator>=(const listen_address& other) const {
+				return !(*this < other);
+			}
+
+			bool operator<=(const listen_address& other) const {
+				return !(other < *this);
+			}
 
 			static listen_address parse(parse_session& session);
 		};
@@ -549,9 +571,11 @@ namespace cobra {
 				return def == other.def;
 			}
 
-                        inline bool operator==(const T& t) const requires std::equality_comparable<T> {
-                            return def == t;
-                        }
+			inline bool operator==(const T& t) const
+				requires std::equality_comparable<T>
+			{
+				return def == t;
+			}
 
 			inline constexpr auto operator<=>(const define& other) const noexcept {
 				return def <=> other.def;

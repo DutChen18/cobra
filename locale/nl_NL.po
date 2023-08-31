@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-08-29 10:13+0200\n"
+"POT-Creation-Date: 2023-08-31 10:23+0200\n"
 "PO-Revision-Date: 2023-08-15 13:16+0200\n"
 "Last-Translator:  <dutchen18@gmail.com>\n"
 "Language-Team: Dutch <vertaling@vrijschrift.org>\n"
@@ -17,330 +17,328 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: src/main.cc:77
+#: src/main.cc:76
 msgid "path to configuration file"
 msgstr "pad naar configuratiebestand"
 
-#: src/main.cc:78
+#: src/main.cc:77
 msgid "number of threads to use (implies -t)"
 msgstr "aantal threads om te gebruiken (impliceert -t)"
 
-#: src/main.cc:79
+#: src/main.cc:78
 msgid "write diagnostics in json format"
 msgstr "schrijf diagnostiek in json formaat"
 
-#: src/main.cc:80
+#: src/main.cc:79
 msgid "exit after reading configuration file"
 msgstr "sluit af na het inlezen van het configuratiebestand"
 
-#: src/main.cc:81
+#: src/main.cc:80
 msgid "display this help message"
 msgstr "vertoon dit hulpbericht"
 
-#: src/main.cc:82
+#: src/main.cc:81
 msgid "use the thread pool executor"
 msgstr "gebruik de uitvoerder van threadpools"
 
-#: src/main.cc:83
+#: src/main.cc:82
 msgid "show verbose output"
 msgstr "uitgebreide uitvoer weergeven"
 
-#: src/config.cc:361 include/cobra/config.hh:1006
+#: src/config.cc:363 include/cobra/config.hh:1034
 msgid "error"
 msgstr "fout"
 
-#: src/config.cc:363 include/cobra/config.hh:1008
+#: src/config.cc:365 include/cobra/config.hh:1036
 msgid "warning"
 msgstr "waarschuwing"
 
-#: src/config.cc:365 include/cobra/config.hh:1010
+#: src/config.cc:367 include/cobra/config.hh:1038
 msgid "note"
 msgstr "notitie"
 
-#: src/config.cc:418
+#: src/config.cc:421
 msgid "unexpected EOF"
 msgstr "onverwachte EVB"
 
-#: src/config.cc:418 src/config.cc:421 src/config.cc:432
+#: src/config.cc:421 src/config.cc:424 src/config.cc:435
 #, c++-format
 msgid "expected `{}`"
 msgstr "verwachte `{}`"
 
-#: src/config.cc:420
+#: src/config.cc:423
 #, c++-format
 msgid "unexpected `{}`"
 msgstr "onverwachte `{}`"
 
-#: src/config.cc:432
+#: src/config.cc:435
 msgid "unexpected word"
 msgstr "unverwacht woord"
 
-#: src/config.cc:433
+#: src/config.cc:436
 #, c++-format
 msgid "consider replacing `{}` with `{}`"
 msgstr "overweeg om `{}` te vervangen met `{}`"
 
-#: src/config.cc:487
+#: src/config.cc:490
 msgid "unclosed quote"
 msgstr "ongesloten aanhalingstekens"
 
-#: src/config.cc:492 src/config.cc:508
+#: src/config.cc:495 src/config.cc:511
 msgid "invalid word"
 msgstr "ongeldig woord"
 
-#: src/config.cc:492
+#: src/config.cc:495
 msgid "expected at least one character"
 msgstr "verwachtte minimaal één karakter"
 
-#: src/config.cc:508
+#: src/config.cc:511
 msgid "expected at least one graphical character"
 msgstr "verwachtte minimaal één grafisch karakter"
 
-#: src/config.cc:622
+#: src/config.cc:626
 msgid "regular file"
 msgstr "regulier bestand"
 
-#: src/config.cc:624
+#: src/config.cc:628
 #, fuzzy
 msgid "directory"
 msgstr "map"
 
-#: src/config.cc:626
+#: src/config.cc:630
 msgid "symlink"
 msgstr "symbolische link"
 
-#: src/config.cc:628
+#: src/config.cc:632
 msgid "block device"
 msgstr "blok apparaat"
 
-#: src/config.cc:630
+#: src/config.cc:634
 msgid "character device"
 msgstr "karakter apparaat"
 
-#: src/config.cc:632
+#: src/config.cc:636
 msgid "fifo"
 msgstr "wachtrij"
 
-#: src/config.cc:634
+#: src/config.cc:638
 msgid "socket"
 msgstr "stopcontact"
 
-#: src/config.cc:636
+#: src/config.cc:640
 msgid "unknown"
 msgstr "onbekend"
 
-#: src/config.cc:644
+#: src/config.cc:648
 msgid "failed to stat file"
 msgstr "kon stat niet uitvoeren op bestand"
 
-#: src/config.cc:657 src/config.cc:679
+#: src/config.cc:661 src/config.cc:683
 msgid "not a normal file"
 msgstr "niet een normaal bestand"
 
-#: src/config.cc:657 src/config.cc:679
+#: src/config.cc:661 src/config.cc:683
 msgid "is a directory"
 msgstr "is een map"
 
-#: src/config.cc:685
+#: src/config.cc:689
 msgid "not an executable file"
 msgstr "niet een uitvoerbaar bestand"
 
-#: src/config.cc:700 src/config.cc:710
+#: src/config.cc:704 src/config.cc:714
 #, fuzzy
 msgid "invalid response code"
 msgstr "ongeldige reactiecode"
 
-#: src/config.cc:733 src/config.cc:744 src/config.cc:748
+#: src/config.cc:737 src/config.cc:748 src/config.cc:752
 #, fuzzy
 msgid "invalid redirect code"
 msgstr "ongeldig omleidingscode"
 
-#: src/config.cc:762
+#: src/config.cc:766
 msgid "suspicious redirect code"
 msgstr "verdachte omleidingscode"
 
-#: src/config.cc:763
+#: src/config.cc:767
 #, c++-format
 msgid "did you mean one of: {}, {}, {}, {}?"
 msgstr "bedoelde u {}, {}, {}, of {}?"
 
-#: src/config.cc:783
+#: src/config.cc:787
 msgid "not a directory"
 msgstr "niet een map"
 
-#: src/config.cc:784
+#: src/config.cc:788
 #, c++-format
 msgid "is a {}"
 msgstr "is een {}"
 
-#: src/config.cc:879
+#: src/config.cc:883
 msgid "empty filter"
 msgstr "lege filter"
 
-#: src/config.cc:880
+#: src/config.cc:884
 #, fuzzy
 msgid "consider specifying a handler using: `static`, `cgi`, etc..."
 msgstr "overweeg om een behandelaar op te geven met: `static`, `cgi`, etc..."
 
-#: src/config.cc:900 src/config.cc:913
+#: src/config.cc:904 src/config.cc:917
 msgid "a address cannot be listened to with and without ssl at the same time"
 msgstr "een adres kan niet tegelijkertijd met en zonder ssl worden beluisterd"
 
-#: src/config.cc:901 src/config.cc:914
+#: src/config.cc:905 src/config.cc:918
 msgid "consider listening to another address"
 msgstr "overweeg om naar een ander adres te luisteren"
 
-#: src/config.cc:903
+#: src/config.cc:907
 msgid "previously listened to here without ssl"
 msgstr "eerder hier beluisterd zonder ssl"
 
-#: src/config.cc:916
+#: src/config.cc:920
 msgid "previously listened to here with ssl"
 msgstr "eerder hier beluisterd met ssl"
 
-#: src/config.cc:944 src/config.cc:952 src/config.cc:979
+#: src/config.cc:948 src/config.cc:956 src/config.cc:983
 #, fuzzy
 msgid "ambiguous server"
 msgstr "onduidelijke server"
 
-#: src/config.cc:945
+#: src/config.cc:949
 msgid "consider specifying a `server_name`"
 msgstr "overweeg om een `server_name` op te geven"
 
-#: src/config.cc:953
+#: src/config.cc:957
 #, c++-format
 msgid "another server is also listening to `{}`"
 msgstr "een andere server luistert ook naar `{}`"
 
-#: src/config.cc:959 src/config.cc:967
+#: src/config.cc:963 src/config.cc:971
 msgid "also listened to here"
 msgstr "ook hier beluisterd"
 
-#: src/config.cc:980
+#: src/config.cc:984
 msgid "another server listening to the same address has the same `server_name`"
-msgstr ""
-"een andere server die naar hetzelfde adres luistert heeft dezelfde "
-"`server_name`"
+msgstr "een andere server die naar hetzelfde adres luistert heeft dezelfde `server_name`"
 
-#: src/config.cc:981
+#: src/config.cc:985
 msgid "previously specified here"
 msgstr "eerder hier opgegeven"
 
-#: src/config.cc:993
+#: src/config.cc:997
 msgid "server not listening to an address"
 msgstr "server luistert niet naar een adres"
 
-#: src/config.cc:994
+#: src/config.cc:998
 msgid "consider specifying an address using: `listen`"
 msgstr "overweeg om een adres op te geven met: `listen`"
 
-#: src/config.cc:1033
+#: src/config.cc:1037
 msgid "invalid port"
 msgstr "ongeldige poort"
 
-#: src/config.cc:1120
+#: src/config.cc:1124
 msgid "invalid number"
 msgstr "ongeldig nummer"
 
-#: src/config.cc:1129
+#: src/config.cc:1133
 msgid "redefinition of max_body_size"
 msgstr "herdefinitie van max_body_size"
 
-#: src/config.cc:1130 src/config.cc:1168 src/config.cc:1189
+#: src/config.cc:1134 src/config.cc:1172 src/config.cc:1193
 msgid "previously defined here"
 msgstr "eerder hier gedefinieerd"
 
-#: src/config.cc:1137
+#: src/config.cc:1141
 msgid "invalid max_body_size"
 msgstr "ongeldige max_body_size"
 
-#: src/config.cc:1167
+#: src/config.cc:1171
 #, c++-format
 msgid "redefinition of {}"
 msgstr "herdefinitie van {}"
 
-#: src/config.cc:1188
+#: src/config.cc:1192
 #, c++-format
 msgid "duplicate {}"
 msgstr "duplicaat {}"
 
-#: src/config.cc:1207 src/config.cc:1211 src/config.cc:1216 src/config.cc:1221
-#: src/config.cc:1226
+#: src/config.cc:1211 src/config.cc:1215 src/config.cc:1220 src/config.cc:1225
+#: src/config.cc:1230
 msgid "request handler"
 msgstr "verzoek behandelaar"
 
-#: src/config.cc:1273
+#: src/config.cc:1277
 #, fuzzy
 msgid "invalid header key"
-msgstr "ongeldig nummer"
+msgstr "ongeldige headersleutel"
 
-#: src/config.cc:1274
+#: src/config.cc:1278
 #, c++-format
 msgid "because of invalid character `{}`"
 msgstr "vanwege het ongeldige karakter `{}`"
 
-#: src/config.cc:1281
+#: src/config.cc:1285
 msgid "invalid header value"
 msgstr "ongeldige headerwaarde"
 
-#: src/config.cc:1282
+#: src/config.cc:1286
 #, c++-format
 msgid "because of a reserved control character `{}`"
 msgstr "vanwege het ongeldige controlekarakter `{}`"
 
-#: src/config.cc:1299
+#: src/config.cc:1303
 #, fuzzy
 msgid "redefinition of `set_header`"
-msgstr "herdefinitie van {}"
+msgstr "herdefinitie van \"set_header\""
 
-#: src/config.cc:1300
+#: src/config.cc:1304
 msgid "a previous definition with the same key will be overridden"
 msgstr "de vorige definitie met dezelfde sleutel zal worden overschreven"
 
-#: include/cobra/config.hh:283 include/cobra/config.hh:289
-#: include/cobra/config.hh:302
+#: include/cobra/config.hh:293 include/cobra/config.hh:299
+#: include/cobra/config.hh:312
 msgid "not a number"
 msgstr "niet een nummer"
 
-#: include/cobra/config.hh:283 include/cobra/config.hh:303
+#: include/cobra/config.hh:293 include/cobra/config.hh:313
 msgid "a number must only contain digits"
 msgstr "een nummer moet alleen cijfers bevatten"
 
-#: include/cobra/config.hh:285
+#: include/cobra/config.hh:295
 msgid "number too large"
 msgstr "nummer te groot"
 
-#: include/cobra/config.hh:286
+#: include/cobra/config.hh:296
 #, c++-format
 msgid "maximum accepted value is {}"
 msgstr "maximale waarde is {}"
 
-#: include/cobra/config.hh:289
+#: include/cobra/config.hh:299
 msgid "a number must contain at least one digit"
 msgstr "een nummer moet minimaal één cijfer bevatten"
 
-#: include/cobra/config.hh:634
+#: include/cobra/config.hh:662
 msgid "invalid directory listing option"
 msgstr "ongeldige mapvermeldingsoptie"
 
-#: include/cobra/config.hh:635
+#: include/cobra/config.hh:663
 msgid "expected either `true` or `false`"
 msgstr "verwachte `true` of `false`"
 
-#: include/cobra/config.hh:889
+#: include/cobra/config.hh:917
 #, c++-format
 msgid "unknown directive `{}`"
 msgstr "onbekende instructie `{}`"
 
-#: include/cobra/config.hh:890
+#: include/cobra/config.hh:918
 #, c++-format
 msgid "did you mean `{}`?"
 msgstr "bedoelde u `{}`?"
 
-#: include/cobra/config.hh:934
+#: include/cobra/config.hh:962
 msgid "unrooted handler"
 msgstr "ongewortelde behandelaar"
 
-#: include/cobra/config.hh:935
+#: include/cobra/config.hh:963
 msgid "consider rooting it using: `root`"
 msgstr "overweeg om het te wortellen met: `root`"

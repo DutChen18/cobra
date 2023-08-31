@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-08-28 21:35+0200\n"
+"POT-Creation-Date: 2023-08-29 10:13+0200\n"
 "PO-Revision-Date: 2023-08-28 18:36+0200\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -45,294 +45,295 @@ msgstr "ɹoʇnɔǝxǝ lood pɐǝɹɥʇ ǝɥʇ ǝsn"
 msgid "show verbose output"
 msgstr "ʇndʇno ǝsoqɹǝʌ ʍoɥs"
 
-#: src/config.cc:360 include/cobra/config.hh:999
+#: src/config.cc:361 include/cobra/config.hh:1006
 msgid "error"
 msgstr "ɹoɹɹǝ"
 
-#: src/config.cc:362 include/cobra/config.hh:1001
+#: src/config.cc:363 include/cobra/config.hh:1008
 msgid "warning"
 msgstr "ƃuᴉuɹɐʍ"
 
-#: src/config.cc:364 include/cobra/config.hh:1003
+#: src/config.cc:365 include/cobra/config.hh:1010
 msgid "note"
 msgstr "ǝʇou"
 
-#: src/config.cc:417
+#: src/config.cc:418
 msgid "unexpected EOF"
 msgstr "ℲOƎ pǝʇɔǝdxǝun"
 
-#: src/config.cc:417 src/config.cc:420 src/config.cc:431
+#: src/config.cc:418 src/config.cc:421 src/config.cc:432
 #, c++-format
 msgid "expected `{}`"
 msgstr ",{}, pǝʇɔǝdxǝ"
 
-#: src/config.cc:419
+#: src/config.cc:420
 #, c++-format
 msgid "unexpected `{}`"
 msgstr ",{}, pǝʇɔǝdxǝun"
 
-#: src/config.cc:431
+#: src/config.cc:432
 msgid "unexpected word"
 msgstr "pɹoʍ pǝʇɔǝdxǝun"
 
-#: src/config.cc:432
+#: src/config.cc:433
 #, c++-format
 msgid "consider replacing `{}` with `{}`"
 msgstr ",{1}, ɥʇᴉʍ ,{0}, ƃuᴉɔɐldǝɹ ɹǝpᴉsuoɔ"
 
-#: src/config.cc:486
+#: src/config.cc:487
 msgid "unclosed quote"
 msgstr "ǝʇonb pǝsolɔun"
 
-#: src/config.cc:491 src/config.cc:507
+#: src/config.cc:492 src/config.cc:508
 msgid "invalid word"
 msgstr "pɹoʍ pᴉlɐʌuᴉ"
 
-#: src/config.cc:491
+#: src/config.cc:492
 msgid "expected at least one character"
 msgstr "ɹǝʇɔɐɹɐɥɔ ǝuo ʇsɐǝl ʇɐ pǝʇɔǝdxǝ"
 
-#: src/config.cc:507
+#: src/config.cc:508
 msgid "expected at least one graphical character"
 msgstr "ɹǝʇɔɐɹɐɥɔ lɐɔᴉɥdɐɹƃ ǝuo ʇsɐǝl ʇɐ pǝʇɔǝdxǝ"
 
-#: src/config.cc:621
+#: src/config.cc:622
 msgid "regular file"
 msgstr "ǝlᴉɟ ɹɐlnƃǝɹ"
 
-#: src/config.cc:623
+#: src/config.cc:624
 msgid "directory"
 msgstr "ʎɹoʇɔǝɹᴉp"
 
-#: src/config.cc:625
+#: src/config.cc:626
 msgid "symlink"
 msgstr "ʞuᴉlɯʎs"
 
-#: src/config.cc:627
+#: src/config.cc:628
 msgid "block device"
 msgstr "ǝɔᴉʌǝp ʞɔolq"
 
-#: src/config.cc:629
+#: src/config.cc:630
 msgid "character device"
 msgstr "ǝɔᴉʌǝp ɹǝʇɔɐɹɐɥɔ"
 
-#: src/config.cc:631
+#: src/config.cc:632
 msgid "fifo"
 msgstr "oɟᴉɟ"
 
-#: src/config.cc:633
+#: src/config.cc:634
 msgid "socket"
 msgstr "ʇǝʞɔos"
 
-#: src/config.cc:635
+#: src/config.cc:636
 msgid "unknown"
 msgstr "uʍouʞun"
 
-#: src/config.cc:643
+#: src/config.cc:644
 msgid "failed to stat file"
 msgstr "ǝlᴉɟ ʇɐʇs oʇ pǝlᴉɐɟ"
 
-#: src/config.cc:656 src/config.cc:678
+#: src/config.cc:657 src/config.cc:679
 msgid "not a normal file"
 msgstr "ǝlᴉɟ lɐɯɹou ɐ ʇou"
 
-#: src/config.cc:656 src/config.cc:678
+#: src/config.cc:657 src/config.cc:679
 msgid "is a directory"
 msgstr "ʎɹoʇɔǝɹᴉp ɐ sᴉ"
 
-#: src/config.cc:684
+#: src/config.cc:685
 msgid "not an executable file"
 msgstr "ǝlᴉɟ ǝlqɐʇnɔǝxǝ uɐ ʇou"
 
-#: src/config.cc:699 src/config.cc:709
+#: src/config.cc:700 src/config.cc:710
 msgid "invalid response code"
 msgstr "ǝpoɔ ǝsuodsǝɹ pᴉlɐʌuᴉ"
 
-#: src/config.cc:732 src/config.cc:743 src/config.cc:747
+#: src/config.cc:733 src/config.cc:744 src/config.cc:748
 msgid "invalid redirect code"
 msgstr "ǝpoɔ ʇɔǝɹᴉpǝɹ pᴉlɐʌuᴉ"
 
-#: src/config.cc:761
+#: src/config.cc:762
 msgid "suspicious redirect code"
 msgstr "ǝpoɔ ʇɔǝɹᴉpǝɹ snoᴉɔᴉdsns"
 
-#: src/config.cc:762
+#: src/config.cc:763
 #, c++-format
 msgid "did you mean one of: {}, {}, {}, {}?"
 msgstr "¿{3} '{2} '{1} '{0} :ɟo ǝuo uɐǝɯ noʎ pᴉp"
 
-#: src/config.cc:782
+#: src/config.cc:783
 msgid "not a directory"
 msgstr "ʎɹoʇɔǝɹᴉp ɐ ʇou"
 
-#: src/config.cc:783
+#: src/config.cc:784
 #, c++-format
 msgid "is a {}"
 msgstr "{} ɐ sᴉ"
 
-#: src/config.cc:878
+#: src/config.cc:879
 msgid "empty filter"
 msgstr "ɹǝʇlᴉɟ ʎʇdɯǝ"
 
-#: src/config.cc:879
+#: src/config.cc:880
 msgid "consider specifying a handler using: `static`, `cgi`, etc..."
 msgstr "˙˙˙ɔʇǝ ',ᴉƃɔ, ',ɔᴉʇɐʇs, :ƃuᴉsn ɹǝlpuɐɥ ɐ ƃuᴉʎɟᴉɔǝds ɹǝpᴉsuoɔ"
 
-#: src/config.cc:899 src/config.cc:912
+#: src/config.cc:900 src/config.cc:913
 msgid "a address cannot be listened to with and without ssl at the same time"
 msgstr "ǝɯᴉʇ ǝɯɐs ǝɥʇ ʇɐ lss ʇnoɥʇᴉʍ puɐ ɥʇᴉʍ oʇ pǝuǝʇsᴉl ǝq ʇouuɐɔ ssǝɹppɐ ɐ"
 
-#: src/config.cc:900 src/config.cc:913
+#: src/config.cc:901 src/config.cc:914
 msgid "consider listening to another address"
 msgstr "ssǝɹppɐ ɹǝɥʇouɐ oʇ ƃuᴉuǝʇsᴉl ɹǝpᴉsuoɔ"
 
-#: src/config.cc:902
+#: src/config.cc:903
 msgid "previously listened to here without ssl"
 msgstr "lss ʇnoɥʇᴉʍ ǝɹǝɥ oʇ pǝuǝʇsᴉl ʎlsnoᴉʌǝɹd"
 
-#: src/config.cc:915
+#: src/config.cc:916
 msgid "previously listened to here with ssl"
 msgstr "lss ɥʇᴉʍ ǝɹǝɥ oʇ pǝuǝʇsᴉl ʎlsnoᴉʌǝɹd"
 
-#: src/config.cc:943 src/config.cc:951 src/config.cc:978
+#: src/config.cc:944 src/config.cc:952 src/config.cc:979
 msgid "ambiguous server"
 msgstr "ɹǝʌɹǝs snonƃᴉqɯɐ"
 
-#: src/config.cc:944
+#: src/config.cc:945
 msgid "consider specifying a `server_name`"
 msgstr ",ǝɯɐu‾ɹǝʌɹǝs, ɐ ƃuᴉʎɟᴉɔǝds ɹǝpᴉsuoɔ"
 
-#: src/config.cc:952
+#: src/config.cc:953
 #, c++-format
 msgid "another server is also listening to `{}`"
 msgstr ",{}, oʇ ƃuᴉuǝʇsᴉl oslɐ sᴉ ɹǝʌɹǝs ɹǝɥʇouɐ"
 
-#: src/config.cc:958 src/config.cc:966
+#: src/config.cc:959 src/config.cc:967
 msgid "also listened to here"
 msgstr "ǝɹǝɥ oʇ pǝuǝʇsᴉl oslɐ"
 
-#: src/config.cc:979
-msgid "another server listening to the same address has the same `server_name`"
-msgstr ",ǝɯɐu‾ɹǝʌɹǝs, ǝɯɐs ǝɥʇ sɐɥ ssǝɹppɐ ǝɯɐs ǝɥʇ oʇ ƃuᴉuǝʇsᴉl ɹǝʌɹǝs ɹǝɥʇouɐ"
-
 #: src/config.cc:980
+msgid "another server listening to the same address has the same `server_name`"
+msgstr ""
+",ǝɯɐu‾ɹǝʌɹǝs, ǝɯɐs ǝɥʇ sɐɥ ssǝɹppɐ ǝɯɐs ǝɥʇ oʇ ƃuᴉuǝʇsᴉl ɹǝʌɹǝs ɹǝɥʇouɐ"
+
+#: src/config.cc:981
 msgid "previously specified here"
 msgstr "ǝɹǝɥ pǝᴉɟᴉɔǝds ʎlsnoᴉʌǝɹd"
 
-#: src/config.cc:992
+#: src/config.cc:993
 msgid "server not listening to an address"
 msgstr "ssǝɹppɐ uɐ oʇ ƃuᴉuǝʇsᴉl ʇou ɹǝʌɹǝs"
 
-#: src/config.cc:993
+#: src/config.cc:994
 msgid "consider specifying an address using: `listen`"
 msgstr ",uǝʇsᴉl, :ƃuᴉsn ssǝɹppɐ uɐ ƃuᴉʎɟᴉɔǝds ɹǝpᴉsuoɔ"
 
-#: src/config.cc:1032
+#: src/config.cc:1033
 msgid "invalid port"
 msgstr "ʇɹod pᴉlɐʌuᴉ"
 
-#: src/config.cc:1119
+#: src/config.cc:1120
 msgid "invalid number"
 msgstr "ɹǝqɯnu pᴉlɐʌuᴉ"
 
-#: src/config.cc:1128
+#: src/config.cc:1129
 msgid "redefinition of max_body_size"
 msgstr "ǝzᴉs‾ʎpoq‾xɐɯ ɟo uoᴉʇᴉuᴉɟǝpǝɹ"
 
-#: src/config.cc:1129 src/config.cc:1167 src/config.cc:1188
+#: src/config.cc:1130 src/config.cc:1168 src/config.cc:1189
 msgid "previously defined here"
 msgstr "ǝɹǝɥ pǝuᴉɟǝp ʎlsnoᴉʌǝɹd"
 
-#: src/config.cc:1136
+#: src/config.cc:1137
 msgid "invalid max_body_size"
 msgstr "ǝzᴉs‾ʎpoq‾xɐɯ pᴉlɐʌuᴉ"
 
-#: src/config.cc:1166
+#: src/config.cc:1167
 #, c++-format
 msgid "redefinition of {}"
 msgstr "{} ɟo uoᴉʇᴉuᴉɟǝpǝɹ"
 
-#: src/config.cc:1187
+#: src/config.cc:1188
 #, c++-format
 msgid "duplicate {}"
 msgstr "{} ǝʇɐɔᴉldnp"
 
-#: src/config.cc:1206 src/config.cc:1210 src/config.cc:1215 src/config.cc:1220
-#: src/config.cc:1225
+#: src/config.cc:1207 src/config.cc:1211 src/config.cc:1216 src/config.cc:1221
+#: src/config.cc:1226
 msgid "request handler"
 msgstr "ɹǝlpuɐɥ ʇsǝnbǝɹ"
 
-#: src/config.cc:1272
+#: src/config.cc:1273
 msgid "invalid header key"
 msgstr "ʎǝʞ ɹǝpɐǝɥ pᴉlɐʌuᴉ"
 
-#: src/config.cc:1273
+#: src/config.cc:1274
 #, c++-format
 msgid "because of invalid character `{}`"
 msgstr ",{}, ɹǝʇɔɐɹɐɥɔ pᴉlɐʌuᴉ ɟo ǝsnɐɔǝq"
 
-#: src/config.cc:1280
+#: src/config.cc:1281
 msgid "invalid header value"
 msgstr "ǝnlɐʌ ɹǝpɐǝɥ pᴉlɐʌuᴉ"
 
-#: src/config.cc:1281
+#: src/config.cc:1282
 #, c++-format
 msgid "because of a reserved control character `{}`"
 msgstr ",{}, ɹǝʇɔɐɹɐɥɔ loɹʇuoɔ pǝʌɹǝsǝɹ ɐ ɟo ǝsnɐɔǝq"
 
-#: src/config.cc:1298
+#: src/config.cc:1299
 msgid "redefinition of `set_header`"
 msgstr ",ɹǝpɐǝɥ‾ʇǝs, ɟo uoᴉʇᴉuᴉɟǝpǝɹ"
 
-#: src/config.cc:1299
+#: src/config.cc:1300
 #, fuzzy
 msgid "a previous definition with the same key will be overridden"
 msgstr "uǝpᴉɹɹǝʌo ǝq llᴉʍ ʎǝʞ ǝɯɐs ǝɥʇ ɥʇᴉʍ uoᴉʇᴉuᴉɟǝp snoᴉʌǝɹd ɐ"
 
-#: include/cobra/config.hh:282 include/cobra/config.hh:288
-#: include/cobra/config.hh:301
+#: include/cobra/config.hh:283 include/cobra/config.hh:289
+#: include/cobra/config.hh:302
 msgid "not a number"
 msgstr "ɹǝqɯnu ɐ ʇou"
 
-#: include/cobra/config.hh:282 include/cobra/config.hh:302
+#: include/cobra/config.hh:283 include/cobra/config.hh:303
 msgid "a number must only contain digits"
 msgstr "sʇᴉƃᴉp uᴉɐʇuoɔ ʎluo ʇsnɯ ɹǝqɯnu ɐ"
 
-#: include/cobra/config.hh:284
+#: include/cobra/config.hh:285
 msgid "number too large"
 msgstr "ǝƃɹɐl ooʇ ɹǝqɯnu"
 
-#: include/cobra/config.hh:285
+#: include/cobra/config.hh:286
 #, c++-format
 msgid "maximum accepted value is {}"
 msgstr "{} sᴉ ǝnlɐʌ pǝʇdǝɔɔɐ ɯnɯᴉxɐɯ"
 
-#: include/cobra/config.hh:288
+#: include/cobra/config.hh:289
 msgid "a number must contain at least one digit"
 msgstr "ʇᴉƃᴉp ǝuo ʇsɐǝl ʇɐ uᴉɐʇuoɔ ʇsnɯ ɹǝqɯnu ɐ"
 
-#: include/cobra/config.hh:633
+#: include/cobra/config.hh:634
 msgid "invalid directory listing option"
 msgstr "uoᴉʇdo ƃuᴉʇsᴉl ʎɹoʇɔǝɹᴉp pᴉlɐʌuᴉ"
 
-#: include/cobra/config.hh:634
+#: include/cobra/config.hh:635
 msgid "expected either `true` or `false`"
 msgstr ",ǝslɐɟ, ɹo ,ǝnɹʇ, ɹǝɥʇᴉǝ pǝʇɔǝdxǝ"
 
-#: include/cobra/config.hh:888
+#: include/cobra/config.hh:889
 #, c++-format
 msgid "unknown directive `{}`"
 msgstr ",{}, ǝʌᴉʇɔǝɹᴉp uʍouʞun"
 
-#: include/cobra/config.hh:889
+#: include/cobra/config.hh:890
 #, c++-format
 msgid "did you mean `{}`?"
 msgstr "¿,{}, uɐǝɯ noʎ pᴉp"
 
-#: include/cobra/config.hh:933
+#: include/cobra/config.hh:934
 msgid "unrooted handler"
 msgstr "ɹǝlpuɐɥ pǝʇooɹun"
 
-#: include/cobra/config.hh:934
+#: include/cobra/config.hh:935
 msgid "consider rooting it using: `root`"
 msgstr ",ʇooɹ, :ƃuᴉsn ʇᴉ ƃuᴉʇooɹ ɹǝpᴉsuoɔ"

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-08-29 10:13+0200\n"
+"POT-Creation-Date: 2023-08-31 10:23+0200\n"
 "PO-Revision-Date: 2023-08-28 14:49+0200\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -18,322 +18,321 @@ msgstr ""
 "Plural-Forms: nplurals=4; plural=(n%100==1 ? 0 : n%100==2 ? 1 : n%100==3 || "
 "n%100==4 ? 2 : 3);\n"
 
-#: src/main.cc:77
+#: src/main.cc:76
 msgid "path to configuration file"
 msgstr "pot do konfiguracijske datoteke"
 
-#: src/main.cc:78
+#: src/main.cc:77
 msgid "number of threads to use (implies -t)"
 msgstr "željeno število niti (implicira -t)"
 
-#: src/main.cc:79
+#: src/main.cc:78
 msgid "write diagnostics in json format"
 msgstr "izpiši diagnostiko v json formatu"
 
-#: src/main.cc:80
+#: src/main.cc:79
 msgid "exit after reading configuration file"
 msgstr "končaj po branju konfiguracijske datoteke"
 
-#: src/main.cc:81
+#: src/main.cc:80
 msgid "display this help message"
 msgstr "prikaži to sporočilo"
 
-#: src/main.cc:82
+#: src/main.cc:81
 msgid "use the thread pool executor"
 msgstr "uporabi izvajalca sklada niti"
 
-#: src/main.cc:83
+#: src/main.cc:82
 msgid "show verbose output"
 msgstr "prikaži razširjen izpis"
 
-#: src/config.cc:361 include/cobra/config.hh:1006
+#: src/config.cc:363 include/cobra/config.hh:1034
 msgid "error"
 msgstr "napaka"
 
-#: src/config.cc:363 include/cobra/config.hh:1008
+#: src/config.cc:365 include/cobra/config.hh:1036
 msgid "warning"
 msgstr "opozorilo"
 
-#: src/config.cc:365 include/cobra/config.hh:1010
+#: src/config.cc:367 include/cobra/config.hh:1038
 msgid "note"
 msgstr "opomba"
 
-#: src/config.cc:418
+#: src/config.cc:421
 msgid "unexpected EOF"
 msgstr "nepričakovan EOF"
 
-#: src/config.cc:418 src/config.cc:421 src/config.cc:432
+#: src/config.cc:421 src/config.cc:424 src/config.cc:435
 #, c++-format
 msgid "expected `{}`"
 msgstr "pričakovan `{}`"
 
-#: src/config.cc:420
+#: src/config.cc:423
 #, c++-format
 msgid "unexpected `{}`"
 msgstr "nepričakovan `{}`"
 
-#: src/config.cc:432
+#: src/config.cc:435
 msgid "unexpected word"
 msgstr "nepričakovana beseda"
 
-#: src/config.cc:433
+#: src/config.cc:436
 #, c++-format
 msgid "consider replacing `{}` with `{}`"
 msgstr "razmislite o zamenjavi `{}` z `{}`"
 
-#: src/config.cc:487
+#: src/config.cc:490
 msgid "unclosed quote"
 msgstr "nezaključen narekovaj"
 
-#: src/config.cc:492 src/config.cc:508
+#: src/config.cc:495 src/config.cc:511
 msgid "invalid word"
 msgstr "neveljavna beseda"
 
-#: src/config.cc:492
+#: src/config.cc:495
 msgid "expected at least one character"
 msgstr "pričakovan vsaj en znak"
 
-#: src/config.cc:508
+#: src/config.cc:511
 msgid "expected at least one graphical character"
 msgstr "pričakovan vsaj en grafični znak"
 
-#: src/config.cc:622
+#: src/config.cc:626
 msgid "regular file"
 msgstr "navadna datoteka"
 
-#: src/config.cc:624
+#: src/config.cc:628
 msgid "directory"
 msgstr "mapa"
 
-#: src/config.cc:626
+#: src/config.cc:630
 msgid "symlink"
 msgstr "simbolična povezava"
 
-#: src/config.cc:628
+#: src/config.cc:632
 msgid "block device"
 msgstr "bločna naprava"
 
-#: src/config.cc:630
+#: src/config.cc:634
 msgid "character device"
 msgstr "znakovna naprava"
 
-#: src/config.cc:632
+#: src/config.cc:636
 msgid "fifo"
 msgstr "fifo"
 
-#: src/config.cc:634
+#: src/config.cc:638
 msgid "socket"
 msgstr "vtičnik"
 
-#: src/config.cc:636
+#: src/config.cc:640
 msgid "unknown"
 msgstr "neznano"
 
-#: src/config.cc:644
+#: src/config.cc:648
 msgid "failed to stat file"
 msgstr "napaka pri izvršitvi stat na datoteki"
 
-#: src/config.cc:657 src/config.cc:679
+#: src/config.cc:661 src/config.cc:683
 msgid "not a normal file"
 msgstr "ni navadna datoteka"
 
-#: src/config.cc:657 src/config.cc:679
+#: src/config.cc:661 src/config.cc:683
 msgid "is a directory"
 msgstr "je mapa"
 
-#: src/config.cc:685
+#: src/config.cc:689
 msgid "not an executable file"
 msgstr "ni izvršljiva datoteka"
 
-#: src/config.cc:700 src/config.cc:710
+#: src/config.cc:704 src/config.cc:714
 msgid "invalid response code"
 msgstr "neveljavna odzivna koda"
 
-#: src/config.cc:733 src/config.cc:744 src/config.cc:748
+#: src/config.cc:737 src/config.cc:748 src/config.cc:752
 msgid "invalid redirect code"
 msgstr "neveljavna preusmeritvena koda"
 
-#: src/config.cc:762
+#: src/config.cc:766
 msgid "suspicious redirect code"
 msgstr "sumljiva preusmeritvena koda"
 
-#: src/config.cc:763
+#: src/config.cc:767
 #, c++-format
 msgid "did you mean one of: {}, {}, {}, {}?"
 msgstr "ali ste mislili enega izmed: {}, {}, {}, {}?"
 
-#: src/config.cc:783
+#: src/config.cc:787
 msgid "not a directory"
 msgstr "ni mapa"
 
-#: src/config.cc:784
+#: src/config.cc:788
 #, c++-format
 msgid "is a {}"
 msgstr "je {}"
 
-#: src/config.cc:879
+#: src/config.cc:883
 msgid "empty filter"
 msgstr "prazen filter"
 
-#: src/config.cc:880
+#: src/config.cc:884
 msgid "consider specifying a handler using: `static`, `cgi`, etc..."
-msgstr ""
-"razmislite o tem, da bi določili izvajalca z uporabo: `static`, `cgi` itd..."
+msgstr "razmislite o tem, da bi določili izvajalca z uporabo: `static`, `cgi` itd..."
 
-#: src/config.cc:900 src/config.cc:913
+#: src/config.cc:904 src/config.cc:917
 msgid "a address cannot be listened to with and without ssl at the same time"
 msgstr "naslova ni mogoče hkrati poslušati z in brez ssl"
 
-#: src/config.cc:901 src/config.cc:914
+#: src/config.cc:905 src/config.cc:918
 msgid "consider listening to another address"
 msgstr "razmislite o poslušanju drugega naslova"
 
-#: src/config.cc:903
+#: src/config.cc:907
 msgid "previously listened to here without ssl"
 msgstr "prej poslušal tukaj brez ssl"
 
-#: src/config.cc:916
+#: src/config.cc:920
 msgid "previously listened to here with ssl"
 msgstr "prej poslušal tukaj z ssl"
 
-#: src/config.cc:944 src/config.cc:952 src/config.cc:979
+#: src/config.cc:948 src/config.cc:956 src/config.cc:983
 msgid "ambiguous server"
 msgstr "dvoumen strežnik"
 
-#: src/config.cc:945
+#: src/config.cc:949
 msgid "consider specifying a `server_name`"
 msgstr "razmislite o navedbi imena strežnika `server_name`"
 
-#: src/config.cc:953
+#: src/config.cc:957
 #, c++-format
 msgid "another server is also listening to `{}`"
 msgstr "drug strežnik že posluša na `{}`"
 
-#: src/config.cc:959 src/config.cc:967
+#: src/config.cc:963 src/config.cc:971
 msgid "also listened to here"
 msgstr "tudi poslušal tukaj"
 
-#: src/config.cc:980
+#: src/config.cc:984
 msgid "another server listening to the same address has the same `server_name`"
 msgstr "drug strežnik, ki posluša isti naslov, ima isti `server_name`"
 
-#: src/config.cc:981
+#: src/config.cc:985
 msgid "previously specified here"
 msgstr "predhodno naveden tukaj"
 
-#: src/config.cc:993
+#: src/config.cc:997
 msgid "server not listening to an address"
 msgstr "strežnik ne posluša naslova"
 
-#: src/config.cc:994
+#: src/config.cc:998
 msgid "consider specifying an address using: `listen`"
 msgstr "razmislite o določitvi naslova z uporabo: `listen`"
 
-#: src/config.cc:1033
+#: src/config.cc:1037
 msgid "invalid port"
 msgstr "neveljaven prehod"
 
-#: src/config.cc:1120
+#: src/config.cc:1124
 msgid "invalid number"
 msgstr "neveljavna številka"
 
-#: src/config.cc:1129
+#: src/config.cc:1133
 msgid "redefinition of max_body_size"
 msgstr "redefinicija max_body_size"
 
-#: src/config.cc:1130 src/config.cc:1168 src/config.cc:1189
+#: src/config.cc:1134 src/config.cc:1172 src/config.cc:1193
 msgid "previously defined here"
 msgstr "predhodno definiran tukaj"
 
-#: src/config.cc:1137
+#: src/config.cc:1141
 msgid "invalid max_body_size"
 msgstr "neveljaven max_body_size"
 
-#: src/config.cc:1167
+#: src/config.cc:1171
 #, c++-format
 msgid "redefinition of {}"
 msgstr "redefinicija {}"
 
-#: src/config.cc:1188
+#: src/config.cc:1192
 #, c++-format
 msgid "duplicate {}"
 msgstr "podvojen {}"
 
-#: src/config.cc:1207 src/config.cc:1211 src/config.cc:1216 src/config.cc:1221
-#: src/config.cc:1226
+#: src/config.cc:1211 src/config.cc:1215 src/config.cc:1220 src/config.cc:1225
+#: src/config.cc:1230
 msgid "request handler"
 msgstr "izvajalec zahtevkov"
 
-#: src/config.cc:1273
+#: src/config.cc:1277
 msgid "invalid header key"
 msgstr "neveljaven ključ glave"
 
-#: src/config.cc:1274
+#: src/config.cc:1278
 #, c++-format
 msgid "because of invalid character `{}`"
 msgstr "zaradi neveljavnega znaka `{}`"
 
-#: src/config.cc:1281
+#: src/config.cc:1285
 msgid "invalid header value"
 msgstr "neveljavna vrednost glave"
 
-#: src/config.cc:1282
+#: src/config.cc:1286
 #, c++-format
 msgid "because of a reserved control character `{}`"
 msgstr "zaradi rezerviranega kontrolnega znaka `{}`"
 
-#: src/config.cc:1299
+#: src/config.cc:1303
 msgid "redefinition of `set_header`"
 msgstr "redefinicija `set_header`"
 
-#: src/config.cc:1300
+#: src/config.cc:1304
 msgid "a previous definition with the same key will be overridden"
 msgstr "predhodna definicija z isti ključem bo prepisana"
 
-#: include/cobra/config.hh:283 include/cobra/config.hh:289
-#: include/cobra/config.hh:302
+#: include/cobra/config.hh:293 include/cobra/config.hh:299
+#: include/cobra/config.hh:312
 msgid "not a number"
 msgstr "ni število"
 
-#: include/cobra/config.hh:283 include/cobra/config.hh:303
+#: include/cobra/config.hh:293 include/cobra/config.hh:313
 msgid "a number must only contain digits"
 msgstr "število mora vsebovati samo števke"
 
-#: include/cobra/config.hh:285
+#: include/cobra/config.hh:295
 msgid "number too large"
 msgstr "število preveliko"
 
-#: include/cobra/config.hh:286
+#: include/cobra/config.hh:296
 #, c++-format
 msgid "maximum accepted value is {}"
 msgstr "največja sprejeta vrednost je {}"
 
-#: include/cobra/config.hh:289
+#: include/cobra/config.hh:299
 msgid "a number must contain at least one digit"
 msgstr "število mora vsebovati vsaj eno števko"
 
-#: include/cobra/config.hh:634
+#: include/cobra/config.hh:662
 msgid "invalid directory listing option"
 msgstr "neveljavna možnost za izpis map"
 
-#: include/cobra/config.hh:635
+#: include/cobra/config.hh:663
 msgid "expected either `true` or `false`"
 msgstr "pričakovan ali `true` ali `false`"
 
-#: include/cobra/config.hh:889
+#: include/cobra/config.hh:917
 #, c++-format
 msgid "unknown directive `{}`"
 msgstr "neznana direktiva `{}`"
 
-#: include/cobra/config.hh:890
+#: include/cobra/config.hh:918
 #, c++-format
 msgid "did you mean `{}`?"
 msgstr "ste mislili `{}`?"
 
-#: include/cobra/config.hh:934
+#: include/cobra/config.hh:962
 msgid "unrooted handler"
 msgstr "neukoreninjen upravljalnik"
 
-#: include/cobra/config.hh:935
+#: include/cobra/config.hh:963
 msgid "consider rooting it using: `root`"
 msgstr "razmislite o ukoreninjenju z uporabo: `root`"
